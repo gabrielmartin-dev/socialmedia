@@ -1,0 +1,71 @@
+#!/usr/bin/env node
+// Generates fictional demo data (public/data/*.json) to preview the UI offline,
+// using the real scoring and grouping pipeline. Never deployed: the GitHub
+// workflow always runs the real collector.
+
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { compileTopics, annotate, groupDuplicates } from './lib/score.mjs';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const topicsCfg = JSON.parse(await fs.readFile(path.join(ROOT, 'config/topics.json'), 'utf8'));
+const matchers = compileTopics(topicsCfg);
+
+const ago = (min) => new Date(Date.now() - min * 60e3).toISOString();
+const pic = (hue, label = '') => 'data:image/svg+xml,' + encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${hue},55%,35%)"/><stop offset="1" stop-color="hsl(${hue + 40},60%,15%)"/></linearGradient></defs><rect width="640" height="360" fill="url(#g)"/><text x="320" y="190" font-family="sans-serif" font-size="28" fill="rgba(255,255,255,.6)" text-anchor="middle">${label}</text></svg>`);
+const tall = (hue, label = '') => 'data:image/svg+xml,' + encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 640"><rect width="360" height="640" fill="hsl(${hue},45%,22%)"/><text x="180" y="320" font-family="sans-serif" font-size="24" fill="rgba(255,255,255,.6)" text-anchor="middle">${label}</text></svg>`);
+
+const src = (id, name) => ({ id, name, avatar: null });
+const A = src('demo-a', 'Média A'), B = src('demo-b', 'Média B'), C = src('demo-c', 'Média C'), D = src('demo-d', 'Média D');
+
+const articles = [
+  [A, 'Retraites : l’intersyndicale appelle à une nouvelle journée de grève jeudi', 'Les syndicats réclament le retrait de la réforme et annoncent des blocages.', 25, 210],
+  [B, 'Nouvelle journée de grève jeudi : l’intersyndicale appelle à se mobiliser contre la réforme des retraites', 'Mobilisation attendue dans toute la France.', 70, 20],
+  [C, 'Retraites : grève et manifestations jeudi à l’appel de l’intersyndicale', '', 110, 330],
+  [D, 'Budget : le gouvernement envisage un nouveau 49.3 à l’Assemblée nationale', 'Une motion de censure serait déposée dans la foulée.', 50, 120],
+  [A, 'Logement : les expulsions locatives en forte hausse cette année', 'Les associations alertent sur la précarité des locataires.', 180, 40],
+  [B, 'Un festival de cinéma s’ouvre ce week-end', 'Programmation et invités.', 15, 280],
+  [C, 'Hôpital : les soignants dénoncent le manque de moyens', 'Témoignages dans plusieurs services d’urgences.', 300, 0],
+  [D, 'Salaires : le SMIC revalorisé, insuffisant selon les syndicats', '', 420, 160],
+].map(([s, title, text, min, hue], i) => ({
+  id: 'demo-a' + i, kind: 'article', platform: 'rss', source: s, title, text,
+  url: 'https://example.org/article/' + i, image: i % 3 === 2 ? null : pic(hue, 'image article'), publishedAt: ago(min),
+}));
+
+const posts = [
+  ['demo-p1', 'Député·e exemple', 'depute.example', 'Le gouvernement passe encore en force avec le 49.3. Nous déposerons une motion de censure dès ce soir à l’Assemblée.', 35, true],
+  ['demo-p2', 'Journaliste exemple', 'journaliste.example', 'Gros cortège en ce moment, des milliers de personnes contre la réforme des retraites. Ambiance déterminée.', 90, false],
+  ['demo-p3', 'Militant·e exemple', 'militant.example', 'Belle journée, merci à toutes et tous pour vos messages !', 140, false],
+].map(([id, name, handle, text, min, verified]) => ({
+  id, kind: 'post', platform: 'bluesky',
+  source: { id: 'bsky:' + handle, name, handle, avatar: null, verified, url: 'https://bsky.app/profile/' + handle },
+  title: '', text, url: 'https://bsky.app/profile/' + handle, image: null,
+  images: id === 'demo-p2' ? [{ thumb: pic(200, 'photo 1'), alt: '' }, { thumb: pic(260, 'photo 2'), alt: '' }] : undefined,
+  publishedAt: ago(min),
+}));
+
+const videos = [
+  ['demo-v1', 'bluesky', 'Internaute exemple', 'Charge de CRS et gaz lacrymogène sur le cortège #manif', 20, 'hls', 9 / 16],
+  ['demo-v2', 'youtube', 'Chaîne terrain exemple', 'Reportage : une journée sur un piquet de grève', 200, 'youtube', 16 / 9],
+  ['demo-v3', 'bluesky', 'Autre internaute', 'Blocage du lycée ce matin #blocage #mobilisation', 60, 'hls', 9 / 16],
+  ['demo-v4', 'youtube', 'Collectif streamers exemple', 'Best-of du dernier live', 600, 'youtube', 16 / 9],
+].map(([id, platform, name, text, min, type, aspect], i) => ({
+  id, kind: 'video', platform,
+  source: { id: 'demo-vs' + i, name, avatar: null, url: 'https://example.org' },
+  title: platform === 'youtube' ? text : '', text: platform === 'youtube' ? '' : text,
+  url: 'https://example.org/video/' + i, image: null,
+  video: { type, src: type === 'youtube' ? 'aqz-KE-bpKQ' : 'https://example.org/none.m3u8', poster: aspect < 1 ? tall(i * 70, 'vidéo ' + (i + 1)) : pic(i * 70, 'vidéo ' + (i + 1)), aspect },
+  publishedAt: ago(min),
+}));
+
+const generatedAt = new Date().toISOString();
+const out = path.join(ROOT, 'public', 'data');
+await fs.mkdir(out, { recursive: true });
+const actus = [...articles, ...posts].map((i) => annotate(i, matchers));
+await fs.writeFile(path.join(out, 'actus.json'), JSON.stringify({ generatedAt, scoreCap: topicsCfg.scoreCap, halfLifeHours: topicsCfg.halfLifeHours.actus, entries: groupDuplicates(actus, topicsCfg.dedup) }, null, 1));
+await fs.writeFile(path.join(out, 'videos.json'), JSON.stringify({ generatedAt, scoreCap: topicsCfg.scoreCap, halfLifeHours: topicsCfg.halfLifeHours.videos, entries: videos.map((i) => annotate(i, matchers)) }, null, 1));
+await fs.writeFile(path.join(out, 'status.json'), JSON.stringify({ generatedAt, sources: [{ type: 'demo', name: 'Données fictives', ok: true, count: actus.length + videos.length }] }, null, 1));
+console.log('Données de démo écrites dans public/data/');

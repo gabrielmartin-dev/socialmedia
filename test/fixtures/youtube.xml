@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/" xmlns="http://www.w3.org/2005/Atom">
+ <title>Chaîne</title>
+ <entry>
+  <id>yt:video:abcdefghijk</id>
+  <yt:videoId>abcdefghijk</yt:videoId>
+  <title>Reportage manif</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=abcdefghijk"/>
+  <published>2026-11-08T18:00:00+00:00</published>
+  <media:group>
+   <media:title>Reportage manif</media:title>
+   <media:thumbnail url="https://i1.ytimg.com/vi/abcdefghijk/hqdefault.jpg" width="480" height="360"/>
+   <media:description>Description</media:description>
+  </media:group>
+ </entry>
+</feed>
