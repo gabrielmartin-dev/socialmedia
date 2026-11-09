@@ -119,7 +119,7 @@ GitHub Pages
 - **Collecte** : Node.js. Les données de la fenêtre glissante (48 à 72 h) sont conservées et les anciens éléments purgés.
 - **Front** : PWA statique, avec un service worker pour le hors ligne et un manifeste pour l'installation.
 - **Hébergement** : GitHub Pages, et collecte par GitHub Actions. Les deux sont gratuits.
-- **Aucune clé d'API** n'est nécessaire.
+- **Aucune clé d'API payante.** Seule option : un compte Bluesky gratuit avec un mot de passe d'application, si la recherche par hashtags est refusée sans connexion.
 
 ## 6. Hors scope
 

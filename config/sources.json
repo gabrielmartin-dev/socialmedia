@@ -1,0 +1,79 @@
+{
+  "settings": {
+    "actusMaxAgeHours": 72,
+    "videosMaxAgeHours": 168,
+    "bskyPostsPerAccount": 30,
+    "bskySearchLimit": 100
+  },
+
+  "media": [
+    { "id": "mediapart", "name": "Mediapart", "site": "https://www.mediapart.fr", "feed": "https://www.mediapart.fr/articles/feed" },
+    { "id": "humanite", "name": "L'Humanité", "site": "https://www.humanite.fr", "feed": "https://www.humanite.fr/feed" },
+    { "id": "lfi", "name": "La France insoumise", "site": "https://lafranceinsoumise.fr", "feed": "https://lafranceinsoumise.fr/feed/" },
+    { "id": "lemedia", "name": "Le Média", "site": "https://www.lemediatv.fr" },
+    { "id": "blast", "name": "Blast", "site": "https://www.blast-info.fr" },
+    { "id": "politis", "name": "Politis", "site": "https://www.politis.fr" },
+    { "id": "regards", "name": "Regards", "site": "https://regards.fr", "feed": "https://regards.fr/feed/" },
+    { "id": "reporterre", "name": "Reporterre", "site": "https://reporterre.net", "feed": "https://reporterre.net/spip.php?page=backend" },
+    { "id": "basta", "name": "Basta!", "site": "https://basta.media", "feed": "https://basta.media/spip.php?page=backend" },
+    { "id": "rapportsdeforce", "name": "Rapports de Force", "site": "https://rapportsdeforce.fr", "feed": "https://rapportsdeforce.fr/feed" },
+    { "id": "streetpress", "name": "StreetPress", "site": "https://www.streetpress.com" },
+    { "id": "mondediplo", "name": "Le Monde diplomatique", "site": "https://www.monde-diplomatique.fr", "feed": "https://www.monde-diplomatique.fr/rss/" },
+    { "id": "frustration", "name": "Frustration", "site": "https://www.frustrationmagazine.fr", "feed": "https://www.frustrationmagazine.fr/feed/" },
+    { "id": "asi", "name": "Arrêt sur images", "site": "https://www.arretsurimages.net" }
+  ],
+
+  "bluesky": {
+    "_comment": "Si 'handle' est absent, le compte est recherché par son nom (correspondance exacte du nom affiché, comptes vérifiés en priorité). Vérifie le résultat dans public/data/status.json et fixe le handle ici si besoin.",
+    "accounts": [
+      { "name": "Jean-Luc Mélenchon" },
+      { "name": "Mathilde Panot" },
+      { "name": "Manuel Bompard" },
+      { "name": "Clémence Guetté" },
+      { "name": "Éric Coquerel" },
+      { "name": "Manon Aubry" },
+      { "name": "Louis Boyard" },
+      { "name": "Rima Hassan" },
+      { "name": "Antoine Léaument" },
+      { "name": "Thomas Portes" },
+      { "name": "Edwy Plenel" },
+      { "name": "David Dufresne" },
+      { "name": "Rémy Buisine" },
+      { "name": "Clément Lanot" }
+    ],
+    "videoHashtags": [
+      "#manif",
+      "#manifestation",
+      "#greve",
+      "#grève",
+      "#violencespolicieres",
+      "#blocage",
+      "#retraites",
+      "#mobilisation"
+    ]
+  },
+
+  "youtube": [
+    { "id": "yt-taranis", "name": "Taranis News", "url": "https://www.youtube.com/@TaranisNews" },
+    { "id": "yt-linepress", "name": "Line Press", "url": "https://www.youtube.com/@LinePress" },
+    { "id": "yt-lemedia", "name": "Le Média", "url": "https://www.youtube.com/@LeMediaTV" },
+    { "id": "yt-blast", "name": "Blast", "url": "https://www.youtube.com/@BlastInfo" },
+    { "id": "yt-mediapart", "name": "Mediapart", "url": "https://www.youtube.com/@Mediapart" },
+    { "id": "yt-zawa", "name": "Zawa Prod", "channelId": "UCeQRERCvEY3-ZeQONwnx0zw" },
+    { "id": "yt-zawa-replay", "name": "Zawa Prod - Replay & Live", "url": "https://www.youtube.com/@ZawaReplayLive" },
+    { "id": "yt-danyetraz", "name": "Dany et Raz", "url": "https://www.youtube.com/c/DANYetRAZ" },
+    { "id": "yt-wissam", "name": "Wissam Xelka", "url": "https://www.youtube.com/@wissamxelka" },
+    { "id": "yt-ilies", "name": "Ilies", "url": "https://www.youtube.com/@iliesomg" },
+    { "id": "yt-mouffette", "name": "Mouffette", "url": "https://www.youtube.com/@MouffetteVOD" }
+  ],
+
+  "tiktok": [
+    {
+      "id": "tt-zawaprod",
+      "name": "Zawa Prod",
+      "user": "zawaprod",
+      "_comment": "Via RSSHub (fragile). Remplace l'instance si elle bloque : la variable d'env RSSHUB_BASE est prise en priorité.",
+      "rsshub": "https://rsshub.app"
+    }
+  ]
+}

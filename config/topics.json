@@ -1,0 +1,40 @@
+{
+  "_comment": "Mots-clés insensibles à la casse et aux accents. Un '*' final = préfixe (ex. 'grev*' couvre grève, grévistes). Poids : importance du mot dans le score.",
+  "scoreCap": 6,
+  "halfLifeHours": { "actus": 6, "videos": 12 },
+  "dedup": { "similarity": 0.34, "windowHours": 12 },
+  "topics": {
+    "politique": {
+      "label": "Politique",
+      "keywords": {
+        "assemblee nationale": 2, "assemblee": 1.5, "senat": 1.5, "senateur*": 1,
+        "gouvernement": 1.5, "premier ministre": 2, "ministre": 1, "ministere": 1,
+        "49.3": 2.5, "49-3": 2.5, "motion de censure": 2.5, "censure": 1.5, "dissolution": 2,
+        "loi": 1, "projet de loi": 1.5, "proposition de loi": 1.5, "amendement*": 1, "budget": 1.5,
+        "election*": 1.5, "legislative*": 2, "presidentielle": 2, "municipales": 1.5, "europeennes": 1.5,
+        "scrutin": 1, "vote": 1, "referendum": 1.5,
+        "depute*": 1.5, "elu*": 0.5, "parlement*": 1.5, "hemicycle": 1.5,
+        "macron": 1.5, "elysee": 1.5, "matignon": 1.5,
+        "lfi": 1.5, "insoumis*": 1.5, "nfp": 1.5, "nouveau front populaire": 2, "gauche": 1,
+        "extreme droite": 1.5, "rassemblement national": 1.5, "bardella": 1, "le pen": 1,
+        "melenchon": 1.5, "politique": 0.5, "democratie": 1, "republique": 0.5,
+        "constitution*": 1, "conseil constitutionnel": 1.5
+      }
+    },
+    "social": {
+      "label": "Social",
+      "keywords": {
+        "grev*": 2.5, "manif*": 2.5, "mobilisation*": 2, "rassemblement": 1, "blocage*": 2, "bloquons": 2,
+        "syndicat*": 2, "intersyndicale": 2.5, "cgt": 1.5, "cfdt": 1, "fo": 0.5, "solidaires": 1, "sud": 0.5,
+        "retraite*": 2, "salaire*": 2, "smic": 2, "pouvoir d'achat": 2, "inflation": 1,
+        "licenciement*": 2, "plan social": 2.5, "chomage": 2, "france travail": 1.5, "precarite": 2, "precaire*": 1.5,
+        "logement": 1.5, "loyer*": 1.5, "expulsion*": 1.5, "sans-abri": 1.5, "mal-loges": 1.5,
+        "hopital": 1.5, "soignant*": 1.5, "services publics": 2, "service public": 2, "ecole": 1, "enseignant*": 1,
+        "travailleur*": 1.5, "ouvrier*": 1.5, "salarie*": 1.5, "patronat": 1.5, "medef": 1.5,
+        "inegalite*": 1.5, "pauvrete": 2, "minima sociaux": 2, "rsa": 1.5, "assurance chomage": 2,
+        "violences policieres": 2, "police": 1, "crs": 1.5, "gaz lacrymogene*": 2, "lacrymo*": 2, "nasse": 1.5,
+        "greviste*": 2, "piquet": 1.5, "luttes": 1.5, "social": 0.5
+      }
+    }
+  }
+}
