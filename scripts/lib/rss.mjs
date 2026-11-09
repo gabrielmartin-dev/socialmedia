@@ -125,6 +125,7 @@ export async function fetchSourceFeed(source) {
     tried.push(url);
     const { text, url: finalUrl } = await fetchText(url);
     const parsed = parseFeed(text);
+    if (!parsed.entries.some((e) => e.link && e.title)) throw new Error('Flux vide');
     return { ...parsed, feedUrl: finalUrl };
   };
 
