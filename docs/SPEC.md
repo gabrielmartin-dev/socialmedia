@@ -1,0 +1,136 @@
+# Spécification — Timeline perso
+
+Application personnelle, mobile, qui agrège des actus et des vidéos dans une timeline façon X/Twitter, triée par un algorithme simple basé sur des sujets.
+
+Projet perso : un seul utilisateur, aucun coût, tout est livré en une fois (pas de découpage en versions).
+
+---
+
+## 1. Principes
+
+- **Usage** : uniquement sur téléphone, en lecture. Pas de publication, de like, de commentaire ni de compte utilisateur.
+- **Coût** : 0 €. Pas de LLM, pas d'API payante, pas de serveur payant.
+- **Pas de garde-fous agressifs** : aucun filtrage de contenu, aucun badge d'avertissement, aucun seuil d'engagement. Tout ce qui vient des sources est affiché et simplement classé par l'algorithme.
+- **Configuration par fichier** : sources, mots-clés et poids sont modifiables dans `config/` (pas d'écran de réglages).
+
+## 2. Interface
+
+### 2.1 Format
+- Web app installable (PWA) : ajout à l'écran d'accueil depuis Safari ou Chrome, icône, plein écran, fonctionne hors ligne avec le dernier contenu chargé.
+- Thème sombre par défaut, typographie et cartes inspirées de X.
+
+### 2.2 Navigation
+Barre d'onglets en bas, deux onglets :
+
+| Onglet | Contenu |
+|---|---|
+| 📰 **Actus** | Articles des médias (RSS) + posts Bluesky des personnalités |
+| 🎥 **Vidéos** | Vidéos d'internautes (recherche Bluesky par hashtags) + chaînes YouTube + vidéos postées par les comptes suivis + Zawa Prod et ses membres |
+
+### 2.3 Feed Actus
+- Défilement infini, tirer vers le bas pour rafraîchir.
+- **Carte article** : avatar et nom du média, temps relatif (« il y a 12 min »), titre, 1 à 2 lignes de chapô, image si disponible. Un tap ouvre l'article sur le site d'origine.
+- **Carte post Bluesky** : avatar, nom, @handle, temps relatif, texte, images, lien vers le post. Un tap ouvre le post sur bsky.app.
+- **Carte groupée (doublons)** : « 📰 N médias en parlent ». Titre principal + logos des médias. Un tap déplie la liste des articles.
+- **Bouton « moins de ça »** (menu ⋯ sur chaque carte) : voir §4.4.
+
+### 2.4 Feed Vidéos
+- Plein écran, défilement vertical une vidéo à la fois (façon Reels/TikTok).
+- Lecture automatique, muette par défaut, tap pour activer le son.
+- Superposition : avatar, nom du compte, icône 🎥 de la plateforme d'origine, texte du post ou titre, temps relatif.
+- Vidéos Bluesky : lues directement (flux HLS). Vidéos YouTube : lecteur YouTube intégré (embed).
+- Bouton « moins de ça » également disponible.
+
+## 3. Sources
+
+Toutes les sources sont déclarées dans `config/sources.json`. Les identifiants exacts (URL de flux RSS, handles Bluesky, ID de chaînes YouTube) sont vérifiés au moment du développement. Une source introuvable est retirée et signalée.
+
+### 3.1 Médias (RSS) → Actus
+Mediapart, L'Humanité, La France insoumise (site officiel), Le Média, Blast, Politis, Regards, Reporterre, Basta!, Rapports de Force, StreetPress, Le Monde diplomatique, Frustration Magazine, Arrêt sur images.
+
+Mediapart est payant : le flux ne fournit que le titre et le chapô. Le clic ouvre le site, où l'abonnement éventuel s'applique.
+
+### 3.2 Bluesky — personnalités → Actus
+- **LFI** : Jean-Luc Mélenchon, Mathilde Panot, Manuel Bompard, Clémence Guetté, Éric Coquerel, Manon Aubry, Louis Boyard, Rima Hassan, Antoine Léaument, Thomas Portes.
+- **Journalistes** : Edwy Plenel, David Dufresne, Rémy Buisine, Clément Lanot.
+- Les posts de ces comptes qui contiennent une vidéo vont **aussi** dans le feed Vidéos.
+
+### 3.3 Vidéos d'internautes (recherche Bluesky) → Vidéos
+Recherche des posts contenant une vidéo pour les hashtags : `#manif` `#manifestation` `#greve` `#grève` `#violencespolicieres` `#blocage` `#retraites` `#mobilisation`. La liste est extensible dans la config.
+
+### 3.4 YouTube (RSS des chaînes) → Vidéos
+- **Terrain et médias** : Taranis News, Line Press, Le Média, Blast, Mediapart.
+- **Zawa Prod et ses membres** : Zawa Prod, Zawa Prod - Replay & Live, DANYetRAZ, Wissam Xelka, Ilies (iliesomg), Mouffette (MouffetteVOD).
+
+### 3.5 TikTok Zawa Prod (secours) → Vidéos
+Compte TikTok @zawaprod via un flux RSSHub. Ce flux est fragile : en cas d'échec, il est ignoré sans bloquer le reste.
+
+### 3.6 Exclus
+- X et Instagram : pas d'accès gratuit, ignorés.
+- Syndicats et associations : retirés à la demande.
+- Twitch : pas d'intégration (pas de bandeau « en live »).
+
+## 4. Algorithme
+
+Il n'utilise aucun LLM. Le calcul est déterministe, et une partie est faite côté client pour appliquer les préférences locales.
+
+### 4.1 Sujets
+Deux sujets, chacun défini par un dictionnaire de mots-clés pondérés dans `config/topics.json` :
+- **Politique** : Assemblée, gouvernement, ministre, 49.3, loi, élection, Macron, Sénat, député, motion de censure, budget, etc.
+- **Social** : grève, manif, syndicat, retraites, salaire, licenciement, logement, hôpital, services publics, chômage, précarité, etc.
+
+La correspondance est insensible à la casse et aux accents, sur le titre, le chapô et le texte du post.
+
+### 4.2 Score
+```
+score = (1 + score_sujet) × poids_source × fraîcheur × ajustements_utilisateur
+fraîcheur = 0.5 ^ (âge_en_heures / demi_vie)
+```
+- `score_sujet` est la somme des poids des mots-clés trouvés, plafonnée.
+- La demi-vie est configurable : par défaut 6 h pour Actus et 12 h pour Vidéos.
+- `poids_source` vaut 1 par défaut et se règle dans la config.
+
+### 4.3 Regroupement des doublons (Actus)
+Deux articles de médias différents sont regroupés quand :
+- leurs titres sont suffisamment similaires (similarité de Jaccard sur les mots significatifs, au-dessus d'un seuil configurable),
+- et ils ont été publiés à moins de 12 h d'écart.
+
+Le groupe prend le meilleur score de ses membres.
+
+### 4.4 « Moins de ça »
+- Il divise le poids local de la source de la carte et des mots-clés qu'elle contient. Les poids ont un plancher, pour ne jamais faire disparaître complètement un contenu.
+- Les réglages sont enregistrés dans le stockage local du téléphone.
+- Un lien en bas du feed permet de tout réinitialiser.
+
+## 5. Architecture technique
+
+```
+GitHub Actions (cron toutes les 20 min)
+  └─ script de collecte (Node.js)
+       ├─ RSS médias + YouTube + RSSHub
+       ├─ API publique Bluesky (posts des comptes + recherche hashtags)
+       ├─ normalisation, score de base, regroupement
+       └─ écrit public/data/actus.json et public/data/videos.json
+GitHub Pages
+  └─ PWA statique (HTML/CSS/JS) qui lit les JSON
+       └─ applique les ajustements locaux, trie et affiche
+```
+
+- **Collecte** : Node.js. Les données de la fenêtre glissante (48 à 72 h) sont conservées et les anciens éléments purgés.
+- **Front** : PWA statique, avec un service worker pour le hors ligne et un manifeste pour l'installation.
+- **Hébergement** : GitHub Pages, et collecte par GitHub Actions. Les deux sont gratuits.
+- **Aucune clé d'API** n'est nécessaire.
+
+## 6. Hors scope
+
+Likes, commentaires, publication, multi-utilisateur, notifications, écran de réglages, LLM, garde-fous de contenu, X, Instagram, Twitch, syndicats et associations.
+
+## 7. Critères d'acceptation
+
+1. L'app s'installe sur l'écran d'accueil d'un téléphone et s'ouvre en plein écran.
+2. L'onglet Actus affiche des articles et des posts Bluesky récents, triés par score, avec les doublons regroupés.
+3. L'onglet Vidéos affiche des vidéos lisibles en plein écran, en défilement vertical.
+4. « Moins de ça » modifie visiblement l'ordre du feed, et ce réglage persiste après un rechargement.
+5. Les données se mettent à jour automatiquement sans intervention.
+6. La panne d'une source n'empêche pas les autres d'être affichées.
+7. Coût total : 0 €.
