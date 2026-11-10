@@ -21,10 +21,34 @@ const state = {
   data: { actus: null, videos: null, status: null },
   prefs: Object.assign(emptyPrefs(), store.get('prefs', {})),
   hidden: new Set(store.get('hidden', [])),
+  // id -> timestamp of first display; used to push already-seen items down.
+  seen: pruneSeen(store.get('seen', {})),
   actus: { ranked: [], rendered: 0 },
   reels: { ranked: [], rendered: 0, active: null, built: false },
   muted: true,
 };
+
+function pruneSeen(map) {
+  const cutoff = Date.now() - 4 * 86400e3;
+  const out = {};
+  for (const [id, t] of Object.entries(map || {})) if (t > cutoff) out[id] = t;
+  return out;
+}
+
+let seenTimer = null;
+function markSeen(id) {
+  if (!id || state.seen[id]) return;
+  state.seen[id] = Date.now();
+  clearTimeout(seenTimer);
+  seenTimer = setTimeout(() => store.set('seen', state.seen), 1000);
+}
+
+// A card counts as seen once at least half of it has been on screen.
+const seenObserver = new IntersectionObserver((entries) => {
+  for (const e of entries) {
+    if (e.isIntersecting) { markSeen(e.target.dataset.id); seenObserver.unobserve(e.target); }
+  }
+}, { threshold: 0.5 });
 
 function savePrefs() {
   store.set('prefs', state.prefs);
@@ -110,7 +134,14 @@ async function loadData() {
 }
 
 function rankOpts(dataset) {
-  return { now: Date.now(), halfLife: dataset?.halfLifeHours ?? 6, cap: dataset?.scoreCap ?? 6, prefs: state.prefs };
+  return {
+    now: Date.now(),
+    halfLife: dataset?.halfLifeHours ?? 10,
+    cap: dataset?.scoreCap ?? 6,
+    prefs: state.prefs,
+    random: Math.random, // new order on every refresh, like a "pour toi" timeline
+    seen: new Set(Object.keys(state.seen)),
+  };
 }
 
 // ---------- Actus feed ----------
@@ -238,7 +269,11 @@ function appendActus() {
   const list = $('#actus-list');
   const end = Math.min(ranked.length, state.actus.rendered + ACTUS_CHUNK);
   const frag = document.createDocumentFragment();
-  for (let i = state.actus.rendered; i < end; i++) frag.append(renderEntry(ranked[i]));
+  for (let i = state.actus.rendered; i < end; i++) {
+    const card = renderEntry(ranked[i]);
+    seenObserver.observe(card);
+    frag.append(card);
+  }
   list.append(frag);
   state.actus.rendered = end;
 }
@@ -255,6 +290,8 @@ function renderFooter() {
       onclick: () => {
         state.prefs = emptyPrefs();
         state.hidden.clear();
+        state.seen = {};
+        store.set('seen', {});
         savePrefs();
         renderActus();
         state.reels.built = false;
@@ -403,6 +440,7 @@ async function activateReel(slide, userGesture = false) {
   if (state.reels.active !== slide) deactivateReel();
   state.reels.active = slide;
   slide.classList.add('active');
+  markSeen(slide.dataset.id);
 
   // Prefetch the next chunk.
   const idx = [...slide.parentNode.children].indexOf(slide);
@@ -531,6 +569,7 @@ async function refresh() {
   ptr.style.height = '56px';
   const before = state.data.actus?.generatedAt;
   await loadData();
+  window.scrollTo({ top: 0 });
   renderActus();
   state.reels.built = false;
   if (state.view === 'videos') buildReels();
@@ -538,7 +577,7 @@ async function refresh() {
   ptr.classList.remove('loading');
   ptr.style.height = '0';
   refreshing = false;
-  toast(state.data.actus?.generatedAt && state.data.actus.generatedAt !== before ? 'Nouveaux contenus' : 'Déjà à jour');
+  toast(state.data.actus?.generatedAt && state.data.actus.generatedAt !== before ? 'Nouveaux contenus' : 'Timeline mélangée');
 }
 $('#refresh').addEventListener('click', refresh);
 
