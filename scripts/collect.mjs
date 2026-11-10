@@ -24,7 +24,7 @@ const report = (type, name, ok, info) => {
   console.log(line);
 };
 
-async function collectMedia(media) {
+async function collectMedia(media, type = 'rss') {
   const results = await pool(media.map((src) => async () => {
     const feed = await fetchSourceFeed(src);
     const source = { ...src, avatar: src.avatar || faviconFor(src.site || feed.feedUrl) };
@@ -32,8 +32,8 @@ async function collectMedia(media) {
   }));
   const items = [];
   results.forEach((r, i) => {
-    if (r.ok) { items.push(...r.value); report('rss', media[i].name, true, r.value.length); }
-    else report('rss', media[i].name, false, r.error);
+    if (r.ok) { items.push(...r.value); report(type, media[i].name, true, r.value.length); }
+    else report(type, media[i].name, false, r.error);
   });
   return items;
 }
@@ -128,10 +128,13 @@ function freshAndUnique(items, maxAgeHours) {
   const cutoff = Date.now() - maxAgeHours * 3600e3;
   const future = Date.now() + 3600e3;
   const map = new Map();
+  const urls = new Set();
   for (const it of items) {
     const t = Date.parse(it.publishedAt);
     if (!Number.isFinite(t) || t < cutoff || t > future) continue;
-    if (!map.has(it.id)) map.set(it.id, it);
+    if (map.has(it.id) || (it.url && urls.has(it.url))) continue;
+    map.set(it.id, it);
+    if (it.url) urls.add(it.url);
   }
   return [...map.values()].sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
 }
@@ -140,16 +143,19 @@ async function main() {
   const sources = await readJson('config/sources.json');
   const topicsCfg = await readJson('config/topics.json');
   const settings = sources.settings;
-  const matchers = compileTopics(topicsCfg);
+  const matchers = compileTopics(topicsCfg, 'actus');
+  const techMatchers = compileTopics(topicsCfg, 'tech');
 
-  const [articles, bluesky, ytVideos, ttVideos] = await Promise.all([
+  const [articles, techArticles, bluesky, ytVideos, ttVideos] = await Promise.all([
     collectMedia(sources.media),
+    collectMedia(sources.tech || [], 'tech'),
     collectBluesky(sources.bluesky, settings),
     collectYouTube(sources.youtube),
     collectTikTok(sources.tiktok || []),
   ]);
 
   const actusItems = freshAndUnique([...articles, ...bluesky.posts], settings.actusMaxAgeHours).map((i) => annotate(i, matchers));
+  const techItems = freshAndUnique(techArticles, settings.techMaxAgeHours ?? 168).map((i) => annotate(i, techMatchers));
   const videoItems = freshAndUnique([...bluesky.videos, ...ytVideos, ...ttVideos], settings.videosMaxAgeHours).map((i) => annotate(i, matchers));
 
   const meta = {
@@ -163,6 +169,11 @@ async function main() {
     halfLifeHours: topicsCfg.halfLifeHours.actus,
     entries: groupDuplicates(actusItems, topicsCfg.dedup),
   }));
+  await fs.writeFile(path.join(OUT, 'tech.json'), JSON.stringify({
+    ...meta,
+    halfLifeHours: topicsCfg.halfLifeHours.tech ?? 24,
+    entries: groupDuplicates(techItems, topicsCfg.dedup),
+  }));
   await fs.writeFile(path.join(OUT, 'videos.json'), JSON.stringify({
     ...meta,
     halfLifeHours: topicsCfg.halfLifeHours.videos,
@@ -171,7 +182,7 @@ async function main() {
   await fs.writeFile(path.join(OUT, 'status.json'), JSON.stringify({ generatedAt: meta.generatedAt, sources: status }, null, 2));
 
   const failed = status.filter((s) => !s.ok).length;
-  console.log(`\nActus : ${actusItems.length} éléments · Vidéos : ${videoItems.length} · Sources en échec : ${failed}/${status.length}`);
+  console.log(`\nActus : ${actusItems.length} éléments · Tech : ${techItems.length} · Vidéos : ${videoItems.length} · Sources en échec : ${failed}/${status.length}`);
 }
 
 main().catch((err) => {
