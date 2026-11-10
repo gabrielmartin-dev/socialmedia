@@ -42,6 +42,15 @@ Barre d'onglets en bas, deux onglets :
 - Vidéos Bluesky : lues directement (flux HLS). Vidéos YouTube : lecteur YouTube intégré (embed).
 - Bouton « moins de ça » également disponible.
 
+### 2.5 Suivre et découvrir
+- **Menu ⋯ d'un post :** « Suivre » ou « Ne plus suivre » le compte. Les cartes de ce compte disparaissent aussitôt du feed.
+- **Onglet 🔍 Découvrir :**
+  - recherche de comptes, dans les sources et dans tout Bluesky via l'API publique ;
+  - suggestions par catégorie, venant des sources `suggested` de la config, que la collecte récupère sans les afficher tant qu'elles ne sont pas suivies ;
+  - liste des abonnements, avec un bouton pour ne plus suivre.
+- **Stockage :** les abonnements sont enregistrés sur le téléphone. Un compte Bluesky trouvé par la recherche est récupéré directement par l'app, sans passer par GitHub.
+- **Exception :** les vidéos d'internautes trouvées par hashtag restent toujours visibles.
+
 ## 3. Sources
 
 Toutes les sources sont déclarées dans `config/sources.json`. Les identifiants exacts (URL de flux RSS, handles Bluesky, ID de chaînes YouTube) sont vérifiés au moment du développement. Une source introuvable est retirée et signalée.

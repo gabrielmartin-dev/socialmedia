@@ -79,8 +79,10 @@ export function parseFeed(xml) {
     throw new Error('Not a RSS/Atom document');
   }
 
+  const channel = doc.rss?.channel || doc.feed || doc['rdf:RDF']?.channel || {};
   return {
     title: feedTitle,
+    description: stripHtml(txt(channel.description) || txt(channel.subtitle)),
     entries: entries.map((e) => {
       const html = txt(e['content:encoded']) || txt(e.content) || txt(e.description) || txt(e.summary) || txt(e['media:group']?.['media:description']);
       const date = txt(e.pubDate) || txt(e.published) || txt(e.updated) || txt(e['dc:date']);
@@ -151,7 +153,7 @@ export function entryToArticle(entry, source) {
     id: 'a-' + hashId(source.id, entry.guid || entry.link || entry.title),
     kind: 'article',
     platform: 'rss',
-    source: { id: source.id, name: source.name, avatar: source.avatar || null, url: source.site || null },
+    source: { id: source.id, name: source.name, avatar: source.avatar || null, url: source.site || null, ...(source.suggested ? { suggested: true } : {}) },
     title: truncate(entry.title, 220),
     text: truncate(entry.text && entry.text !== entry.title ? entry.text : '', 280),
     url: entry.link,

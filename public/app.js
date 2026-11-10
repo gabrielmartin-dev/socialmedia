@@ -1,4 +1,6 @@
 import { rank, applyLess, emptyPrefs, relativeTime } from './rank.js';
+import { searchAccounts, authorPosts } from './bsky.js';
+import { compileTopics, matchKeywords } from './topics.js';
 
 const HLS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js';
 const PLATFORM_LABELS = { bluesky: 'Bluesky', youtube: 'YouTube', tiktok: 'TikTok', rss: '' };
@@ -17,7 +19,12 @@ const store = {
 
 const state = {
   view: 'actus',
-  data: { actus: null, tech: null, videos: null, status: null },
+  data: { actus: null, tech: null, videos: null, status: null, accounts: null, topics: null },
+  // Follows, stored on the phone. `live` = Bluesky accounts followed from search,
+  // fetched directly by the app since the collector doesn't know them.
+  follows: loadFollows(),
+  accounts: new Map(),
+  live: { actus: [], videos: [] },
   prefs: Object.assign(emptyPrefs(), store.get('prefs', {})),
   hidden: new Set(store.get('hidden', [])),
   // id -> timestamp of first display; used to push already-seen items down.
@@ -30,6 +37,38 @@ const state = {
   reels: { ranked: [], rendered: 0, active: null, built: false },
   muted: true,
 };
+
+function loadFollows() {
+  const f = store.get('follows', {});
+  return { followed: new Set(f.followed || []), unfollowed: new Set(f.unfollowed || []), live: f.live || {} };
+}
+function saveFollows() {
+  const f = state.follows;
+  store.set('follows', { followed: [...f.followed], unfollowed: [...f.unfollowed], live: f.live });
+}
+function isFollowed(source) {
+  if (!source) return true;
+  const f = state.follows;
+  if (f.followed.has(source.id)) return true;
+  if (f.unfollowed.has(source.id)) return false;
+  const suggested = source.suggested ?? state.accounts.get(source.id)?.suggested;
+  return !suggested;
+}
+const itemVisible = (item) => item.tag || isFollowed(item.source);
+
+/** Entries of a feed, restricted to followed accounts (groups are rebuilt). */
+function entriesFor(key) {
+  const base = state.data[key]?.entries || [];
+  const extra = key === 'actus' ? state.live.actus : key === 'videos' ? state.live.videos : [];
+  const out = [];
+  for (const e of [...base, ...extra]) {
+    if (e.kind !== 'group') { if (itemVisible(e)) out.push(e); continue; }
+    const items = e.items.filter(itemVisible);
+    if (items.length > 1) out.push({ ...e, items });
+    else if (items.length === 1) out.push(items[0]);
+  }
+  return out;
+}
 
 function pruneSeen(map) {
   const cutoff = Date.now() - 4 * 86400e3;
@@ -131,8 +170,24 @@ function toast(msg) {
 // ---------- Data ----------
 async function loadData() {
   const get = (name) => fetch(`data/${name}.json`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-  const [actus, tech, videos, status] = await Promise.all([get('actus'), get('tech'), get('videos'), get('status')]);
-  state.data = { actus, tech, videos, status };
+  const [actus, tech, videos, status, accounts, topics] = await Promise.all(
+    ['actus', 'tech', 'videos', 'status', 'accounts', 'topics'].map(get));
+  state.data = { actus, tech, videos, status, accounts, topics };
+  state.accounts = new Map((accounts?.accounts || []).map((a) => [a.id, a]));
+  await loadLive();
+}
+
+/** Fetch posts of Bluesky accounts followed from search (not collected by GitHub). */
+async function loadLive() {
+  const ids = Object.keys(state.follows.live).filter((id) => state.follows.followed.has(id) && !state.accounts.has(id));
+  const matchers = compileTopics(state.data.topics, 'actus');
+  const results = await Promise.all(ids.map((id) => authorPosts(id.slice(5)).catch(() => [])));
+  const posts = results.flat().filter((p) => Date.now() - Date.parse(p.publishedAt) < 72 * 3600e3);
+  for (const p of posts) p.keywords = matchKeywords(p.text, matchers);
+  state.live = {
+    actus: posts,
+    videos: posts.filter((p) => p.video?.type === 'hls').map((p) => ({ ...p, kind: 'video' })),
+  };
 }
 
 function rankOpts(dataset) {
@@ -370,7 +425,7 @@ function renderFeed(key) {
   const data = state.data[key];
   const list = $(`#${key}-list`);
   list.replaceChildren();
-  feed.ranked = data ? rank(data.entries, rankOpts(data), state.hidden) : [];
+  feed.ranked = data ? rank(entriesFor(key), rankOpts(data), state.hidden) : [];
   feed.rendered = 0;
   feed.dirty = false;
   if (!feed.ranked.length) {
@@ -440,6 +495,12 @@ function openSheet(entry) {
   $('#sheet-less-sub').textContent = isGroup
     ? 'Moins de sujets similaires'
     : `Moins de ${entry.source.name} et de sujets similaires`;
+  const followBtn = $('#sheet-follow');
+  followBtn.hidden = isGroup;
+  if (!isGroup) {
+    const following = isFollowed(entry.source);
+    followBtn.querySelector('strong').textContent = following ? `Ne plus suivre ${entry.source.name}` : `Suivre ${entry.source.name}`;
+  }
   const link = $('#sheet-open');
   link.hidden = isGroup;
   if (!isGroup) link.href = entry.url;
@@ -456,6 +517,25 @@ function closeSheet() {
 $('#sheet-backdrop').addEventListener('click', closeSheet);
 $('#sheet-cancel').addEventListener('click', closeSheet);
 $('#sheet-open').addEventListener('click', closeSheet);
+$('#sheet-follow').addEventListener('click', () => {
+  const entry = sheetEntry;
+  closeSheet();
+  if (!entry?.source) return;
+  const following = isFollowed(entry.source);
+  setFollow(accountFromSource(entry.source), !following);
+  if (following && isFeed(state.view)) {
+    // Remove that account's cards right away.
+    const key = state.view;
+    const feed = state.feeds[key];
+    const gone = new Set(feed.ranked.filter((e) => e.kind !== 'group' && e.source.id === entry.source.id).map((e) => e.id));
+    feed.ranked = feed.ranked.filter((e) => !gone.has(e.id));
+    document.querySelectorAll(`#${key}-list .tweet`).forEach((card) => {
+      if (gone.has(card.dataset.id)) { card.classList.add('removing'); setTimeout(() => card.remove(), 250); feed.rendered--; }
+    });
+  } else if (following && state.view === 'videos') {
+    [...state.reels.ranked].filter((i) => i.source.id === entry.source.id).forEach((i) => removeReel(i.id));
+  }
+});
 $('#sheet-less').addEventListener('click', () => {
   const entry = sheetEntry;
   closeSheet();
@@ -478,6 +558,114 @@ $('#sheet-less').addEventListener('click', () => {
     removeReel(entry.id);
     FEED_KEYS.forEach((k) => { state.feeds[k].dirty = true; });
   }
+});
+
+// ---------- Follow / unfollow ----------
+function accountFromSource(src) {
+  return state.accounts.get(src.id) || {
+    id: src.id, name: src.name, avatar: src.avatar, handle: src.handle ? '@' + src.handle : '', url: src.url,
+    kind: src.id.startsWith('bsky:') ? 'bluesky' : 'media', suggested: src.suggested,
+  };
+}
+
+async function setFollow(account, follow) {
+  const f = state.follows;
+  if (follow) {
+    f.unfollowed.delete(account.id);
+    f.followed.add(account.id);
+    if (account.kind === 'bluesky' && !state.accounts.has(account.id)) {
+      f.live[account.id] = { name: account.name, handle: account.handle, avatar: account.avatar, description: account.description || '', url: account.url };
+    }
+  } else {
+    f.followed.delete(account.id);
+    delete f.live[account.id];
+    if (!account.suggested) f.unfollowed.add(account.id);
+  }
+  saveFollows();
+  toast(follow ? `Tu suis ${account.name}` : `Tu ne suis plus ${account.name}`);
+  if (follow && f.live[account.id]) await loadLive();
+  FEED_KEYS.forEach((k) => { state.feeds[k].dirty = true; });
+  state.reels.built = false;
+  if (state.view === 'discover') renderDiscover();
+}
+
+// ---------- Découvrir ----------
+function followButton(account) {
+  const following = isFollowed(account);
+  return h('button', {
+    class: 'follow-btn' + (following ? ' following' : ''),
+    text: following ? 'Abonné' : 'Suivre',
+    onclick: (e) => { e.stopPropagation(); setFollow(account, !following); },
+  });
+}
+
+const KIND_LABEL = { media: 'Site', bluesky: 'Bluesky', youtube: 'YouTube', tiktok: 'TikTok' };
+
+function accountRow(a) {
+  return h('div', { class: 'account' },
+    h('a', { href: a.url, target: '_blank', rel: 'noopener' }, avatar(a.avatar, a.name, { square: a.kind === 'media' })),
+    h('div', { class: 'account-main' },
+      h('div', { class: 'account-head' },
+        h('div', { class: 'account-names' },
+          h('span', { class: 'name', text: a.name }),
+          h('span', { class: 'handle', text: [a.handle, KIND_LABEL[a.kind]].filter(Boolean).join(' · ') }),
+        ),
+        followButton(a),
+      ),
+      a.description ? h('div', { class: 'account-desc', text: a.description }) : null,
+      a.lastTitle ? h('div', { class: 'account-last', text: `${relativeTime(a.lastAt)} · ${a.lastTitle}` }) : null,
+    ),
+  );
+}
+
+function section(title, rows, empty) {
+  return h('section', { class: 'disc-section' },
+    h('h2', { text: title }),
+    rows.length ? rows : h('div', { class: 'disc-empty', text: empty }),
+  );
+}
+
+let searchTimer = null;
+let searchSeq = 0;
+function renderDiscover() {
+  const results = $('#discover-results');
+  const q = $('#discover-search').value.trim();
+  if (q.length >= 2) return; // search results are rendered by the search handler
+
+  const all = [...state.accounts.values()];
+  const liveFollows = Object.entries(state.follows.live).map(([id, p]) => ({ id, kind: 'bluesky', ...p }));
+  const followed = [...all.filter((a) => isFollowed(a)), ...liveFollows.filter((a) => !state.accounts.has(a.id))]
+    .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  const suggestions = all.filter((a) => !isFollowed(a));
+  const order = ['Médias', 'Personnalités', 'Tech', 'YouTube', 'TikTok'];
+  const cats = [...new Set(suggestions.map((a) => a.category || 'Autres'))].sort((a, b) => (order.indexOf(a) + 99) % 99 - (order.indexOf(b) + 99) % 99);
+
+  results.replaceChildren(
+    ...(state.data.accounts ? [] : [h('div', { class: 'disc-empty', text: 'Les suggestions apparaîtront après la prochaine mise à jour automatique.' })]),
+    ...cats.map((c) => section(`Suggestions · ${c}`, suggestions.filter((a) => (a.category || 'Autres') === c).map(accountRow), '')),
+    section(`Tes abonnements (${followed.length})`, followed.map(accountRow), 'Tu ne suis personne pour le moment.'),
+  );
+}
+
+$('#discover-search').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  const q = $('#discover-search').value.trim();
+  if (q.length < 2) { renderDiscover(); return; }
+  searchTimer = setTimeout(async () => {
+    const seq = ++searchSeq;
+    const results = $('#discover-results');
+    const ql = q.toLowerCase();
+    const local = [...state.accounts.values()].filter((a) => `${a.name} ${a.handle}`.toLowerCase().includes(ql));
+    results.replaceChildren(section('Recherche…', local.map(accountRow), ''));
+    let remote = [];
+    try { remote = await searchAccounts(q); } catch { /* offline */ }
+    if (seq !== searchSeq) return;
+    remote = remote.filter((r) => !local.some((l) => l.id === r.id));
+    results.replaceChildren(
+      local.length ? section('Dans tes sources', local.map(accountRow), '') : '',
+      section('Comptes Bluesky', remote.map(accountRow), 'Aucun compte trouvé.'),
+    );
+  }, 350);
 });
 
 // ---------- Reels (Vidéos) ----------
@@ -540,7 +728,7 @@ function buildReels() {
   const list = $('#videos-list');
   deactivateReel();
   list.replaceChildren();
-  state.reels.ranked = state.data.videos ? rank(state.data.videos.entries.filter((i) => i.video), rankOpts(state.data.videos), state.hidden) : [];
+  state.reels.ranked = state.data.videos ? rank(entriesFor('videos').filter((i) => i.video), rankOpts(state.data.videos), state.hidden) : [];
   state.reels.rendered = 0;
   state.reels.built = true;
   if (!state.reels.ranked.length) {
@@ -663,16 +851,17 @@ function toggleMute() {
 function switchView(view) {
   if (view === state.view) {
     // Tap on the active tab: scroll back to top.
-    if (isFeed(view)) window.scrollTo({ top: 0, behavior: 'smooth' });
-    else $('#videos-list').scrollTo({ top: 0, behavior: 'smooth' });
+    if (view === 'videos') $('#videos-list').scrollTo({ top: 0, behavior: 'smooth' });
+    else window.scrollTo({ top: 0, behavior: 'smooth' });
     return;
   }
   if (isFeed(state.view)) state.feeds[state.view].scroll = window.scrollY;
+  if (view !== 'discover') $('#discover-search').blur();
   state.view = view;
   document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.view === view));
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${view}`));
   document.body.classList.toggle('videos-mode', view === 'videos');
-  $('#title').textContent = { actus: 'Actus', tech: 'Tech', videos: 'Vidéos' }[view];
+  $('#title').textContent = { actus: 'Actus', tech: 'Tech', videos: 'Vidéos', discover: 'Découvrir' }[view];
   if (view === 'videos') {
     stopAllInline();
     if (!state.reels.built) buildReels();
@@ -681,6 +870,11 @@ function switchView(view) {
       return r.top >= -10 && r.top < window.innerHeight / 2;
     });
     if (first?._item) activateReel(first);
+  } else if (view === 'discover') {
+    deactivateReel();
+    stopAllInline();
+    renderDiscover();
+    window.scrollTo({ top: 0 });
   } else {
     deactivateReel();
     stopAllInline();

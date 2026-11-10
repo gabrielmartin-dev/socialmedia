@@ -1,6 +1,6 @@
 // Service worker: app shell cache-first, data network-first (offline fallback).
-const VERSION = 'v5';
-const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'rank.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
+const VERSION = 'v6';
+const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'rank.js', 'bsky.js', 'topics.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(`shell-${VERSION}`).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
