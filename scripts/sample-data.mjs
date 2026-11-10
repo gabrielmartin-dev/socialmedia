@@ -45,7 +45,17 @@ const posts = [
   title: '', text, url: 'https://bsky.app/profile/' + handle, image: null,
   images: id === 'demo-p2' ? [{ thumb: pic(200, 'photo 1'), alt: '' }, { thumb: pic(260, 'photo 2'), alt: '' }] : undefined,
   publishedAt: ago(min),
+  stats: { replies: 30 + min, reposts: 74 * (min % 7 + 1), likes: 1234 + min * 40 },
 }));
+posts[0].segments = [{ t: 'Le gouvernement passe encore en force avec le ' }, { t: '#49_3', href: 'https://bsky.app/hashtag/49_3' }, { t: '. Nous déposerons une motion de censure dès ce soir. Plus d’infos : ' }, { t: 'example.org/censure', href: 'https://example.org/censure' }];
+posts[2].quote = { name: 'Journaliste exemple', handle: 'journaliste.example', avatar: null, text: 'OFFICIEL : début de la mobilisation demain matin devant l’Assemblée.', url: 'https://bsky.app', publishedAt: ago(300), image: null };
+posts.push({
+  id: 'demo-p4', kind: 'post', platform: 'bluesky',
+  source: { id: 'bsky:video.example', name: 'Reporter terrain exemple', handle: 'video.example', avatar: null, verified: true, url: 'https://bsky.app' },
+  title: '', text: 'Images du cortège ce soir, gaz lacrymogène place de la République #manif', url: 'https://bsky.app',
+  video: { type: 'hls', src: 'https://example.org/none.m3u8', poster: pic(10, 'vidéo inline'), aspect: 16 / 9 },
+  publishedAt: ago(45), stats: { replies: 12, reposts: 340, likes: 2100 },
+});
 
 const videos = [
   ['demo-v1', 'bluesky', 'Internaute exemple', 'Charge de CRS et gaz lacrymogène sur le cortège #manif', 20, 'hls', 9 / 16],

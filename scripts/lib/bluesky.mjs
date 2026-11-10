@@ -55,22 +55,73 @@ export async function resolveAccount(client, account) {
 
 function rkey(uri) { return uri.split('/').pop(); }
 
+const aspectOf = (ar) => (ar?.width && ar?.height ? ar.width / ar.height : null);
+
+function extractQuote(rec) {
+  // app.bsky.embed.record#viewRecord (quoted post). Blocked/deleted quotes are skipped.
+  if (!rec || !rec.author || !rec.value || !rec.uri) return null;
+  const media = (rec.embeds || []).map((e) => extractMedia(e)).find((m) => m.images || m.video || m.external) || {};
+  return {
+    name: rec.author.displayName || rec.author.handle,
+    handle: rec.author.handle,
+    avatar: rec.author.avatar || null,
+    text: truncate(rec.value.text || '', 400),
+    url: `https://bsky.app/profile/${rec.author.handle}/post/${rkey(rec.uri)}`,
+    publishedAt: rec.value.createdAt || rec.indexedAt,
+    image: media.images?.[0]?.thumb || media.video?.poster || media.external?.thumb || null,
+  };
+}
+
 function extractMedia(embed) {
   if (!embed) return {};
   const t = embed.$type || '';
-  if (t.startsWith('app.bsky.embed.recordWithMedia')) return extractMedia(embed.media);
+  if (t.startsWith('app.bsky.embed.recordWithMedia')) {
+    return { ...extractMedia(embed.media), quote: extractQuote(embed.record?.record) || undefined };
+  }
+  if (t.startsWith('app.bsky.embed.record')) {
+    const q = extractQuote(embed.record);
+    return q ? { quote: q } : {};
+  }
   if (t.startsWith('app.bsky.embed.images')) {
-    return { images: (embed.images || []).map((i) => ({ thumb: i.thumb, full: i.fullsize, alt: i.alt || '' })) };
+    return { images: (embed.images || []).map((i) => ({ thumb: i.thumb, full: i.fullsize, alt: i.alt || '', aspect: aspectOf(i.aspectRatio) })) };
   }
   if (t.startsWith('app.bsky.embed.video')) {
-    const ar = embed.aspectRatio;
-    return { video: { type: 'hls', src: embed.playlist, poster: embed.thumbnail || null, aspect: ar ? ar.width / ar.height : null } };
+    return { video: { type: 'hls', src: embed.playlist, poster: embed.thumbnail || null, aspect: aspectOf(embed.aspectRatio) } };
   }
   if (t.startsWith('app.bsky.embed.external')) {
     const e = embed.external || {};
     return { external: { url: e.uri, title: e.title || '', description: truncate(e.description || '', 200), thumb: e.thumb || null } };
   }
   return {};
+}
+
+/** Split a post's text into segments with links/mentions/hashtags from its facets. */
+export function textSegments(record) {
+  const text = record?.text || '';
+  const facets = (record?.facets || [])
+    .map((f) => {
+      const feat = (f.features || [])[0] || {};
+      const type = feat.$type || '';
+      let href = null;
+      if (type.endsWith('#link')) href = feat.uri;
+      else if (type.endsWith('#mention')) href = `https://bsky.app/profile/${feat.did}`;
+      else if (type.endsWith('#tag')) href = `https://bsky.app/hashtag/${encodeURIComponent(feat.tag)}`;
+      return href ? { start: f.index?.byteStart, end: f.index?.byteEnd, href } : null;
+    })
+    .filter((f) => f && Number.isInteger(f.start) && Number.isInteger(f.end) && f.end > f.start)
+    .sort((a, b) => a.start - b.start);
+  if (!facets.length) return undefined;
+  const bytes = Buffer.from(text, 'utf8');
+  const segs = [];
+  let pos = 0;
+  for (const f of facets) {
+    if (f.start < pos || f.end > bytes.length) continue;
+    if (f.start > pos) segs.push({ t: bytes.subarray(pos, f.start).toString('utf8') });
+    segs.push({ t: bytes.subarray(f.start, f.end).toString('utf8'), href: f.href });
+    pos = f.end;
+  }
+  if (pos < bytes.length) segs.push({ t: bytes.subarray(pos).toString('utf8') });
+  return segs;
 }
 
 /** Convert a Bluesky PostView into our item format. */
@@ -91,14 +142,20 @@ export function postToItem(post, sourceOverride) {
       url: `https://bsky.app/profile/${handle}`,
     },
     title: '',
-    text: truncate(text, 600),
+    text,
+    segments: textSegments(post.record),
     url: `https://bsky.app/profile/${handle}/post/${rkey(post.uri)}`,
     image: media.images?.[0]?.thumb || media.external?.thumb || null,
     images: media.images || undefined,
     external: media.external || undefined,
     video: media.video || undefined,
+    quote: media.quote || undefined,
     publishedAt: new Date(post.record?.createdAt || post.indexedAt).toISOString(),
-    stats: { likes: post.likeCount || 0, reposts: post.repostCount || 0 },
+    stats: {
+      replies: post.replyCount || 0,
+      reposts: (post.repostCount || 0) + (post.quoteCount || 0),
+      likes: post.likeCount || 0,
+    },
   };
 }
 
