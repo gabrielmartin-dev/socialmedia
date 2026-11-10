@@ -14,7 +14,8 @@ export function extractChannelInfo(html) {
     null;
   const avatar = /<meta property="og:image" content="([^"]+)"/.exec(html)?.[1] || null;
   const title = /<meta property="og:title" content="([^"]+)"/.exec(html)?.[1] || null;
-  return { id, avatar: avatar && decodeEntities(avatar), title: title && decodeEntities(title) };
+  const description = /<meta property="og:description" content="([^"]*)"/.exec(html)?.[1] || '';
+  return { id, avatar: avatar && decodeEntities(avatar), title: title && decodeEntities(title), description: decodeEntities(description) };
 }
 
 export async function resolveChannel(channel) {
@@ -25,7 +26,7 @@ export async function resolveChannel(channel) {
   const info = extractChannelInfo(text);
   const id = channel.channelId || info.id;
   if (!id) throw new Error(`ID de chaîne introuvable pour ${pageUrl}`);
-  return { id, avatar: info.avatar };
+  return { id, avatar: info.avatar, description: info.description };
 }
 
 export async function channelVideos(channel, resolved) {
@@ -43,6 +44,7 @@ export async function channelVideos(channel, resolved) {
         name: channel.name,
         avatar: resolved.avatar || null,
         url: `https://www.youtube.com/channel/${resolved.id}`,
+        ...(channel.suggested ? { suggested: true } : {}),
       },
       title: truncate(e.title, 200),
       text: truncate(e.text, 280),

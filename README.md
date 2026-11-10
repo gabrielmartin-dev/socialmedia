@@ -8,6 +8,19 @@ Une app perso pour téléphone, avec une timeline façon X/Twitter. Elle a deux 
 
 Le projet est gratuit : pas de serveur, pas de LLM, pas d'API payante. Le détail est dans la [spécification](docs/SPEC.md).
 
+### Suivre, ne plus suivre, découvrir
+
+- **Menu ⋯ d'un post :** « Ne plus suivre » retire ce compte de tes feeds, et « Suivre » le remet.
+- **Onglet 🔍 Découvrir :**
+  - une recherche de comptes, dans tes sources et dans tout Bluesky ;
+  - des suggestions par catégorie (médias, personnalités, tech, YouTube) ;
+  - la liste de tes abonnements.
+
+Tes abonnements sont enregistrés sur ton téléphone.
+
+- **Suggestions :** ce sont les sources marquées `"suggested": true` dans `config/sources.json`. Elles sont collectées, mais n'apparaissent dans tes feeds qu'une fois suivies.
+- **Comptes Bluesky trouvés par la recherche :** l'app récupère leurs posts directement à chaque ouverture ou refresh.
+
 ## Mise en ligne (une seule fois)
 
 1. **Fusionner la branche dans `main`.** Les tâches planifiées de GitHub ne tournent que sur la branche par défaut.

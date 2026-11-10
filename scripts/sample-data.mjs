@@ -20,6 +20,7 @@ const tall = (hue, label = '') => 'data:image/svg+xml,' + encodeURIComponent(
 
 const src = (id, name) => ({ id, name, avatar: null });
 const A = src('demo-a', 'Média A'), B = src('demo-b', 'Média B'), C = src('demo-c', 'Média C'), D = src('demo-d', 'Média D');
+const E = { ...src('demo-e', 'Média suggéré E'), suggested: true };
 
 const articles = [
   [A, 'Retraites : l’intersyndicale appelle à une nouvelle journée de grève jeudi', 'Les syndicats réclament le retrait de la réforme et annoncent des blocages.', 25, 210],
@@ -30,6 +31,7 @@ const articles = [
   [B, 'Un festival de cinéma s’ouvre ce week-end', 'Programmation et invités.', 15, 280],
   [C, 'Hôpital : les soignants dénoncent le manque de moyens', 'Témoignages dans plusieurs services d’urgences.', 300, 0],
   [D, 'Salaires : le SMIC revalorisé, insuffisant selon les syndicats', '', 420, 160],
+  [E, 'Grève : les cheminots reconduisent le mouvement', 'Article d’un média suggéré, visible seulement une fois suivi.', 5, 60],
 ].map(([s, title, text, min, hue], i) => ({
   id: 'demo-a' + i, kind: 'article', platform: 'rss', source: s, title, text,
   url: 'https://example.org/article/' + i, image: i % 3 === 2 ? null : pic(hue, 'image article'), publishedAt: ago(min),
@@ -77,5 +79,9 @@ await fs.mkdir(out, { recursive: true });
 const actus = [...articles, ...posts].map((i) => annotate(i, matchers));
 await fs.writeFile(path.join(out, 'actus.json'), JSON.stringify({ generatedAt, scoreCap: topicsCfg.scoreCap, halfLifeHours: topicsCfg.halfLifeHours.actus, entries: groupDuplicates(actus, topicsCfg.dedup) }, null, 1));
 await fs.writeFile(path.join(out, 'videos.json'), JSON.stringify({ generatedAt, scoreCap: topicsCfg.scoreCap, halfLifeHours: topicsCfg.halfLifeHours.videos, entries: videos.map((i) => annotate(i, matchers)) }, null, 1));
+const accounts = [A, B, C, D, E].map((x) => ({ id: x.id, name: x.name, avatar: null, kind: 'media', feed: 'actus', url: 'https://example.org', handle: 'example.org', description: 'Média fictif pour la démo.', suggested: !!x.suggested, category: 'Médias', lastTitle: 'Dernier article fictif', lastAt: ago(30) }));
+accounts.push({ id: 'bsky:suggere.example', name: 'Personnalité suggérée', avatar: null, kind: 'bluesky', feed: 'actus', url: 'https://bsky.app', handle: '@suggere.example', description: 'Compte Bluesky fictif suggéré.', suggested: true, category: 'Personnalités', lastTitle: '', lastAt: null });
+await fs.writeFile(path.join(out, 'accounts.json'), JSON.stringify({ generatedAt, accounts }));
+await fs.writeFile(path.join(out, 'topics.json'), JSON.stringify(topicsCfg));
 await fs.writeFile(path.join(out, 'status.json'), JSON.stringify({ generatedAt, sources: [{ type: 'demo', name: 'Données fictives', ok: true, count: actus.length + videos.length }] }, null, 1));
 console.log('Données de démo écrites dans public/data/');

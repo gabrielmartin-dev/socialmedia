@@ -24,10 +24,22 @@ const report = (type, name, ok, info) => {
   console.log(line);
 };
 
+// Directory of every working account, for the "Découvrir" tab.
+const directory = new Map();
+function register(entry) {
+  if (!directory.has(entry.id)) directory.set(entry.id, { ...entry, description: truncate(entry.description || '', 200) });
+}
+
 async function collectMedia(media, type = 'rss') {
+  const feedName = type === 'tech' ? 'tech' : 'actus';
   const results = await pool(media.map((src) => async () => {
     const feed = await fetchSourceFeed(src);
     const source = { ...src, avatar: src.avatar || faviconFor(src.site || feed.feedUrl) };
+    register({
+      id: src.id, name: src.name, avatar: source.avatar, kind: 'media', feed: feedName,
+      url: src.site || feed.feedUrl, handle: (src.site || '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''),
+      description: feed.description, suggested: !!src.suggested, category: src.category || (type === 'tech' ? 'Tech' : 'Médias'),
+    });
     return feed.entries.filter((e) => e.link && e.title).map((e) => entryToArticle(e, source));
   }));
   const items = [];
@@ -41,6 +53,7 @@ async function collectMedia(media, type = 'rss') {
 async function collectBluesky(cfg, settings) {
   const posts = [];
   const videos = [];
+  const tech = [];
   let client;
   try {
     client = await bsky.createClient();
@@ -58,9 +71,18 @@ async function collectBluesky(cfg, settings) {
     const name = cfg.accounts[i].name;
     if (!r.ok) return report('bluesky', name, false, r.error);
     const { resolved, items } = r.value;
-    for (const it of items) (it.kind === 'video' ? videos : posts).push(it);
-    // Videos from followed accounts also appear in Actus as regular posts.
-    for (const it of items) if (it.kind === 'video') posts.push({ ...it, kind: 'post' });
+    const acc = cfg.accounts[i];
+    const feedName = acc.feed === 'tech' ? 'tech' : 'actus';
+    const target = feedName === 'tech' ? tech : posts;
+    if (acc.suggested) for (const it of items) it.source.suggested = true;
+    register({
+      id: 'bsky:' + resolved.handle, name: resolved.displayName || acc.name, avatar: resolved.avatar, kind: 'bluesky',
+      feed: feedName, url: `https://bsky.app/profile/${resolved.handle}`, handle: '@' + resolved.handle,
+      description: resolved.description, suggested: !!acc.suggested, category: acc.category || (feedName === 'tech' ? 'Tech' : 'Personnalités'),
+    });
+    for (const it of items) if (it.kind === 'video') videos.push(it);
+    // Every post (videos included) also appears in its text feed.
+    for (const it of items) target.push({ ...it, kind: 'post' });
     report('bluesky', `${name} → @${resolved.handle}${resolved.verified ? ' ✓' : ''}`, true, items.length);
   });
 
@@ -73,7 +95,7 @@ async function collectBluesky(cfg, settings) {
     videos.push(...r.value);
     report('bsky-tag', tag, true, r.value.length);
   });
-  return { posts, videos };
+  return { posts, videos, tech };
 }
 
 async function collectYouTube(channels) {
@@ -82,6 +104,11 @@ async function collectYouTube(channels) {
     const resolved = await yt.resolveChannel(ch);
     if (seen.has(resolved.id)) return { dup: true, items: [] };
     seen.add(resolved.id);
+    register({
+      id: 'yt:' + resolved.id, name: ch.name, avatar: resolved.avatar, kind: 'youtube', feed: 'videos',
+      url: `https://www.youtube.com/channel/${resolved.id}`, handle: 'YouTube',
+      description: resolved.description, suggested: !!ch.suggested, category: ch.category || 'YouTube',
+    });
     return { items: await yt.channelVideos(ch, resolved) };
   }), 4);
   const items = [];
@@ -105,7 +132,7 @@ async function collectTikTok(accounts) {
         id: 't-' + (vid || hashId(e.link)),
         kind: 'video',
         platform: 'tiktok',
-        source: { id: acc.id, name: acc.name, handle: acc.user, avatar: null, url: `https://www.tiktok.com/@${acc.user}` },
+        source: { id: acc.id, name: acc.name, handle: acc.user, avatar: null, url: `https://www.tiktok.com/@${acc.user}`, ...(acc.suggested ? { suggested: true } : {}) },
         title: '',
         text: truncate(e.title || e.text, 300),
         url: e.link,
@@ -118,6 +145,8 @@ async function collectTikTok(accounts) {
   const items = [];
   results.forEach((r, i) => {
     if (!r.ok) return report('tiktok', accounts[i].name, false, r.error);
+    const acc = accounts[i];
+    register({ id: acc.id, name: acc.name, avatar: null, kind: 'tiktok', feed: 'videos', url: `https://www.tiktok.com/@${acc.user}`, handle: '@' + acc.user, suggested: !!acc.suggested, category: acc.category || 'TikTok' });
     items.push(...r.value);
     report('tiktok', accounts[i].name, true, r.value.length);
   });
@@ -155,7 +184,7 @@ async function main() {
   ]);
 
   const actusItems = freshAndUnique([...articles, ...bluesky.posts], settings.actusMaxAgeHours).map((i) => annotate(i, matchers));
-  const techItems = freshAndUnique(techArticles, settings.techMaxAgeHours ?? 168).map((i) => annotate(i, techMatchers));
+  const techItems = freshAndUnique([...techArticles, ...bluesky.tech], settings.techMaxAgeHours ?? 168).map((i) => annotate(i, techMatchers));
   const videoItems = freshAndUnique([...bluesky.videos, ...ytVideos, ...ttVideos], settings.videosMaxAgeHours).map((i) => annotate(i, matchers));
 
   const meta = {
@@ -179,6 +208,18 @@ async function main() {
     halfLifeHours: topicsCfg.halfLifeHours.videos,
     entries: videoItems,
   }));
+  // Last activity per account, for the Découvrir tab.
+  const lastPost = new Map();
+  for (const it of [...actusItems, ...techItems, ...videoItems]) {
+    const prev = lastPost.get(it.source.id);
+    if (!prev || Date.parse(it.publishedAt) > Date.parse(prev.publishedAt)) lastPost.set(it.source.id, it);
+  }
+  const accounts = [...directory.values()].map((a) => {
+    const last = lastPost.get(a.id);
+    return { ...a, lastTitle: last ? truncate(last.title || last.text || '', 140) : '', lastAt: last?.publishedAt || null };
+  });
+  await fs.writeFile(path.join(OUT, 'accounts.json'), JSON.stringify({ generatedAt: meta.generatedAt, accounts }));
+  await fs.writeFile(path.join(OUT, 'topics.json'), JSON.stringify(topicsCfg));
   await fs.writeFile(path.join(OUT, 'status.json'), JSON.stringify({ generatedAt: meta.generatedAt, sources: status }, null, 2));
 
   const failed = status.filter((s) => !s.ok).length;

@@ -42,7 +42,7 @@ const isVerified = (actor) => actor?.verification?.verifiedStatus === 'valid';
 export async function resolveAccount(client, account) {
   if (account.handle) {
     const p = await client.call('app.bsky.actor.getProfile', { actor: account.handle });
-    return { handle: p.handle, did: p.did, displayName: p.displayName || p.handle, avatar: p.avatar || null, verified: isVerified(p) };
+    return { handle: p.handle, did: p.did, displayName: p.displayName || p.handle, avatar: p.avatar || null, verified: isVerified(p), description: p.description || '' };
   }
   const { actors = [] } = await client.call('app.bsky.actor.searchActors', { q: account.name, limit: 10 });
   const target = normalize(account.name).replace(/[^a-z0-9]/g, '');
@@ -50,7 +50,7 @@ export async function resolveAccount(client, account) {
   if (!candidates.length) throw new Error(`Aucun compte Bluesky nommé exactement « ${account.name} »`);
   candidates.sort((a, b) => Number(isVerified(b)) - Number(isVerified(a)));
   const a = candidates[0];
-  return { handle: a.handle, did: a.did, displayName: a.displayName, avatar: a.avatar || null, verified: isVerified(a) };
+  return { handle: a.handle, did: a.did, displayName: a.displayName, avatar: a.avatar || null, verified: isVerified(a), description: a.description || '' };
 }
 
 function rkey(uri) { return uri.split('/').pop(); }

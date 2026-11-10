@@ -38,6 +38,13 @@
       <footer class="feed-footer" id="tech-footer"></footer>
     </section>
 
+    <section id="view-discover" class="view feed-view" aria-label="Découvrir">
+      <div class="search-wrap">
+        <input id="discover-search" type="search" placeholder="Rechercher un compte" autocomplete="off" enterkeyhint="search">
+      </div>
+      <div id="discover-results"></div>
+    </section>
+
     <section id="view-videos" class="view" aria-label="Vidéos">
       <div id="videos-list" class="reels"></div>
     </section>
@@ -56,6 +63,10 @@
       <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M4 5h11a2 2 0 0 1 2 2v2.4l4-2.4v10l-4-2.4V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 2v10h11V7H4Z"/></svg>
       <span>Vidéos</span>
     </button>
+    <button class="tab" data-view="discover" aria-label="Découvrir">
+      <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M10.25 3.75a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Zm-8.5 6.5a8.5 8.5 0 1 1 15.18 5.26l4.98 4.98-1.41 1.42-4.98-4.99A8.5 8.5 0 0 1 1.75 10.25Z"/></svg>
+      <span>Découvrir</span>
+    </button>
   </nav>
 
   <div class="sheet-backdrop" id="sheet-backdrop" hidden></div>
@@ -64,6 +75,10 @@
     <button class="sheet-btn" id="sheet-less">
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20Zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm5 7v2H7v-2h10Z"/></svg>
       <span><strong>Moins de ça</strong><small id="sheet-less-sub"></small></span>
+    </button>
+    <button class="sheet-btn" id="sheet-follow">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M10 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM4 8a6 6 0 1 1 12 0A6 6 0 0 1 4 8Zm-2.06 12.4C2.62 16.22 6.08 13.5 10 13.5s7.38 2.72 8.06 6.9l-1.98.32C15.6 17.6 13.07 15.5 10 15.5s-5.6 2.1-6.08 5.22l-1.98-.32ZM19 7v3h3v2h-3v3h-2v-3h-3v-2h3V7h2Z"/></svg>
+      <span><strong>Suivre</strong></span>
     </button>
     <a class="sheet-btn" id="sheet-open" target="_blank" rel="noopener">
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M14 3h7v7h-2V6.41l-8.29 8.3-1.42-1.42 8.3-8.29H14V3ZM5 5h6v2H5v12h12v-6h2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg>

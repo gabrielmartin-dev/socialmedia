@@ -159,6 +159,28 @@ div.avatar.square { background: var(--bg-elev); }
 .empty { color: var(--muted); text-align: center; padding: 60px 24px; }
 .empty strong { display: block; color: var(--text); font-size: 20px; margin-bottom: 6px; }
 
+/* ---------- Découvrir ---------- */
+.search-wrap { padding: 8px 14px; border-bottom: 1px solid var(--border); position: sticky; top: calc(var(--topbar-h) + var(--safe-top)); background: rgba(0,0,0,.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); z-index: 5; }
+#discover-search {
+  width: 100%; height: 42px; border-radius: 999px; border: 1px solid transparent;
+  background: #202327; color: var(--text); padding: 0 16px; font: inherit; font-size: 16px; outline: none;
+}
+#discover-search:focus { border-color: var(--accent); background: #000; }
+.disc-section h2 { font-size: 19px; font-weight: 800; margin: 0; padding: 14px 14px 6px; }
+.disc-empty { color: var(--muted); padding: 8px 14px 16px; font-size: 15px; }
+.account { display: grid; grid-template-columns: 44px 1fr; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.account-main { min-width: 0; }
+.account-head { display: flex; align-items: center; gap: 8px; }
+.account-names { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.account-names .handle { font-size: 14px; }
+.account-desc { margin-top: 4px; font-size: 15px; line-height: 20px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.account-last { margin-top: 4px; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.follow-btn {
+  flex: none; height: 34px; padding: 0 16px; border-radius: 999px;
+  background: var(--text); color: #000; font-weight: 700; font-size: 14px;
+}
+.follow-btn.following { background: transparent; color: var(--text); border: 1px solid #536471; }
+
 /* ---------- Reels ---------- */
 #view-videos { position: fixed; inset: 0; bottom: calc(var(--tabbar-h) + var(--safe-bottom)); background: #000; }
 .reels {
