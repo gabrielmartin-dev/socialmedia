@@ -17,12 +17,16 @@ const store = {
 
 const state = {
   view: 'actus',
-  data: { actus: null, videos: null, status: null },
+  data: { actus: null, tech: null, videos: null, status: null },
   prefs: Object.assign(emptyPrefs(), store.get('prefs', {})),
   hidden: new Set(store.get('hidden', [])),
   // id -> timestamp of first display; used to push already-seen items down.
   seen: pruneSeen(store.get('seen', {})),
-  actus: { ranked: [], rendered: 0 },
+  // Text feeds (same rendering): Actus and Tech.
+  feeds: {
+    actus: { ranked: [], rendered: 0, dirty: false, scroll: 0 },
+    tech: { ranked: [], rendered: 0, dirty: false, scroll: 0 },
+  },
   reels: { ranked: [], rendered: 0, active: null, built: false },
   muted: true,
 };
@@ -127,8 +131,8 @@ function toast(msg) {
 // ---------- Data ----------
 async function loadData() {
   const get = (name) => fetch(`data/${name}.json`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-  const [actus, videos, status] = await Promise.all([get('actus'), get('videos'), get('status')]);
-  state.data = { actus, videos, status };
+  const [actus, tech, videos, status] = await Promise.all([get('actus'), get('tech'), get('videos'), get('status')]);
+  state.data = { actus, tech, videos, status };
 }
 
 function rankOpts(dataset) {
@@ -206,7 +210,7 @@ function photoGrid(images) {
 const inlineObserver = new IntersectionObserver((entries) => {
   for (const e of entries) {
     const box = e.target;
-    if (e.isIntersecting && e.intersectionRatio >= 0.6 && state.view === 'actus') startInline(box);
+    if (e.isIntersecting && e.intersectionRatio >= 0.6 && state.view !== 'videos') startInline(box);
     else stopInline(box);
   }
 }, { threshold: [0, 0.6] });
@@ -358,38 +362,48 @@ function renderEntry(entry) {
   return postCard(entry);
 }
 
-function renderActus() {
-  const list = $('#actus-list');
+const FEED_KEYS = ['actus', 'tech'];
+const isFeed = (view) => FEED_KEYS.includes(view);
+
+function renderFeed(key) {
+  const feed = state.feeds[key];
+  const data = state.data[key];
+  const list = $(`#${key}-list`);
   list.replaceChildren();
-  state.actus.ranked = state.data.actus ? rank(state.data.actus.entries, rankOpts(state.data.actus), state.hidden) : [];
-  state.actus.rendered = 0;
-  if (!state.actus.ranked.length) {
+  feed.ranked = data ? rank(data.entries, rankOpts(data), state.hidden) : [];
+  feed.rendered = 0;
+  feed.dirty = false;
+  if (!feed.ranked.length) {
     list.append(h('div', { class: 'empty' },
-      h('strong', { text: state.data.actus ? 'Rien pour le moment' : 'Pas encore de données' }),
-      state.data.actus ? 'Reviens un peu plus tard.' : 'La collecte n’a pas encore tourné. Lance « npm run collect » ou attends la prochaine mise à jour automatique.',
+      h('strong', { text: data ? 'Rien pour le moment' : 'Pas encore de données' }),
+      data ? 'Reviens un peu plus tard.' : 'La collecte n’a pas encore tourné. Attends la prochaine mise à jour automatique.',
     ));
   }
-  appendActus();
-  renderFooter();
+  appendFeed(key);
+  renderFooter(key);
 }
 
-function appendActus() {
-  const { ranked } = state.actus;
-  const list = $('#actus-list');
-  const end = Math.min(ranked.length, state.actus.rendered + ACTUS_CHUNK);
+function renderAllFeeds() {
+  FEED_KEYS.forEach(renderFeed);
+}
+
+function appendFeed(key) {
+  const feed = state.feeds[key];
+  const list = $(`#${key}-list`);
+  const end = Math.min(feed.ranked.length, feed.rendered + ACTUS_CHUNK);
   const frag = document.createDocumentFragment();
-  for (let i = state.actus.rendered; i < end; i++) {
-    const card = renderEntry(ranked[i]);
+  for (let i = feed.rendered; i < end; i++) {
+    const card = renderEntry(feed.ranked[i]);
     seenObserver.observe(card);
     frag.append(card);
   }
   list.append(frag);
-  state.actus.rendered = end;
+  feed.rendered = end;
 }
 
-function renderFooter() {
-  const f = $('#actus-footer');
-  const gen = state.data.actus?.generatedAt;
+function renderFooter(key) {
+  const f = $(`#${key}-footer`);
+  const gen = state.data[key]?.generatedAt;
   const failed = state.data.status?.sources?.filter((s) => !s.ok).length || 0;
   const hasPrefs = Object.keys(state.prefs.sources).length || Object.keys(state.prefs.keywords).length || state.hidden.size;
   f.replaceChildren(
@@ -402,7 +416,7 @@ function renderFooter() {
         state.seen = {};
         store.set('seen', {});
         savePrefs();
-        renderActus();
+        renderAllFeeds();
         state.reels.built = false;
         toast('Préférences réinitialisées');
       },
@@ -410,9 +424,12 @@ function renderFooter() {
   );
 }
 
-new IntersectionObserver((entries) => {
-  if (entries.some((e) => e.isIntersecting) && state.actus.rendered < state.actus.ranked.length) appendActus();
-}, { rootMargin: '800px' }).observe($('#actus-sentinel'));
+for (const key of FEED_KEYS) {
+  new IntersectionObserver((entries) => {
+    const feed = state.feeds[key];
+    if (entries.some((e) => e.isIntersecting) && feed.rendered < feed.ranked.length) appendFeed(key);
+  }, { rootMargin: '800px' }).observe($(`#${key}-sentinel`));
+}
 
 // ---------- Bottom sheet / "moins de ça" ----------
 let sheetEntry = null;
@@ -447,16 +464,19 @@ $('#sheet-less').addEventListener('click', () => {
   state.hidden.add(entry.id);
   savePrefs();
   toast('Compris, tu en verras moins.');
-  if (state.view === 'actus') {
-    const card = document.querySelector(`.tweet[data-id="${CSS.escape(entry.id)}"]`);
-    state.actus.ranked = state.actus.ranked.filter((e) => e.id !== entry.id);
-    state.actus.rendered = Math.max(0, state.actus.rendered - 1);
+  if (isFeed(state.view)) {
+    const key = state.view;
+    const feed = state.feeds[key];
+    const card = document.querySelector(`#${key}-list .tweet[data-id="${CSS.escape(entry.id)}"]`);
+    feed.ranked = feed.ranked.filter((e) => e.id !== entry.id);
+    feed.rendered = Math.max(0, feed.rendered - 1);
     if (card) { card.classList.add('removing'); setTimeout(() => card.remove(), 250); }
-    renderFooter();
+    renderFooter(key);
+    FEED_KEYS.filter((k) => k !== key).forEach((k) => { state.feeds[k].dirty = true; });
     state.reels.built = false;
   } else {
     removeReel(entry.id);
-    state.actus.dirty = true;
+    FEED_KEYS.forEach((k) => { state.feeds[k].dirty = true; });
   }
 });
 
@@ -643,15 +663,16 @@ function toggleMute() {
 function switchView(view) {
   if (view === state.view) {
     // Tap on the active tab: scroll back to top.
-    if (view === 'actus') window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (isFeed(view)) window.scrollTo({ top: 0, behavior: 'smooth' });
     else $('#videos-list').scrollTo({ top: 0, behavior: 'smooth' });
     return;
   }
+  if (isFeed(state.view)) state.feeds[state.view].scroll = window.scrollY;
   state.view = view;
   document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.view === view));
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${view}`));
   document.body.classList.toggle('videos-mode', view === 'videos');
-  $('#title').textContent = view === 'actus' ? 'Actus' : 'Vidéos';
+  $('#title').textContent = { actus: 'Actus', tech: 'Tech', videos: 'Vidéos' }[view];
   if (view === 'videos') {
     stopAllInline();
     if (!state.reels.built) buildReels();
@@ -662,7 +683,9 @@ function switchView(view) {
     if (first?._item) activateReel(first);
   } else {
     deactivateReel();
-    if (state.actus.dirty) { state.actus.dirty = false; renderActus(); }
+    stopAllInline();
+    if (state.feeds[view].dirty) renderFeed(view);
+    window.scrollTo({ top: state.feeds[view].scroll || 0 });
   }
 }
 document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => switchView(t.dataset.view)));
@@ -673,14 +696,15 @@ async function refresh() {
   if (refreshing) return;
   refreshing = true;
   const btn = $('#refresh');
-  const ptr = $('#ptr');
+  const ptr = document.querySelector(`#view-${state.view} .ptr`) || document.createElement('div');
   btn.classList.add('spinning');
   ptr.classList.add('loading');
   ptr.style.height = '56px';
   const before = state.data.actus?.generatedAt;
   await loadData();
   window.scrollTo({ top: 0 });
-  renderActus();
+  FEED_KEYS.forEach((k) => { state.feeds[k].scroll = 0; });
+  renderAllFeeds();
   state.reels.built = false;
   if (state.view === 'videos') buildReels();
   btn.classList.remove('spinning');
@@ -691,11 +715,12 @@ async function refresh() {
 }
 $('#refresh').addEventListener('click', refresh);
 
-(function pullToRefresh() {
-  const ptr = $('#ptr');
+for (const key of FEED_KEYS) pullToRefresh(key);
+function pullToRefresh(key) {
+  const view = $(`#view-${key}`);
+  const ptr = view.querySelector('.ptr');
   let startY = null;
   let dist = 0;
-  const view = $('#view-actus');
   view.addEventListener('touchstart', (e) => {
     if (window.scrollY <= 0 && !refreshing) { startY = e.touches[0].clientY; dist = 0; }
   }, { passive: true });
@@ -714,7 +739,7 @@ $('#refresh').addEventListener('click', refresh);
     if (dist * 0.45 >= 60) refresh();
     else ptr.style.height = '0';
   });
-})();
+}
 
 // Keep relative times fresh.
 setInterval(() => {
@@ -733,4 +758,4 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 }
 
 await loadData();
-renderActus();
+renderAllFeeds();

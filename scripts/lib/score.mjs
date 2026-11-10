@@ -4,9 +4,10 @@
 import { normalize, escapeRegex, tokens, jaccard } from './text.mjs';
 
 /** Compile topics config into matchers. */
-export function compileTopics(topicsConfig) {
+export function compileTopics(topicsConfig, feed = 'actus') {
   const matchers = [];
   for (const [topicId, topic] of Object.entries(topicsConfig.topics)) {
+    if ((topic.feed || 'actus') !== feed) continue;
     for (const [rawKw, weight] of Object.entries(topic.keywords)) {
       const prefix = rawKw.endsWith('*');
       const kw = normalize(prefix ? rawKw.slice(0, -1) : rawKw);

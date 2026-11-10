@@ -24,11 +24,18 @@
   </header>
 
   <main>
-    <section id="view-actus" class="view active" aria-label="Actus">
-      <div class="ptr" id="ptr"><span class="spinner"></span></div>
+    <section id="view-actus" class="view feed-view active" aria-label="Actus">
+      <div class="ptr"><span class="spinner"></span></div>
       <div id="actus-list" class="feed"></div>
       <div id="actus-sentinel" class="sentinel"></div>
       <footer class="feed-footer" id="actus-footer"></footer>
+    </section>
+
+    <section id="view-tech" class="view feed-view" aria-label="Tech">
+      <div class="ptr"><span class="spinner"></span></div>
+      <div id="tech-list" class="feed"></div>
+      <div id="tech-sentinel" class="sentinel"></div>
+      <footer class="feed-footer" id="tech-footer"></footer>
     </section>
 
     <section id="view-videos" class="view" aria-label="Vidéos">
@@ -40,6 +47,10 @@
     <button class="tab active" data-view="actus" aria-label="Actus">
       <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M4 4h13a3 3 0 0 1 3 3v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Zm2 2v12h12V7a1 1 0 0 0-1-1H6Zm2 2h8v2H8V8Zm0 4h8v2H8v-2Zm0 4h5v2H8v-2Z"/></svg>
       <span>Actus</span>
+    </button>
+    <button class="tab" data-view="tech" aria-label="Tech">
+      <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M9 2h2v2h2V2h2v2h2a2 2 0 0 1 2 2v2h2v2h-2v2h2v2h-2v2a2 2 0 0 1-2 2h-2v2h-2v-2h-2v2H9v-2H7a2 2 0 0 1-2-2v-2H3v-2h2v-2H3V8h2V6a2 2 0 0 1 2-2h2V2ZM7 6v12h10V6H7Zm2 2h6v8H9V8Zm2 2v4h2v-4h-2Z"/></svg>
+      <span>Tech</span>
     </button>
     <button class="tab" data-view="videos" aria-label="Vidéos">
       <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M4 5h11a2 2 0 0 1 2 2v2.4l4-2.4v10l-4-2.4V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 2v10h11V7H4Z"/></svg>

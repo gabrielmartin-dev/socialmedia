@@ -25,6 +25,7 @@ Barre d'onglets en bas, deux onglets :
 | Onglet | Contenu |
 |---|---|
 | 📰 **Actus** | Articles des médias (RSS) + posts Bluesky des personnalités |
+| 💻 **Tech** | Actus tech, dev et IA (Anthropic, Claude, OpenAI, labs, presse tech reconnue) |
 | 🎥 **Vidéos** | Vidéos d'internautes (recherche Bluesky par hashtags) + chaînes YouTube + vidéos postées par les comptes suivis + Zawa Prod et ses membres |
 
 ### 2.3 Feed Actus
@@ -46,7 +47,7 @@ Barre d'onglets en bas, deux onglets :
 Toutes les sources sont déclarées dans `config/sources.json`. Les identifiants exacts (URL de flux RSS, handles Bluesky, ID de chaînes YouTube) sont vérifiés au moment du développement. Une source introuvable est retirée et signalée.
 
 ### 3.1 Médias (RSS) → Actus
-Mediapart, L'Humanité, La France insoumise (site officiel), Le Média, Blast, Politis, Regards, Reporterre, Basta!, Rapports de Force, StreetPress, Le Monde diplomatique, Frustration Magazine, Arrêt sur images.
+Mediapart, La France insoumise (site officiel), Le Média, Blast, Politis, Regards, Reporterre, Basta!, Rapports de Force, StreetPress, Le Monde diplomatique, Frustration Magazine, Arrêt sur images.
 
 Mediapart est payant : le flux ne fournit que le titre et le chapô. Le clic ouvre le site, où l'abonnement éventuel s'applique.
 
@@ -62,10 +63,19 @@ Recherche des posts contenant une vidéo pour les hashtags : `#manif` `#manifest
 - **Terrain et médias** : Taranis News, Line Press, Le Média, Blast, Mediapart.
 - **Zawa Prod et ses membres** : Zawa Prod, Zawa Prod - Replay & Live, DANYetRAZ, Wissam Xelka, Ilies (iliesomg), Mouffette (MouffetteVOD).
 
-### 3.5 TikTok Zawa Prod (secours) → Vidéos
-Compte TikTok @zawaprod via un flux RSSHub. Ce flux est fragile : en cas d'échec, il est ignoré sans bloquer le reste.
+### 3.5 TikTok (secours) → Vidéos
+Comptes TikTok @zawaprod et @valadista via un flux RSSHub. Ce flux est fragile : en cas d'échec, il est ignoré sans bloquer le reste.
 
-### 3.6 Exclus
+### 3.6 Tech (RSS) → onglet Tech
+- **Anthropic et Claude** : news, Claude blog, Research, Engineering. Anthropic ne publie pas de RSS officiel, on passe par les flux générés par le projet open source Olshansk/rss-feeds.
+- **Labs IA** : OpenAI, Google DeepMind, Hugging Face.
+- **Dev** : GitHub Blog, Simon Willison.
+- **Presse tech reconnue** : The Verge (IA), Ars Technica, MIT Technology Review (IA), Next (FR).
+- **Hacker News** : seulement le flux « best ».
+
+Sujets propres à l'onglet Tech : **IA** et **Dev**.
+
+### 3.7 Exclus
 - X et Instagram : pas d'accès gratuit, ignorés.
 - Syndicats et associations : retirés à la demande.
 - Twitch : pas d'intégration (pas de bandeau « en live »).

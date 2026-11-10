@@ -3,6 +3,7 @@
 Une app perso pour téléphone, avec une timeline façon X/Twitter. Elle a deux onglets :
 
 - **📰 Actus** : les articles des médias (RSS) et les posts Bluesky de personnalités, triés par sujets (politique, social) et par fraîcheur. Quand plusieurs médias parlent du même sujet, ils sont regroupés en « N médias en parlent ».
+- **💻 Tech** : actus tech, dev et IA (Anthropic, Claude, OpenAI, DeepMind, Hugging Face, GitHub, The Verge, Ars Technica, MIT Tech Review, Next, Hacker News).
 - **🎥 Vidéos** : un feed vertical plein écran, avec les vidéos Bluesky (#manif, #grève…), YouTube (chaînes de terrain, Zawa Prod et ses membres) et TikTok (Zawa Prod).
 
 Le projet est gratuit : pas de serveur, pas de LLM, pas d'API payante. Le détail est dans la [spécification](docs/SPEC.md).
