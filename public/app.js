@@ -89,14 +89,9 @@ function svg(path, size = 18) {
 }
 const ICONS = {
   more: 'M6 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z',
-  verified: 'M12 2l2.4 1.8 3-.2.9 2.9 2.5 1.7-1 2.8 1 2.8-2.5 1.7-.9 2.9-3-.2L12 22l-2.4-1.8-3 .2-.9-2.9-2.5-1.7 1-2.8-1-2.8 2.5-1.7.9-2.9 3 .2L12 2Zm-1.2 13.6 5.7-5.7-1.4-1.4-4.3 4.3-2-2-1.4 1.4 3.4 3.4Z',
   muted: 'M3 9h4l5-4v14l-5-4H3V9Zm13.6.2L18 10.6l1.4-1.4 1.4 1.4-1.4 1.4 1.4 1.4-1.4 1.4-1.4-1.4-1.4 1.4-1.4-1.4 1.4-1.4-1.4-1.4 1.4-1.4Z',
   sound: 'M3 9h4l5-4v14l-5-4H3V9Zm13.5-2.5a7 7 0 0 1 0 11l-1.4-1.4a5 5 0 0 0 0-8.2l1.4-1.4Zm-2.8 2.8a3 3 0 0 1 0 5.4l-1.4-1.4a1 1 0 0 0 0-2.6l1.4-1.4Z',
   open: 'M14 3h7v7h-2V6.41l-8.29 8.3-1.42-1.42 8.3-8.29H14V3ZM5 5h6v2H5v12h12v-6h2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z',
-  reply: 'M1.75 10c0-4.42 3.58-8 8-8h4.37c4.48 0 8.13 3.64 8.13 8.13 0 2.96-1.6 5.68-4.2 7.11l-8.05 4.42v-3.66h-.07c-4.49.1-8.18-3.51-8.18-8Zm8-6c-3.32 0-6 2.69-6 6 0 3.37 2.77 6.08 6.13 6l.35-.01h1.77v2.29l5.08-2.79a6.12 6.12 0 0 0 3.17-5.36c0-3.38-2.74-6.13-6.13-6.13H9.75Z',
-  repost: 'm4.5 3.88 4.43 4.14-1.36 1.46L5.5 7.55V16c0 1.1.9 2 2 2H13v2H7.5c-2.21 0-4-1.79-4-4V7.55L1.43 9.48.07 8.02 4.5 3.88ZM16.5 6H11V4h5.5c2.21 0 4 1.79 4 4v8.45l2.07-1.93 1.36 1.46-4.43 4.14-4.43-4.14 1.36-1.46 2.07 1.93V8c0-1.1-.9-2-2-2Z',
-  like: 'M16.7 5.5c-1.11-.06-2.43.48-3.52 2.09l-.82 1.21-.83-1.21C10.44 5.98 9.13 5.44 8.03 5.5c-1.13.06-2.1.66-2.73 1.62-1.33 2.04-.72 5.57 3.29 9.19A49.37 49.37 0 0 0 12.36 19.29a49.4 49.4 0 0 0 3.77-2.98c4.01-3.62 4.62-7.15 3.29-9.19-.63-.96-1.6-1.56-2.72-1.62Zm4.4.53c2.02 3.1.79 7.62-3.62 11.6-1.38 1.25-2.95 2.4-4.6 3.53l-.52.36-.53-.36c-1.64-1.13-3.21-2.28-4.6-3.53-4.41-3.98-5.64-8.5-3.62-11.6.98-1.51 2.54-2.44 4.31-2.53 1.48-.08 3 .5 4.44 1.87 1.44-1.37 2.96-1.95 4.44-1.87 1.77.09 3.32 1.02 4.3 2.53Z',
-  share: 'M12 2.59 17.7 8.3l-1.41 1.41L13 6.41V16h-2V6.41L7.7 9.71 6.29 8.3 12 2.59ZM21 15l-.02 3.51c0 1.38-1.12 2.49-2.5 2.49H5.5A2.5 2.5 0 0 1 3 18.5V15h2v3.5c0 .28.22.5.5.5h12.98c.28 0 .5-.22.5-.5L19 15h2Z',
 };
 
 function avatar(src, name, { square = false, size } = {}) {
@@ -148,9 +143,6 @@ function rankOpts(dataset) {
 }
 
 // ---------- Actus feed ----------
-const nf = new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 });
-const fmtCount = (n) => (n ? nf.format(n).replace(/\s/g, '') : '');
-
 const TEXT_LIMIT = 280;
 const LINKIFY = /(https?:\/\/[^\s]+)|(#[\p{L}\p{N}_]+)|(@[a-z0-9-]+(?:\.[a-z0-9-]+)+)/giu;
 
@@ -190,37 +182,13 @@ function tweetText(item) {
   return el;
 }
 
-function tweetHead(entry, { name, handle, verified, publishedAt }) {
+function tweetHead(entry, { name, handle, publishedAt }) {
   return h('div', { class: 'tweet-head' },
     h('span', { class: 'name', text: name }),
-    verified ? h('span', { class: 'verified' }, svg(ICONS.verified, 18)) : null,
     handle ? h('span', { class: 'handle', text: handle }) : null,
     h('span', { class: 'dot', text: '·' }),
     h('time', { class: 'time', datetime: publishedAt, text: relativeTime(publishedAt) }),
     h('button', { class: 'more', 'aria-label': 'Options', onclick: (e) => { e.stopPropagation(); openSheet(entry); } }, svg(ICONS.more, 20)),
-  );
-}
-
-function actionBar(item) {
-  const st = item.stats;
-  const stat = (icon, n, label) => h('span', { class: 'act', 'aria-label': label }, svg(icon, 19), h('span', { text: fmtCount(n) }));
-  const share = h('button', {
-    class: 'act share', 'aria-label': 'Partager',
-    onclick: async (e) => {
-      e.stopPropagation();
-      const url = item.url;
-      try {
-        if (navigator.share) await navigator.share({ url, title: item.title || undefined });
-        else { await navigator.clipboard.writeText(url); toast('Lien copié'); }
-      } catch { /* cancelled */ }
-    },
-  }, svg(ICONS.share, 19));
-  if (!st) return h('div', { class: 'actions' }, h('span', { class: 'act-spacer' }), share);
-  return h('div', { class: 'actions' },
-    stat(ICONS.reply, st.replies, 'Réponses'),
-    stat(ICONS.repost, st.reposts, 'Reposts'),
-    stat(ICONS.like, st.likes, 'J’aime'),
-    share,
   );
 }
 
@@ -347,7 +315,6 @@ function articleCard(item) {
     h('div', { class: 'tweet-text' }, item.title),
     item.text ? h('div', { class: 'tweet-text dim' }, item.text) : null,
     item.image ? linkCard(item.url, { thumb: item.image, title: '' }) : null,
-    actionBar(item),
   ], item.url);
 }
 
@@ -357,11 +324,10 @@ function postCard(item) {
   else if (item.images?.length) media = photoGrid(item.images);
   else if (item.external?.url) media = linkCard(item.external.url, item.external);
   return cardShell(item, avatar(item.source.avatar, item.source.name), [
-    tweetHead(item, { name: item.source.name, handle: item.source.handle ? '@' + item.source.handle : '', verified: item.source.verified, publishedAt: item.publishedAt }),
+    tweetHead(item, { name: item.source.name, handle: item.source.handle ? '@' + item.source.handle : '', publishedAt: item.publishedAt }),
     tweetText(item),
     media,
     item.quote ? quoteCard(item.quote) : null,
-    actionBar(item),
   ], item.url);
 }
 

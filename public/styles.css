@@ -67,7 +67,7 @@ main { min-height: 100%; }
 /* ---------- Tweets (X-style cards) ---------- */
 .tweet {
   display: grid; grid-template-columns: 44px 1fr; gap: 10px;
-  padding: 12px 14px 4px; border-bottom: 1px solid var(--border);
+  padding: 12px 14px; border-bottom: 1px solid var(--border);
   transition: opacity .25s ease, transform .25s ease;
 }
 .tweet:active { background: var(--bg-hover); }
@@ -83,7 +83,6 @@ div.avatar.square { background: var(--bg-elev); }
 
 .tweet-head { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 16px; line-height: 20px; }
 .name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 0; }
-.verified { color: var(--accent); flex: none; display: flex; }
 .handle { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1000 auto; }
 .dot, .time { color: var(--muted); white-space: nowrap; flex: none; }
 .more { margin-left: auto; flex: none; width: 32px; height: 32px; margin-right: -6px; border-radius: 50%; color: var(--muted); display: grid; place-items: center; }
@@ -140,13 +139,6 @@ div.avatar.square { background: var(--bg-elev); }
 .quote-head .avatar { width: 22px; height: 22px; font-size: 11px; margin-right: 2px; flex: none; }
 .quote-text { padding: 2px 12px 10px; font-size: 15px; line-height: 20px; white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
 .quote .media { margin: 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; }
-
-/* Action bar */
-.actions { display: flex; align-items: center; justify-content: space-between; margin: 4px -8px 0; color: var(--muted); }
-.act { display: flex; align-items: center; gap: 4px; padding: 8px; font-size: 13px; min-width: 56px; color: var(--muted); }
-.act.share { min-width: 0; }
-.act-spacer { flex: 1; }
-.act:active { color: var(--accent); }
 
 /* Group card */
 .stack { display: flex; flex-direction: column; gap: 2px; align-items: center; }
