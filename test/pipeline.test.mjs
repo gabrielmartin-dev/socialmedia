@@ -6,7 +6,7 @@ import { compileTopics, matchKeywords, groupDuplicates } from '../scripts/lib/sc
 import { extractChannelInfo } from '../scripts/lib/youtube.mjs';
 import { postToItem } from '../scripts/lib/bluesky.mjs';
 import { stripHtml, normalize } from '../scripts/lib/text.mjs';
-import { rank, applyLess, itemScore, emptyPrefs, relativeTime } from '../public/rank.js';
+import { rank, applyLess, itemScore, emptyPrefs, relativeTime, diversify } from '../public/rank.js';
 
 const topics = JSON.parse(await fs.readFile(new URL('../config/topics.json', import.meta.url), 'utf8'));
 const matchers = compileTopics(topics);
@@ -115,4 +115,43 @@ test('helpers', () => {
   const now = Date.parse('2026-11-09T12:00:00Z');
   assert.equal(relativeTime('2026-11-09T11:58:00Z', now), '2 min');
   assert.equal(relativeTime('2026-11-09T09:00:00Z', now), '3 h');
+});
+
+// Small seeded PRNG for reproducible "random" tests.
+function rng(seed) { // mulberry32
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+test('"pour toi" mode: order changes between refreshes but favours high scores', () => {
+  const now = Date.parse('2026-11-09T12:00:00Z');
+  const mk = (i, w) => ({ id: 'i' + i, source: { id: 's' + i }, keywords: w ? [{ k: 'k', w, t: 'social' }] : [], publishedAt: new Date(now - 3600e3).toISOString() });
+  const entries = [mk(0, 5), ...Array.from({ length: 19 }, (_, i) => mk(i + 1, 0))];
+  const orders = new Set();
+  let topFirst = 0;
+  for (let seed = 1; seed <= 200; seed++) {
+    const r = rank(entries, { now, halfLife: 10, random: rng(seed) });
+    orders.add(r.map((e) => e.id).join());
+    if (r.slice(0, 3).some((e) => e.id === 'i0')) topFirst++;
+  }
+  assert.ok(orders.size > 150, 'orders should vary');
+  assert.ok(topFirst > 90, `high-score item should usually be near the top (${topFirst}/200)`);
+});
+
+test('seen items are pushed down', () => {
+  const now = Date.parse('2026-11-09T12:00:00Z');
+  const mk = (id) => ({ id, source: { id }, keywords: [], publishedAt: new Date(now).toISOString() });
+  const r = rank([mk('a'), mk('b')], { now, seen: new Set(['a']) });
+  assert.deepEqual(r.map((e) => e.id), ['b', 'a']);
+});
+
+test('diversify avoids the same source back to back', () => {
+  const e = (id, src) => ({ id, source: { id: src } });
+  const out = diversify([e(1, 'a'), e(2, 'a'), e(3, 'a'), e(4, 'b'), e(5, 'c')]);
+  for (let i = 1; i < 3; i++) assert.notEqual(out[i].source.id, out[i - 1].source.id);
+  assert.equal(out.length, 5);
 });

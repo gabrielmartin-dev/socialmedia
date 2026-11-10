@@ -81,14 +81,17 @@ Deux sujets, chacun défini par un dictionnaire de mots-clés pondérés dans `c
 
 La correspondance est insensible à la casse et aux accents, sur le titre, le chapô et le texte du post.
 
-### 4.2 Score
+### 4.2 Score et ordre « pour toi »
 ```
-score = (1 + score_sujet) × poids_source × fraîcheur × ajustements_utilisateur
-fraîcheur = 0.5 ^ (âge_en_heures / demi_vie)
+score = (1 + score_sujet) × poids_source × fraîcheur × engagement × déjà_vu
+fraîcheur  = 0.5 ^ (âge_en_heures / demi_vie)
+engagement = 1 + 0.25 × log10(1 + likes + 2 × reposts)   (posts Bluesky)
+déjà_vu    = 0.3 si le post a déjà été affiché, sinon 1
 ```
 - `score_sujet` est la somme des poids des mots-clés trouvés, plafonnée.
-- La demi-vie est configurable : par défaut 6 h pour Actus et 12 h pour Vidéos.
+- La demi-vie est configurable : par défaut 10 h pour Actus et 24 h pour Vidéos.
 - `poids_source` vaut 1 par défaut et se règle dans la config.
+- **L'ordre n'est pas chronologique.** Comme sur X, la timeline est tirée au sort en fonction du score à chaque ouverture et à chaque refresh : un post bien noté sort souvent en haut, mais l'ordre change à chaque fois. Les posts déjà vus redescendent, et le même compte n'apparaît pas deux fois de suite si on peut l'éviter.
 
 ### 4.3 Regroupement des doublons (Actus)
 Deux articles de médias différents sont regroupés quand :

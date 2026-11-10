@@ -1,7 +1,7 @@
 {
   "_comment": "Mots-clés insensibles à la casse et aux accents. Un '*' final = préfixe (ex. 'grev*' couvre grève, grévistes). Poids : importance du mot dans le score.",
   "scoreCap": 6,
-  "halfLifeHours": { "actus": 6, "videos": 12 },
+  "halfLifeHours": { "actus": 10, "videos": 24 },
   "dedup": { "similarity": 0.34, "windowHours": 12 },
   "topics": {
     "politique": {
