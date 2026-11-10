@@ -1,7 +1,6 @@
-import { rank, applyLess, emptyPrefs, topicsOf, relativeTime } from './rank.js';
+import { rank, applyLess, emptyPrefs, relativeTime } from './rank.js';
 
 const HLS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js';
-const TOPIC_LABELS = { politique: 'Politique', social: 'Social' };
 const PLATFORM_LABELS = { bluesky: 'Bluesky', youtube: 'YouTube', tiktok: 'TikTok', rss: '' };
 const ACTUS_CHUNK = 15;
 const REELS_CHUNK = 5;
@@ -94,6 +93,10 @@ const ICONS = {
   muted: 'M3 9h4l5-4v14l-5-4H3V9Zm13.6.2L18 10.6l1.4-1.4 1.4 1.4-1.4 1.4 1.4 1.4-1.4 1.4-1.4-1.4-1.4 1.4-1.4-1.4 1.4-1.4-1.4-1.4 1.4-1.4Z',
   sound: 'M3 9h4l5-4v14l-5-4H3V9Zm13.5-2.5a7 7 0 0 1 0 11l-1.4-1.4a5 5 0 0 0 0-8.2l1.4-1.4Zm-2.8 2.8a3 3 0 0 1 0 5.4l-1.4-1.4a1 1 0 0 0 0-2.6l1.4-1.4Z',
   open: 'M14 3h7v7h-2V6.41l-8.29 8.3-1.42-1.42 8.3-8.29H14V3ZM5 5h6v2H5v12h12v-6h2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z',
+  reply: 'M1.75 10c0-4.42 3.58-8 8-8h4.37c4.48 0 8.13 3.64 8.13 8.13 0 2.96-1.6 5.68-4.2 7.11l-8.05 4.42v-3.66h-.07c-4.49.1-8.18-3.51-8.18-8Zm8-6c-3.32 0-6 2.69-6 6 0 3.37 2.77 6.08 6.13 6l.35-.01h1.77v2.29l5.08-2.79a6.12 6.12 0 0 0 3.17-5.36c0-3.38-2.74-6.13-6.13-6.13H9.75Z',
+  repost: 'm4.5 3.88 4.43 4.14-1.36 1.46L5.5 7.55V16c0 1.1.9 2 2 2H13v2H7.5c-2.21 0-4-1.79-4-4V7.55L1.43 9.48.07 8.02 4.5 3.88ZM16.5 6H11V4h5.5c2.21 0 4 1.79 4 4v8.45l2.07-1.93 1.36 1.46-4.43 4.14-4.43-4.14 1.36-1.46 2.07 1.93V8c0-1.1-.9-2-2-2Z',
+  like: 'M16.7 5.5c-1.11-.06-2.43.48-3.52 2.09l-.82 1.21-.83-1.21C10.44 5.98 9.13 5.44 8.03 5.5c-1.13.06-2.1.66-2.73 1.62-1.33 2.04-.72 5.57 3.29 9.19A49.37 49.37 0 0 0 12.36 19.29a49.4 49.4 0 0 0 3.77-2.98c4.01-3.62 4.62-7.15 3.29-9.19-.63-.96-1.6-1.56-2.72-1.62Zm4.4.53c2.02 3.1.79 7.62-3.62 11.6-1.38 1.25-2.95 2.4-4.6 3.53l-.52.36-.53-.36c-1.64-1.13-3.21-2.28-4.6-3.53-4.41-3.98-5.64-8.5-3.62-11.6.98-1.51 2.54-2.44 4.31-2.53 1.48-.08 3 .5 4.44 1.87 1.44-1.37 2.96-1.95 4.44-1.87 1.77.09 3.32 1.02 4.3 2.53Z',
+  share: 'M12 2.59 17.7 8.3l-1.41 1.41L13 6.41V16h-2V6.41L7.7 9.71 6.29 8.3 12 2.59ZM21 15l-.02 3.51c0 1.38-1.12 2.49-2.5 2.49H5.5A2.5 2.5 0 0 1 3 18.5V15h2v3.5c0 .28.22.5.5.5h12.98c.28 0 .5-.22.5-.5L19 15h2Z',
 };
 
 function avatar(src, name, { square = false, size } = {}) {
@@ -145,72 +148,220 @@ function rankOpts(dataset) {
 }
 
 // ---------- Actus feed ----------
-function cardShell(entry, children, url) {
-  const more = h('button', { class: 'more', 'aria-label': 'Options', onclick: (e) => { e.stopPropagation(); openSheet(entry); } }, svg(ICONS.more));
+const nf = new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 });
+const fmtCount = (n) => (n ? nf.format(n).replace(/\s/g, '') : '');
+
+const TEXT_LIMIT = 280;
+const LINKIFY = /(https?:\/\/[^\s]+)|(#[\p{L}\p{N}_]+)|(@[a-z0-9-]+(?:\.[a-z0-9-]+)+)/giu;
+
+function linkNode(text, href) {
+  return h('a', { class: 'link', href, target: '_blank', rel: 'noopener', text });
+}
+
+/** Plain text → nodes, with URLs, #hashtags and @handles in blue. */
+function linkify(text) {
+  const out = [];
+  let last = 0;
+  for (const m of text.matchAll(LINKIFY)) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    const [tok] = m;
+    if (m[1]) out.push(linkNode(tok.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40) + (tok.length > 48 ? '…' : ''), tok));
+    else if (m[2]) out.push(linkNode(tok, `https://bsky.app/hashtag/${encodeURIComponent(tok.slice(1))}`));
+    else out.push(linkNode(tok, `https://bsky.app/profile/${tok.slice(1)}`));
+    last = m.index + tok.length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
+/** Tweet text with links, plus "Voir plus" when long. */
+function tweetText(item) {
+  const full = item.text || '';
+  if (!full) return null;
+  const nodes = item.segments?.length
+    ? item.segments.map((s) => (s.href ? linkNode(s.t, s.href) : s.t))
+    : linkify(full);
+  const el = h('div', { class: 'tweet-text' }, nodes);
+  if (full.length > TEXT_LIMIT && !item.segments?.length) {
+    const short = h('div', { class: 'tweet-text' }, linkify(full.slice(0, TEXT_LIMIT).replace(/\s+\S*$/, '') + '… '),
+      h('button', { class: 'see-more', text: 'Voir plus', onclick: (e) => { e.stopPropagation(); short.replaceWith(el); } }));
+    return short;
+  }
+  return el;
+}
+
+function tweetHead(entry, { name, handle, verified, publishedAt }) {
+  return h('div', { class: 'tweet-head' },
+    h('span', { class: 'name', text: name }),
+    verified ? h('span', { class: 'verified' }, svg(ICONS.verified, 18)) : null,
+    handle ? h('span', { class: 'handle', text: handle }) : null,
+    h('span', { class: 'dot', text: '·' }),
+    h('time', { class: 'time', datetime: publishedAt, text: relativeTime(publishedAt) }),
+    h('button', { class: 'more', 'aria-label': 'Options', onclick: (e) => { e.stopPropagation(); openSheet(entry); } }, svg(ICONS.more, 20)),
+  );
+}
+
+function actionBar(item) {
+  const st = item.stats;
+  const stat = (icon, n, label) => h('span', { class: 'act', 'aria-label': label }, svg(icon, 19), h('span', { text: fmtCount(n) }));
+  const share = h('button', {
+    class: 'act share', 'aria-label': 'Partager',
+    onclick: async (e) => {
+      e.stopPropagation();
+      const url = item.url;
+      try {
+        if (navigator.share) await navigator.share({ url, title: item.title || undefined });
+        else { await navigator.clipboard.writeText(url); toast('Lien copié'); }
+      } catch { /* cancelled */ }
+    },
+  }, svg(ICONS.share, 19));
+  if (!st) return h('div', { class: 'actions' }, h('span', { class: 'act-spacer' }), share);
+  return h('div', { class: 'actions' },
+    stat(ICONS.reply, st.replies, 'Réponses'),
+    stat(ICONS.repost, st.reposts, 'Reposts'),
+    stat(ICONS.like, st.likes, 'J’aime'),
+    share,
+  );
+}
+
+function photoGrid(images) {
+  const imgs = images.slice(0, 4);
+  if (imgs.length === 1) {
+    const ar = Math.min(Math.max(imgs[0].aspect || 1.5, 0.8), 2.2);
+    const box = h('div', { class: 'media', style: `aspect-ratio:${ar}` }, image(imgs[0].thumb, imgs[0].alt));
+    return box;
+  }
+  return h('div', { class: `media grid n${imgs.length}` }, imgs.map((i) => image(i.thumb, i.alt)));
+}
+
+// ---- Inline video (Bluesky posts in Actus): muted autoplay while visible ----
+const inlineObserver = new IntersectionObserver((entries) => {
+  for (const e of entries) {
+    const box = e.target;
+    if (e.isIntersecting && e.intersectionRatio >= 0.6 && state.view === 'actus') startInline(box);
+    else stopInline(box);
+  }
+}, { threshold: [0, 0.6] });
+
+async function startInline(box) {
+  if (box._video) return;
+  const video = h('video', { playsinline: true, 'webkit-playsinline': true, loop: true, preload: 'auto' });
+  video.muted = box._muted !== false;
+  box._video = video;
+  box.prepend(video);
+  if (video.canPlayType('application/vnd.apple.mpegurl')) video.src = box._src;
+  else {
+    try {
+      const Hls = await loadHls();
+      if (box._video !== video) return;
+      if (Hls?.isSupported()) { box._hls = new Hls({ maxBufferLength: 10 }); box._hls.loadSource(box._src); box._hls.attachMedia(video); }
+      else video.src = box._src;
+    } catch { return; }
+  }
+  video.play().then(() => box.classList.add('playing')).catch(() => {});
+}
+
+function stopInline(box) {
+  if (!box._video) return;
+  box._hls?.destroy();
+  box._hls = null;
+  box._video.pause();
+  box._video.remove();
+  box._video = null;
+  box.classList.remove('playing');
+}
+
+function stopAllInline() {
+  document.querySelectorAll('.media.inline-video').forEach(stopInline);
+}
+
+function inlineVideo(v) {
+  const ar = Math.min(Math.max(v.aspect || 16 / 9, 0.8), 2.2);
+  const muteBtn = h('button', { class: 'vid-mute', 'aria-label': 'Son' }, svg(ICONS.muted, 18));
+  const box = h('div', { class: 'media inline-video', style: `aspect-ratio:${ar}` },
+    v.poster ? image(v.poster) : null,
+    muteBtn,
+  );
+  box._src = v.src;
+  muteBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    box._muted = box._muted === false;
+    if (box._video) { box._video.muted = box._muted; box._video.play().catch(() => {}); }
+    muteBtn.replaceChildren(svg(box._muted ? ICONS.muted : ICONS.sound, 18));
+  });
+  inlineObserver.observe(box);
+  return box;
+}
+
+/** Link card like X: image with the domain in a pill, or a compact card without image. */
+function linkCard(url, { title, description, thumb }) {
+  const dom = domainOf(url);
+  if (thumb) {
+    return h('a', { class: 'link-card', href: url, target: '_blank', rel: 'noopener' },
+      h('div', { class: 'media', style: 'aspect-ratio:1.91' }, image(thumb)),
+      h('span', { class: 'link-pill', text: title ? truncateText(title, 70) : dom }),
+      title ? h('div', { class: 'link-from', text: `De ${dom}` }) : null,
+    );
+  }
+  return h('a', { class: 'link-card compact', href: url, target: '_blank', rel: 'noopener' },
+    h('div', { class: 'link-from', text: dom }),
+    title ? h('div', { class: 'link-title', text: title }) : null,
+    description ? h('div', { class: 'link-desc', text: description }) : null,
+  );
+}
+
+function truncateText(s, n) { return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; }
+
+function quoteCard(q) {
+  return h('a', { class: 'quote', href: q.url, target: '_blank', rel: 'noopener' },
+    h('div', { class: 'quote-head' },
+      avatar(q.avatar, q.name),
+      h('span', { class: 'name', text: q.name }),
+      h('span', { class: 'handle', text: '@' + q.handle }),
+      q.publishedAt ? h('span', { class: 'dot', text: '·' }) : null,
+      q.publishedAt ? h('time', { class: 'time', datetime: q.publishedAt, text: relativeTime(q.publishedAt) }) : null,
+    ),
+    q.text ? h('div', { class: 'quote-text', text: q.text }) : null,
+    q.image ? h('div', { class: 'media', style: 'aspect-ratio:1.78' }, image(q.image)) : null,
+  );
+}
+
+function cardShell(entry, avatarNode, mainChildren, url) {
   return h('article', {
-    class: 'card' + (entry.kind === 'group' ? ' group' : ''),
+    class: 'tweet' + (entry.kind === 'group' ? ' group' : ''),
     dataset: { id: entry.id },
     onclick: (e) => {
       if (e.target.closest('a, button')) return;
       if (entry.kind === 'group') e.currentTarget.classList.toggle('open');
       else openUrl(url);
     },
-  }, ...children, more);
-}
-
-function head(src, item, { showHandle = false } = {}) {
-  return h('div', { class: 'card-head' },
-    h('span', { class: 'name', text: src.name }),
-    src.verified ? h('span', { class: 'verified' }, svg(ICONS.verified, 16)) : null,
-    showHandle && src.handle ? h('span', { class: 'handle', text: '@' + src.handle }) : null,
-    h('span', { class: 'dot', text: '·' }),
-    h('time', { class: 'time', datetime: item.publishedAt, text: relativeTime(item.publishedAt) }),
-  );
-}
-
-function topicTags(entry) {
-  const topics = topicsOf(entry);
-  if (!topics.length) return null;
-  return h('div', { class: 'tags' }, topics.map((t) => h('span', { class: 'tag', text: TOPIC_LABELS[t] || t })));
+  },
+  h('div', { class: 'tweet-avatar' }, avatarNode),
+  h('div', { class: 'tweet-main' }, ...mainChildren));
 }
 
 function articleCard(item) {
-  return cardShell(item, [
-    avatar(item.source.avatar, item.source.name, { square: true }),
-    h('div', { class: 'card-body' },
-      head(item.source, item),
-      h('div', { class: 'card-title', text: item.title }),
-      item.text ? h('p', { class: 'card-text dim', text: item.text }) : null,
-      item.image ? h('div', { class: 'media' }, image(item.image)) : null,
-      topicTags(item),
-    ),
+  const dom = domainOf(item.url);
+  return cardShell(item, avatar(item.source.avatar, item.source.name, { square: true }), [
+    tweetHead(item, { name: item.source.name, handle: dom, publishedAt: item.publishedAt }),
+    h('div', { class: 'tweet-text' }, item.title),
+    item.text ? h('div', { class: 'tweet-text dim' }, item.text) : null,
+    item.image ? linkCard(item.url, { thumb: item.image, title: '' }) : null,
+    actionBar(item),
   ], item.url);
 }
 
 function postCard(item) {
   let media = null;
-  if (item.video) {
-    media = h('div', { class: 'media video-badge' }, item.video.poster ? image(item.video.poster) : h('div', { style: 'height:200px' }));
-  } else if (item.images?.length) {
-    const imgs = item.images.slice(0, 4);
-    media = h('div', { class: 'media' + (imgs.length > 1 ? ' grid' : '') }, imgs.map((i) => image(i.thumb, i.alt)));
-  } else if (item.external?.url) {
-    media = h('a', { class: 'ext', href: item.external.url, target: '_blank', rel: 'noopener' },
-      item.external.thumb ? h('div', { class: 'ext-img' }, image(item.external.thumb)) : null,
-      h('div', { class: 'ext-body' },
-        h('div', { class: 'ext-domain', text: domainOf(item.external.url) }),
-        h('div', { class: 'ext-title', text: item.external.title }),
-      ),
-    );
-  }
-  return cardShell(item, [
-    avatar(item.source.avatar, item.source.name),
-    h('div', { class: 'card-body' },
-      head(item.source, item, { showHandle: true }),
-      item.text ? h('p', { class: 'card-text', text: item.text }) : null,
-      media,
-      topicTags(item),
-    ),
+  if (item.video?.type === 'hls') media = inlineVideo(item.video);
+  else if (item.images?.length) media = photoGrid(item.images);
+  else if (item.external?.url) media = linkCard(item.external.url, item.external);
+  return cardShell(item, avatar(item.source.avatar, item.source.name), [
+    tweetHead(item, { name: item.source.name, handle: item.source.handle ? '@' + item.source.handle : '', verified: item.source.verified, publishedAt: item.publishedAt }),
+    tweetText(item),
+    media,
+    item.quote ? quoteCard(item.quote) : null,
+    actionBar(item),
   ], item.url);
 }
 
@@ -218,28 +369,20 @@ function groupCard(entry) {
   const items = entry.items;
   const lead = items.find((i) => i.image) || items[0];
   const newest = items.reduce((a, b) => (Date.parse(a.publishedAt) > Date.parse(b.publishedAt) ? a : b));
-  return cardShell(entry, [
-    h('div', { class: 'stack' }, items.slice(0, 3).map((i) => avatar(i.source.avatar, i.source.name, { square: true }))),
-    h('div', { class: 'card-body' },
-      h('div', { class: 'group-label' },
-        `📰 ${items.length} médias en parlent`,
-        h('span', { class: 'dot', text: '·' }),
-        h('time', { class: 'time', text: relativeTime(newest.publishedAt) }),
-      ),
-      h('div', { class: 'card-title', text: lead.title }),
-      lead.text ? h('p', { class: 'card-text dim', text: lead.text }) : null,
-      lead.image ? h('div', { class: 'media' }, image(lead.image)) : null,
-      h('div', { class: 'group-list' }, items.map((i) =>
-        h('a', { class: 'group-item', href: i.url, target: '_blank', rel: 'noopener' },
-          avatar(i.source.avatar, i.source.name, { square: true }),
-          h('div', {},
-            h('div', { class: 'gi-src', text: `${i.source.name} · ${relativeTime(i.publishedAt)}` }),
-            h('div', { text: i.title }),
-          ),
-        ))),
-      h('div', { class: 'group-toggle', text: `Voir les ${items.length} articles` }),
-      topicTags(entry),
-    ),
+  return cardShell(entry, h('div', { class: 'stack' }, items.slice(0, 3).map((i) => avatar(i.source.avatar, i.source.name, { square: true }))), [
+    tweetHead(entry, { name: `${items.length} médias en parlent`, publishedAt: newest.publishedAt }),
+    h('div', { class: 'tweet-text' }, lead.title),
+    lead.text ? h('div', { class: 'tweet-text dim' }, lead.text) : null,
+    lead.image ? h('div', { class: 'media', style: 'aspect-ratio:1.91' }, image(lead.image)) : null,
+    h('div', { class: 'group-list' }, items.map((i) =>
+      h('a', { class: 'group-item', href: i.url, target: '_blank', rel: 'noopener' },
+        avatar(i.source.avatar, i.source.name, { square: true }),
+        h('div', {},
+          h('div', { class: 'gi-src', text: `${i.source.name} · ${relativeTime(i.publishedAt)}` }),
+          h('div', { text: i.title }),
+        ),
+      ))),
+    h('div', { class: 'group-toggle', text: `Voir les ${items.length} articles` }),
   ]);
 }
 
@@ -339,7 +482,7 @@ $('#sheet-less').addEventListener('click', () => {
   savePrefs();
   toast('Compris, tu en verras moins.');
   if (state.view === 'actus') {
-    const card = document.querySelector(`.card[data-id="${CSS.escape(entry.id)}"]`);
+    const card = document.querySelector(`.tweet[data-id="${CSS.escape(entry.id)}"]`);
     state.actus.ranked = state.actus.ranked.filter((e) => e.id !== entry.id);
     state.actus.rendered = Math.max(0, state.actus.rendered - 1);
     if (card) { card.classList.add('removing'); setTimeout(() => card.remove(), 250); }
@@ -544,6 +687,7 @@ function switchView(view) {
   document.body.classList.toggle('videos-mode', view === 'videos');
   $('#title').textContent = view === 'actus' ? 'Actus' : 'Vidéos';
   if (view === 'videos') {
+    stopAllInline();
     if (!state.reels.built) buildReels();
     const first = [...$('#videos-list').children].find((el) => {
       const r = el.getBoundingClientRect();

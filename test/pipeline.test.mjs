@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import { parseFeed, discoverFeeds, entryToArticle } from '../scripts/lib/rss.mjs';
 import { compileTopics, matchKeywords, groupDuplicates } from '../scripts/lib/score.mjs';
 import { extractChannelInfo } from '../scripts/lib/youtube.mjs';
-import { postToItem } from '../scripts/lib/bluesky.mjs';
+import { postToItem, textSegments } from '../scripts/lib/bluesky.mjs';
 import { stripHtml, normalize } from '../scripts/lib/text.mjs';
 import { rank, applyLess, itemScore, emptyPrefs, relativeTime, diversify } from '../public/rank.js';
 
@@ -154,4 +154,20 @@ test('diversify avoids the same source back to back', () => {
   const out = diversify([e(1, 'a'), e(2, 'a'), e(3, 'a'), e(4, 'b'), e(5, 'c')]);
   for (let i = 1; i < 3; i++) assert.notEqual(out[i].source.id, out[i - 1].source.id);
   assert.equal(out.length, 5);
+});
+
+test('Bluesky facets become link segments (UTF-8 byte offsets)', () => {
+  const text = 'Grève ! voir lemonde.fr/x… #manif';
+  const b = (sub) => Buffer.byteLength(text.slice(0, text.indexOf(sub)), 'utf8');
+  const segs = textSegments({
+    text,
+    facets: [
+      { index: { byteStart: b('lemonde'), byteEnd: b(' #manif') }, features: [{ $type: 'app.bsky.richtext.facet#link', uri: 'https://lemonde.fr/x/long' }] },
+      { index: { byteStart: b('#manif'), byteEnd: Buffer.byteLength(text) }, features: [{ $type: 'app.bsky.richtext.facet#tag', tag: 'manif' }] },
+    ],
+  });
+  assert.equal(segs.map((s) => s.t).join(''), text);
+  assert.equal(segs[1].t, 'lemonde.fr/x…');
+  assert.equal(segs[1].href, 'https://lemonde.fr/x/long');
+  assert.equal(segs[3].href, 'https://bsky.app/hashtag/manif');
 });
