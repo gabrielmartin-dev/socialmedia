@@ -51,6 +51,15 @@ Barre d'onglets en bas, deux onglets :
 - **Stockage :** les abonnements sont enregistrés sur le téléphone. Un compte Bluesky trouvé par la recherche est récupéré directement par l'app, sans passer par GitHub.
 - **Exception :** les vidéos d'internautes trouvées par hashtag restent toujours visibles.
 
+### 2.6 Pages de profil
+- **Ouverture :** on touche l'avatar ou le nom d'un post, l'auteur d'une vidéo, ou un compte dans Découvrir.
+- **Contenu :**
+  - bannière (Bluesky), avatar, nom, handle, bio et lien du site ;
+  - bouton **Suivre / Abonné** ;
+  - posts dans l'ordre **chronologique**, sans compteurs ni éléments sociaux.
+- **Source des posts :** les données collectées, et pour Bluesky la timeline complète récupérée en direct par l'API publique.
+- **Retour :** bouton ← ou geste retour du téléphone, qui ramène au feed à la même position.
+
 ## 3. Sources
 
 Toutes les sources sont déclarées dans `config/sources.json`. Les identifiants exacts (URL de flux RSS, handles Bluesky, ID de chaînes YouTube) sont vérifiés au moment du développement. Une source introuvable est retirée et signalée.
