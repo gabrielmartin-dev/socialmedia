@@ -71,7 +71,7 @@ Mediapart est payant : le flux ne fournit que le titre et le chapô. Le clic ouv
 
 ### 3.2 Bluesky — personnalités → Actus
 - **LFI** : Jean-Luc Mélenchon, Mathilde Panot, Manuel Bompard, Clémence Guetté, Éric Coquerel, Manon Aubry, Louis Boyard, Rima Hassan, Antoine Léaument, Thomas Portes.
-- **Journalistes** : Edwy Plenel, David Dufresne, Rémy Buisine, Clément Lanot.
+- **Journalistes** : David Dufresne, Rémy Buisine, Clément Lanot.
 - Les posts de ces comptes qui contiennent une vidéo vont **aussi** dans le feed Vidéos.
 
 ### 3.3 Vidéos d'internautes (recherche Bluesky) → Vidéos
