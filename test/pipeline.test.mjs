@@ -6,7 +6,7 @@ import { compileTopics, matchKeywords, groupDuplicates } from '../scripts/lib/sc
 import { extractChannelInfo } from '../scripts/lib/youtube.mjs';
 import { postToItem, textSegments } from '../scripts/lib/bluesky.mjs';
 import { stripHtml, normalize } from '../scripts/lib/text.mjs';
-import { rank, applyLess, itemScore, emptyPrefs, relativeTime, diversify } from '../public/rank.js';
+import { rank, applyLess, itemScore, emptyPrefs, relativeTime, diversify, seenCount } from '../public/rank.js';
 
 const topics = JSON.parse(await fs.readFile(new URL('../config/topics.json', import.meta.url), 'utf8'));
 const matchers = compileTopics(topics);
@@ -139,7 +139,9 @@ test('"pour toi" mode: order changes between refreshes but favours high scores',
     if (r.slice(0, 3).some((e) => e.id === 'i0')) topFirst++;
   }
   assert.ok(orders.size > 150, 'orders should vary');
-  assert.ok(topFirst > 90, `high-score item should usually be near the top (${topFirst}/200)`);
+  // Uniform chance of being in the top 3 of 20 is 15% (30/200): it must clearly beat that,
+  // without dominating every refresh.
+  assert.ok(topFirst > 45 && topFirst < 160, `high-score item should often, not always, be near the top (${topFirst}/200)`);
 });
 
 test('seen items are pushed down', () => {
@@ -170,4 +172,30 @@ test('Bluesky facets become link segments (UTF-8 byte offsets)', () => {
   assert.equal(segs[1].t, 'lemonde.fr/x…');
   assert.equal(segs[1].href, 'https://lemonde.fr/x/long');
   assert.equal(segs[3].href, 'https://bsky.app/hashtag/manif');
+});
+
+test('repeated impressions push items further down; groups count member impressions', () => {
+  const now = Date.parse('2026-11-09T12:00:00Z');
+  const mk = (id, w) => ({ id, source: { id }, keywords: w ? [{ k: 'grev', w, t: 'social' }] : [], publishedAt: new Date(now).toISOString() });
+  const hot = mk('hot', 6);
+  const plain = mk('plain', 0);
+  // Unseen, the hot post wins; once seen, an unseen plain post goes above it.
+  assert.deepEqual(rank([plain, hot], { now }).map((e) => e.id), ['hot', 'plain']);
+  assert.deepEqual(rank([plain, hot], { now, seen: new Map([['hot', 1]]) }).map((e) => e.id), ['plain', 'hot']);
+  // Each extra impression pushes it further.
+  const s1 = rank([hot], { now, seen: new Map([['hot', 1]]) });
+  assert.ok(s1.length === 1);
+  const group = { kind: 'group', id: 'g-new', items: [mk('a1', 0), mk('a2', 0)] };
+  assert.equal(seenCount(group, new Map([['a2', 2]])), 2);
+});
+
+test('posts published since the last visit get a boost', () => {
+  const now = Date.parse('2026-11-09T12:00:00Z');
+  const mk = (id, minAgo, w) => ({ id, source: { id }, keywords: w ? [{ k: 'grev', w, t: 'social' }] : [], publishedAt: new Date(now - minAgo * 60e3).toISOString() });
+  const lastVisit = now - 30 * 60e3;
+  // 'old' has a topic and would win; 'new' was published after the last visit.
+  const old = mk('old', 35, 1);
+  const fresh = mk('new', 25, 0);
+  assert.equal(rank([fresh, old], { now, halfLife: 10 })[0].id, 'old');
+  assert.equal(rank([fresh, old], { now, halfLife: 10, lastVisit })[0].id, 'new');
 });

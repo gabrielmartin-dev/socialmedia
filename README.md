@@ -54,7 +54,7 @@ TikTok passe par [RSSHub](https://docs.rsshub.app/). L'instance publique bloque 
   - Un compte Bluesky sans `handle` est recherché par son nom exact, en privilégiant les comptes vérifiés. Le compte trouvé est indiqué dans `data/status.json`. Si ce n'est pas le bon, fixe le `handle` à la main.
 - **`config/topics.json`** : mots-clés et poids des sujets, demi-vie de la fraîcheur, seuil de regroupement des doublons.
 
-**Calcul du score :** `(1 + score_sujet) × poids_source × 0.5^(âge / demi-vie) × engagement × déjà_vu`. La timeline n'est pas chronologique : comme sur X, elle est retirée au sort en fonction du score à chaque refresh. Les posts déjà vus redescendent, et un même compte n'apparaît pas deux fois de suite.
+**Calcul du score :** `√(1 + score_sujet) × poids_source × 0.5^(âge / demi-vie) × engagement × déjà_vu × nouveau`. La timeline n'est pas chronologique : comme sur X, elle est retirée au sort en fonction du score à chaque refresh. Les posts déjà vus redescendent un peu plus à chaque affichage, ceux publiés depuis ta dernière visite remontent, et un même compte n'apparaît pas deux fois de suite.
 
 **Bouton « moins de ça »** (menu ⋯ sur une carte) : il divise le poids de la source par deux et multiplie celui des mots-clés du post par 0,7. Ces réglages sont enregistrés sur le téléphone et se réinitialisent depuis le bas du feed.
 
