@@ -128,6 +128,106 @@
       "name": "lundimatin",
       "site": "https://lundi.am",
       "suggested": true
+    },
+    {
+      "id": "disclose",
+      "name": "Disclose",
+      "site": "https://disclose.ngo",
+      "_comment": "ONG de journalisme d’investigation, financée par les dons."
+    },
+    {
+      "id": "afpfactuel",
+      "name": "AFP Factuel",
+      "site": "https://factuel.afp.com",
+      "_comment": "Fact-checking de l’AFP."
+    },
+    {
+      "id": "decodeurs",
+      "name": "Les Décodeurs (Le Monde)",
+      "site": "https://www.lemonde.fr/les-decodeurs/",
+      "feed": "https://www.lemonde.fr/les-decodeurs/rss_full.xml",
+      "_comment": "Fact-checking du Monde."
+    },
+    {
+      "id": "lemonde",
+      "name": "Le Monde",
+      "site": "https://www.lemonde.fr",
+      "feed": "https://www.lemonde.fr/rss/une.xml"
+    },
+    {
+      "id": "franceinfo",
+      "name": "franceinfo",
+      "site": "https://www.francetvinfo.fr",
+      "feed": "https://www.francetvinfo.fr/titres.rss"
+    },
+    {
+      "id": "humanite",
+      "name": "L’Humanité",
+      "site": "https://www.humanite.fr"
+    },
+    {
+      "id": "acrimed",
+      "name": "Acrimed",
+      "site": "https://www.acrimed.org",
+      "feed": "https://www.acrimed.org/spip.php?page=backend",
+      "_comment": "Observatoire critique des médias."
+    },
+    {
+      "id": "surligneurs",
+      "name": "Les Surligneurs",
+      "site": "https://www.lessurligneurs.eu",
+      "_comment": "Juristes qui vérifient les propos politiques sur le plan du droit."
+    },
+    {
+      "id": "inegalites",
+      "name": "Observatoire des inégalités",
+      "site": "https://www.inegalites.fr"
+    },
+    {
+      "id": "mediacites",
+      "name": "Mediacités",
+      "site": "https://www.mediacites.fr",
+      "_comment": "Investigation locale (Lille, Lyon, Nantes, Toulouse)."
+    },
+    {
+      "id": "blast-site",
+      "name": "Blast (articles)",
+      "site": "https://www.blast-info.fr"
+    },
+    {
+      "id": "offinvestigation",
+      "name": "Off Investigation",
+      "site": "https://www.off-investigation.fr"
+    },
+    {
+      "id": "orientxxi",
+      "name": "Orient XXI",
+      "site": "https://orientxxi.info",
+      "feed": "https://orientxxi.info/?page=backend"
+    },
+    {
+      "id": "afriquexxi",
+      "name": "Afrique XXI",
+      "site": "https://afriquexxi.info",
+      "feed": "https://afriquexxi.info/?page=backend"
+    },
+    {
+      "id": "courrierintl",
+      "name": "Courrier international",
+      "site": "https://www.courrierinternational.com"
+    },
+    {
+      "id": "vert",
+      "name": "Vert",
+      "site": "https://vert.eco",
+      "_comment": "Média climat."
+    },
+    {
+      "id": "bonpote",
+      "name": "Bon Pote",
+      "site": "https://bonpote.com",
+      "feed": "https://bonpote.com/feed/",
+      "_comment": "Climat, vulgarisation sourcée."
     }
   ],
   "tech": [
@@ -279,6 +379,66 @@
       "site": "https://korben.info",
       "feed": "https://korben.info/feed",
       "suggested": true
+    },
+    {
+      "id": "lemonde-pixels",
+      "name": "Pixels (Le Monde)",
+      "site": "https://www.lemonde.fr/pixels/",
+      "feed": "https://www.lemonde.fr/pixels/rss_full.xml"
+    },
+    {
+      "id": "lqdn",
+      "name": "La Quadrature du Net",
+      "site": "https://www.laquadrature.net",
+      "feed": "https://www.laquadrature.net/feed/"
+    },
+    {
+      "id": "eff",
+      "name": "EFF",
+      "site": "https://www.eff.org",
+      "feed": "https://www.eff.org/rss/updates.xml"
+    },
+    {
+      "id": "lwn",
+      "name": "LWN.net",
+      "site": "https://lwn.net",
+      "feed": "https://lwn.net/headlines/newrss"
+    },
+    {
+      "id": "thedecoder",
+      "name": "The Decoder",
+      "site": "https://the-decoder.com",
+      "feed": "https://the-decoder.com/feed/"
+    },
+    {
+      "id": "importai",
+      "name": "Import AI",
+      "site": "https://jack-clark.net",
+      "feed": "https://jack-clark.net/feed/"
+    },
+    {
+      "id": "interconnects",
+      "name": "Interconnects",
+      "site": "https://www.interconnects.ai",
+      "feed": "https://www.interconnects.ai/feed"
+    },
+    {
+      "id": "pragmatic",
+      "name": "The Pragmatic Engineer",
+      "site": "https://newsletter.pragmaticengineer.com",
+      "feed": "https://newsletter.pragmaticengineer.com/feed"
+    },
+    {
+      "id": "cloudflare",
+      "name": "Cloudflare Blog",
+      "site": "https://blog.cloudflare.com",
+      "feed": "https://blog.cloudflare.com/rss/"
+    },
+    {
+      "id": "lobsters",
+      "name": "Lobsters",
+      "site": "https://lobste.rs",
+      "feed": "https://lobste.rs/rss"
     }
   ],
   "bluesky": {
