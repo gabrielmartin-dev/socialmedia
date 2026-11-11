@@ -51,6 +51,35 @@ function tweetText(item) {
   return el;
 }
 
+/**
+ * An article's description, clamped to 4 lines. When it is cut, « Voir plus » appears and
+ * tapping the description unfolds it in place (instead of opening the article).
+ */
+const clampWatch = typeof ResizeObserver === 'function'
+  ? new ResizeObserver((list) => {
+    for (const { target } of list) {
+      const wrap = target.parentElement;
+      if (wrap && !wrap.classList.contains('expanded')) wrap.classList.toggle('clamped', target.scrollHeight > target.clientHeight + 1);
+    }
+  })
+  : null;
+
+function dimText(text) {
+  const expand = (e) => {
+    if (!wrap.classList.contains('clamped')) return; // fully visible: the tap opens the card as usual
+    e.stopPropagation();
+    wrap.classList.remove('clamped');
+    wrap.classList.add('expanded');
+    clampWatch?.unobserve(body);
+  };
+  const body = h('div', { class: 'tweet-text dim' }, text);
+  const wrap = h('div', { class: 'dim-wrap', onclick: expand }, body,
+    h('button', { class: 'see-more dim-more', type: 'button', text: 'Voir plus', onclick: expand }));
+  // The observer measures the text box once it is laid out and flags the wrapper when it is cut.
+  clampWatch?.observe(body);
+  return wrap;
+}
+
 function tweetHead(entry, { name, handle, publishedAt, url }) {
   const toProfile = entry.kind !== 'group' && entry.source
     ? (e) => { e.stopPropagation(); actions.openProfile(entry.source); }
@@ -249,7 +278,7 @@ function articleCard(item) {
   return cardShell(item, avatar(item.source.avatar, item.source.name, { square: true }), [
     tweetHead(item, { name: item.source.name, handle: dom, publishedAt: item.publishedAt, url: item.url }),
     h('div', { class: 'tweet-text title' }, item.title),
-    item.text ? h('div', { class: 'tweet-text dim' }, item.text) : null,
+    item.text ? dimText(item.text) : null,
     item.image ? linkCard(item.url, { thumb: item.image, title: '' }) : null,
     badgeRow(item),
   ], item.url);
@@ -292,7 +321,7 @@ function groupCard(entry) {
   return cardShell(entry, h('div', { class: 'stack' }, items.slice(0, 3).map((i) => avatar(i.source.avatar, i.source.name, { square: true }))), [
     tweetHead(entry, { name: `${items.length} médias en parlent`, publishedAt: newest.publishedAt }),
     h('div', { class: 'tweet-text' }, lead.title),
-    lead.text ? h('div', { class: 'tweet-text dim' }, lead.text) : null,
+    lead.text ? dimText(lead.text) : null,
     lead.image ? h('div', { class: 'media', style: 'aspect-ratio:1.91' }, image(lead.image, lead.title, { url: lead.url })) : null,
     badgeRow(entry),
     h('div', { class: 'group-names', text: outletNames(items) }),

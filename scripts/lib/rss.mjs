@@ -197,7 +197,7 @@ export function entryToArticle(entry, source) {
       // Optional flags of config/sources.json: « Abonnés » label, and « EN » for a source that is not in French.
       ...(source.paywall ? { paywall: true } : {}), ...(source.lang && source.lang !== 'fr' ? { lang: source.lang } : {}) },
     title: truncate(entry.title, 220),
-    text: truncate(entry.text && entry.text !== entry.title ? entry.text : '', 280),
+    text: truncate(entry.text && entry.text !== entry.title ? entry.text : '', 1200),
     url,
     image: safeUrl(entry.image, url),
     publishedAt: entry.publishedAt,
