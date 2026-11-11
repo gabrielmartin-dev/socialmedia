@@ -4,10 +4,22 @@ import { relativeTime } from '../rank.js';
 import { $, toast } from './dom.js';
 import { state, FEED_KEYS } from './store.js';
 import { loadData, loadLive } from './live.js';
+import { renderStatusBar, clearPending } from './fresh.js';
 import { renderAllFeeds } from './feed.js';
 import { buildReels } from './reels.js';
 
 let refreshing = false;
+
+/** Re-renders every feed from state.data and goes back to the top. */
+export function showLoaded() {
+  window.scrollTo({ top: 0 });
+  FEED_KEYS.forEach((k) => { state.feeds[k].scroll = 0; });
+  renderAllFeeds();
+  state.reels.built = false;
+  if (state.view === 'videos') buildReels();
+  renderStatusBar();
+  loadLive(); // background: live posts are merged as they arrive
+}
 
 export async function refresh() {
   if (refreshing) return;
@@ -19,12 +31,8 @@ export async function refresh() {
   ptr.style.height = '56px';
   const before = state.data.actus?.generatedAt;
   await loadData();
-  window.scrollTo({ top: 0 });
-  FEED_KEYS.forEach((k) => { state.feeds[k].scroll = 0; });
-  renderAllFeeds();
-  state.reels.built = false;
-  if (state.view === 'videos') buildReels();
-  loadLive(); // background: live posts are merged as they arrive
+  clearPending();
+  showLoaded();
   btn.classList.remove('spinning');
   ptr.classList.remove('loading');
   ptr.style.height = '0';
@@ -63,5 +71,6 @@ export function initRefresh() {
   // Keep relative times fresh.
   setInterval(() => {
     document.querySelectorAll('time[datetime]').forEach((t) => { t.textContent = relativeTime(t.getAttribute('datetime')); });
+    renderStatusBar();
   }, 60_000);
 }

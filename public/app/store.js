@@ -1,7 +1,8 @@
 // Application state, persisted preferences, follows and "seen" tracking.
 
 import { emptyPrefs } from '../rank.js';
-import { createSeenTracker } from '../seen.js';
+import { createSeenTracker, pruneOpened } from '../seen.js';
+import { actions } from './actions.js';
 
 // ---------- Storage (never throws) ----------
 export const store = {
@@ -40,7 +41,17 @@ export const state = {
   },
   reels: { ranked: [], rendered: 0, active: null, built: false },
   muted: true,
+  // Articles opened in this browser (id → timestamp): their title is dimmed.
+  opened: pruneOpened(store.get('opened', {})),
 };
+
+export const isOpened = (id) => id in state.opened;
+export function markOpened(id) {
+  if (!id || isOpened(id)) return;
+  state.opened[id] = Date.now();
+  state.opened = pruneOpened(state.opened);
+  store.set('opened', state.opened);
+}
 
 export function saveFollows() {
   const f = state.follows;
@@ -109,7 +120,11 @@ export function initStore() {
   let hiddenAt = 0;
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { hiddenAt = Date.now(); store.set('lastVisit', Date.now()); seenTracker.flush(); }
-    else if (hiddenAt && Date.now() - hiddenAt > 10 * 60e3) { state.lastVisit = hiddenAt; seenTracker.newSession(); }
+    else if (hiddenAt && Date.now() - hiddenAt > 10 * 60e3) {
+      state.lastVisit = hiddenAt;
+      seenTracker.newSession();
+      actions.afterLongAbsence(); // re-check the data in the background
+    }
   });
   window.addEventListener('pagehide', () => { store.set('lastVisit', Date.now()); seenTracker.flush(); });
 }

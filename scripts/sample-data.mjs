@@ -14,6 +14,7 @@ import { topicsForClient } from './lib/client-config.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const topicsCfg = JSON.parse(await fs.readFile(path.join(ROOT, 'config/topics.json'), 'utf8'));
 const matchers = compileTopics(topicsCfg);
+const techMatchers = compileTopics(topicsCfg, 'tech');
 
 const ago = (min) => new Date(Date.now() - min * 60e3).toISOString();
 // Demo images are written as SVG files (the app only accepts http(s)/same-origin URLs, not data: URIs).
@@ -81,15 +82,26 @@ const videos = [
   publishedAt: ago(min),
 }));
 
+const T1 = src('demo-t1', 'Média tech A'), T2 = src('demo-t2', 'Média tech B');
+const techArticles = [
+  [T1, 'OpenAI présente un nouveau modèle d’intelligence artificielle pour la programmation', 'Le modèle agent code et déploie seul.', 35, 220],
+  [T2, 'GitHub ouvre son nouvel éditeur : Rust et TypeScript au programme', 'Une bêta pour les développeurs.', 95, 150],
+  [T1, 'Un laboratoire publie un benchmark sur les LLM et la sécurité', '', 240, 40],
+].map(([s, title, text, min, hue], i) => ({
+  id: 'demo-t' + i, kind: 'article', platform: 'rss', source: s, title, text,
+  url: 'https://example.org/tech/' + i, image: i === 0 ? pic(hue, 'image tech') : null, publishedAt: ago(min),
+}));
+
 const generatedAt = new Date().toISOString();
 const out = path.join(ROOT, 'public', 'data');
 await fs.mkdir(out, { recursive: true });
 const actus = [...articles, ...posts].map((i) => annotate(i, matchers));
 await fs.writeFile(path.join(out, 'actus.json'), JSON.stringify(packFeed({ generatedAt, scoreCap: topicsCfg.scoreCap, halfLifeHours: topicsCfg.halfLifeHours.actus, entries: groupDuplicates(actus, topicsCfg.dedup) })));
+await fs.writeFile(path.join(out, 'tech.json'), JSON.stringify(packFeed({ generatedAt, scoreCap: topicsCfg.scoreCap, halfLifeHours: topicsCfg.halfLifeHours.tech ?? 24, entries: techArticles.map((i) => annotate(i, techMatchers)) })));
 await fs.writeFile(path.join(out, 'videos.json'), JSON.stringify(packFeed({ generatedAt, scoreCap: topicsCfg.scoreCap, halfLifeHours: topicsCfg.halfLifeHours.videos, entries: videos.map((i) => annotate(i, matchers)) })));
 const accounts = [A, B, C, D, E].map((x) => ({ id: x.id, name: x.name, avatar: null, kind: 'media', feed: 'actus', url: 'https://example.org', handle: 'example.org', description: 'Média fictif pour la démo.', suggested: !!x.suggested, category: 'Médias', lastTitle: 'Dernier article fictif', lastAt: ago(30) }));
 accounts.push({ id: 'bsky:suggere.example', name: 'Personnalité suggérée', avatar: null, kind: 'bluesky', feed: 'actus', url: 'https://bsky.app', handle: '@suggere.example', description: 'Compte Bluesky fictif suggéré.', suggested: true, category: 'Personnalités', lastTitle: '', lastAt: null });
 await fs.writeFile(path.join(out, 'accounts.json'), JSON.stringify({ generatedAt, accounts }));
 await fs.writeFile(path.join(out, 'topics.json'), JSON.stringify(topicsForClient(topicsCfg, {})));
-await fs.writeFile(path.join(out, 'status.json'), JSON.stringify({ generatedAt, sources: [{ type: 'demo', name: 'Données fictives', ok: true, count: actus.length + videos.length }] }, null, 1));
+await fs.writeFile(path.join(out, 'status.json'), JSON.stringify({ generatedAt, sources: [{ type: 'demo', name: 'Données fictives', ok: true, count: actus.length + videos.length }, { type: 'rss', name: 'Média fictif en panne', ok: false, error: 'HTTP 503' }, { type: 'youtube', name: 'Chaîne fictive en panne', ok: false, error: 'Flux vide' }] }, null, 1));
 console.log('Données de démo écrites dans public/data/');

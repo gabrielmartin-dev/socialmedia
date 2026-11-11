@@ -48,3 +48,13 @@ export function createSeenTracker({ load, save, now = Date.now, delay = 1000, se
     get data() { return seen; },
   };
 }
+
+const OPENED_TTL = 30 * 86400e3;
+const OPENED_MAX = 500;
+
+/** "Opened articles" map (id → timestamp): drops entries older than 30 days, keeps the newest 500. */
+export function pruneOpened(map, now = Date.now()) {
+  const kept = Object.entries(map || {}).filter(([, t]) => Number.isFinite(t) && t > now - OPENED_TTL);
+  kept.sort((a, b) => b[1] - a[1]);
+  return Object.fromEntries(kept.slice(0, OPENED_MAX));
+}

@@ -6,13 +6,19 @@ import { renderFeed } from './feed.js';
 import { renderDiscover } from './discover.js';
 import { buildReels, activateReel, deactivateReel } from './reels.js';
 import { stopAllInline } from './cards.js';
+import { refresh } from './refresh.js';
+import { updatePill } from './fresh.js';
 
 const TITLES = { actus: 'Actus', tech: 'Tech', videos: 'Vidéos', discover: 'Découvrir' };
 
 export function switchView(view) {
   if (view === state.view) {
-    // Tap on the active tab: scroll back to top.
-    if (view === 'videos') $('#videos-list').scrollTo({ top: 0, behavior: scrollBehavior() });
+    // Tap on the active tab: scroll back to top; tapped again once at the top, refresh
+    // (the only refresh gesture of the Vidéos tab, which has no pull-to-refresh).
+    if (view === 'discover') { window.scrollTo({ top: 0, behavior: scrollBehavior() }); return; }
+    const top = view === 'videos' ? $('#videos-list').scrollTop : window.scrollY;
+    if (top <= 8) refresh();
+    else if (view === 'videos') $('#videos-list').scrollTo({ top: 0, behavior: scrollBehavior() });
     else window.scrollTo({ top: 0, behavior: scrollBehavior() });
     return;
   }
@@ -28,6 +34,7 @@ export function switchView(view) {
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${view}`));
   document.body.classList.toggle('videos-mode', view === 'videos');
   $('#title').textContent = TITLES[view];
+  updatePill();
   if (view === 'videos') {
     stopAllInline();
     if (!state.reels.built) buildReels();

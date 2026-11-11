@@ -60,6 +60,14 @@ Barre d'onglets en bas, deux onglets :
 - **Source des posts :** les données collectées, et pour Bluesky la timeline complète récupérée en direct par l'API publique.
 - **Retour :** bouton ← ou geste retour du téléphone, qui ramène au feed à la même position.
 
+### 2.7 Fraîcheur et repères
+- **Sous-titre de la barre du haut :** « à jour il y a 12 min » (en orange au-delà de 2 h), « hors ligne » le cas échéant, et « N sources indisponibles » : un tap liste les sources en panne (nom, type, erreur) d'après `status.json`.
+- **Retour au premier plan :** après plus de 10 min d'absence, l'app revérifie les données en arrière-plan. S'il y a du nouveau, une pastille « Nouveaux posts ↑ » apparaît en haut du fil ; au tap, le fil est rechargé et remonte. Le fil affiché n'est jamais remplacé sans ce geste.
+- **Fin de liste :** « Tu es à jour » en bas d'Actus et de Tech ; « Tu as tout vu » (avec « Rafraîchir ») après la dernière vidéo.
+- **Articles ouverts :** le titre d'un article déjà ouvert est atténué (mémorisé sur le téléphone 30 jours, 500 articles au plus).
+- **États vides :** chacun propose une action : « Rafraîchir », ou « Découvrir des comptes » quand plus aucun compte n'est suivi.
+- **Rafraîchir Vidéos :** retoucher l'onglet actif quand on est déjà en haut rafraîchit (comme le tirer-pour-rafraîchir d'Actus et Tech, qui ne s'applique pas au défilement plein écran).
+
 ## 3. Sources
 
 Toutes les sources sont déclarées dans `config/sources.json`. Les identifiants exacts (URL de flux RSS, handles Bluesky, ID de chaînes YouTube) sont vérifiés au moment du développement. Une source introuvable est retirée et signalée.

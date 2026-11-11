@@ -9,4 +9,9 @@ export const actions = {
   openSheet: unset('openSheet'),
   /** Called after a follow / unfollow, to refresh the screens that show it. */
   afterFollow: () => {},
+  /** Switch tab / refresh the feeds (used by the empty-state buttons). */
+  switchView: unset('switchView'),
+  refresh: unset('refresh'),
+  /** Called when the app comes back after a long absence. */
+  afterLongAbsence: () => {},
 };

@@ -3,7 +3,7 @@
 import { h, svg, ICONS, openUrl } from './dom.js';
 import { avatar, image } from './media.js';
 import { loadHls } from './hls.js';
-import { state } from './store.js';
+import { state, isOpened, markOpened } from './store.js';
 import { actions } from './actions.js';
 import { clampAspect, truncateText, domainOf } from './util.js';
 import { relativeTime } from '../rank.js';
@@ -170,12 +170,31 @@ function quoteCard(q) {
   );
 }
 
+/** Remembers that an article was opened (its title is dimmed from now on). */
+function openedArticle(card, id) {
+  markOpened(id);
+  if (card.dataset.id === id) card.classList.add('opened'); // a group only dims the article that was opened
+  card.querySelector(`[data-open-id="${CSS.escape(id)}"]`)?.classList.add('opened');
+}
+
 function cardShell(entry, avatarNode, mainChildren, url) {
+  const opened = entry.kind === 'article' && isOpened(entry.id);
   return h('article', {
-    class: 'tweet' + (entry.kind === 'group' ? ' group' : ''),
+    class: 'tweet' + (entry.kind === 'group' ? ' group' : '') + (opened ? ' opened' : ''),
     dataset: { id: entry.id },
     onclick: (e) => {
-      if (e.target.closest('a, button')) return;
+      const link = e.target.closest('a');
+      if (link) {
+        // The permalink, the image card and the articles of a group count as "opened"
+        // (a hashtag or a @mention inside the text does not).
+        if (link.matches('.time-link, .link-card, .group-item')) {
+          const id = link.dataset.openId || (entry.kind === 'article' ? entry.id : null);
+          if (id) openedArticle(e.currentTarget, id);
+        }
+        return;
+      }
+      if (e.target.closest('button')) return;
+      if (entry.kind === 'article') openedArticle(e.currentTarget, entry.id);
       if (entry.kind === 'group') {
         const open = e.currentTarget.classList.toggle('open');
         e.currentTarget.querySelector('.group-toggle')?.setAttribute('aria-expanded', String(open));
@@ -195,7 +214,7 @@ function articleCard(item) {
   const dom = domainOf(item.url);
   return cardShell(item, avatar(item.source.avatar, item.source.name, { square: true }), [
     tweetHead(item, { name: item.source.name, handle: dom, publishedAt: item.publishedAt, url: item.url }),
-    h('div', { class: 'tweet-text' }, item.title),
+    h('div', { class: 'tweet-text title' }, item.title),
     item.text ? h('div', { class: 'tweet-text dim' }, item.text) : null,
     item.image ? linkCard(item.url, { thumb: item.image, title: '' }) : null,
   ], item.url);
@@ -228,7 +247,7 @@ function groupCard(entry) {
     lead.text ? h('div', { class: 'tweet-text dim' }, lead.text) : null,
     lead.image ? h('div', { class: 'media', style: 'aspect-ratio:1.91' }, image(lead.image, lead.title, { url: lead.url })) : null,
     h('div', { class: 'group-list' }, items.map((i) =>
-      h('a', { class: 'group-item', href: i.url, target: '_blank', rel: 'noopener' },
+      h('a', { class: 'group-item' + (isOpened(i.id) ? ' opened' : ''), href: i.url, target: '_blank', rel: 'noopener', dataset: { openId: i.id } },
         avatar(i.source.avatar, i.source.name, { square: true }),
         h('div', {},
           h('div', { class: 'gi-src', text: `${i.source.name} · ${relativeTime(i.publishedAt)}` }),

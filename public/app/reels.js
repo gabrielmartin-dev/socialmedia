@@ -2,7 +2,7 @@
 
 import { rank, relativeTime } from '../rank.js';
 import { safeUrl } from '../url.js';
-import { $, h, svg, ICONS, toast } from './dom.js';
+import { $, h, svg, ICONS, toast, scrollBehavior } from './dom.js';
 import { avatar } from './media.js';
 import { makeButton } from './focus.js';
 import { loadHls } from './hls.js';
@@ -67,15 +67,26 @@ export function buildReels() {
   state.reels.built = true;
   if (!state.reels.ranked.length) {
     list.append(h('div', { class: 'reel' }, h('div', { class: 'empty' },
-      h('strong', { text: 'Pas de vidéos pour le moment' }), 'Reviens après la prochaine mise à jour.')));
+      h('strong', { text: 'Pas de vidéos pour le moment' }), 'Reviens après la prochaine mise à jour.',
+      h('button', { class: 'empty-btn', type: 'button', text: 'Rafraîchir', onclick: () => actions.refresh() }))));
     return;
   }
   appendReels();
   list.scrollTop = 0;
 }
 
+/** Last slide of the list: nothing more to watch. */
+function endSlide() {
+  return h('div', { class: 'reel end' }, h('div', { class: 'empty' },
+    h('strong', { text: 'Tu as tout vu' }),
+    'Plus de vidéos pour le moment.',
+    h('button', { class: 'empty-btn', type: 'button', text: 'Rafraîchir', onclick: () => actions.refresh() }),
+    h('button', { class: 'empty-btn ghost', type: 'button', text: 'Revenir en haut', onclick: () => $('#videos-list').scrollTo({ top: 0, behavior: scrollBehavior() }) })));
+}
+
 function appendReels() {
   const list = $('#videos-list');
+  list.querySelector('.reel.end')?.remove();
   const end = Math.min(state.reels.ranked.length, state.reels.rendered + REELS_CHUNK);
   for (let i = state.reels.rendered; i < end; i++) {
     const slide = reelSlide(state.reels.ranked[i]);
@@ -83,6 +94,7 @@ function appendReels() {
     reelObserver().observe(slide);
   }
   state.reels.rendered = end;
+  if (end >= state.reels.ranked.length) list.append(endSlide());
 }
 
 export async function activateReel(slide, userGesture = false) {
@@ -95,7 +107,7 @@ export async function activateReel(slide, userGesture = false) {
 
   // Prefetch the next chunk.
   const idx = [...slide.parentNode.children].indexOf(slide);
-  if (idx >= state.reels.rendered - 2) appendReels();
+  if (idx >= state.reels.rendered - 2 && state.reels.rendered < state.reels.ranked.length) appendReels();
 
   const item = slide._item;
   const v = item.video;
@@ -174,7 +186,7 @@ export function removeReel(id) {
   slide.remove();
   state.reels.ranked = state.reels.ranked.filter((i) => i.id !== id);
   state.reels.rendered = Math.max(0, state.reels.rendered - 1);
-  if (next) activateReel(next);
+  if (next?._item) activateReel(next);
 }
 
 function toggleMute() {
