@@ -176,11 +176,64 @@ function avatar(src, name, { square = false, size } = {}) {
   return img;
 }
 
-function image(src, alt = '') {
+/** Feed image. With `zoom`, tapping it opens the in-app viewer instead of the article. */
+function image(src, alt = '', zoom = null) {
   const img = h('img', { src, alt, loading: 'lazy', referrerpolicy: 'no-referrer' });
   img.addEventListener('error', () => (img.closest('.media, .ext-img') || img).remove(), { once: true });
+  if (zoom) {
+    img.classList.add('zoomable');
+    img.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      openViewer(zoom.gallery || [{ src, alt }], zoom.index || 0, zoom.url);
+    });
+  }
   return img;
 }
+
+// ---------- Image viewer (fullscreen, swipe between images, back gesture closes) ----------
+const viewer = { el: null, open: false };
+
+function openViewer(gallery, index = 0, url = null) {
+  closeViewer(false);
+  const track = h('div', { class: 'viewer-track' }, gallery.map((g) =>
+    h('div', { class: 'viewer-slide', onclick: (e) => { if (e.target === e.currentTarget) closeViewer(); } },
+      h('img', { src: g.src, alt: g.alt || '', referrerpolicy: 'no-referrer' }))));
+  const counter = gallery.length > 1 ? h('div', { class: 'viewer-count' }) : null;
+  const caption = h('div', { class: 'viewer-alt' });
+  const update = () => {
+    const i = Math.round(track.scrollLeft / Math.max(track.clientWidth, 1));
+    if (counter) counter.textContent = `${i + 1} / ${gallery.length}`;
+    caption.textContent = gallery[i]?.alt || '';
+    caption.hidden = !gallery[i]?.alt;
+  };
+  track.addEventListener('scroll', update, { passive: true });
+  viewer.el = h('div', { class: 'viewer', role: 'dialog', 'aria-modal': 'true' },
+    track,
+    h('div', { class: 'viewer-bar' },
+      h('button', { class: 'viewer-btn', 'aria-label': 'Fermer', text: '✕', onclick: () => closeViewer() }),
+      counter,
+      url ? h('a', { class: 'viewer-btn', href: url, target: '_blank', rel: 'noopener', 'aria-label': 'Ouvrir la source' }, svg(ICONS.open, 20)) : h('span'),
+    ),
+    caption,
+  );
+  document.body.append(viewer.el);
+  document.body.classList.add('no-scroll');
+  viewer.open = true;
+  history.pushState({ viewer: true }, '');
+  requestAnimationFrame(() => { track.scrollLeft = index * track.clientWidth; update(); });
+}
+
+/** Close the viewer. `viaHistory` pops the entry pushed on open (× button, tap outside). */
+function closeViewer(viaHistory = true) {
+  if (!viewer.open) return;
+  viewer.open = false;
+  viewer.el.remove();
+  viewer.el = null;
+  document.body.classList.remove('no-scroll');
+  if (viaHistory && history.state?.viewer) history.back();
+}
+
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeViewer(); });
 
 const openUrl = (url) => { if (url) window.open(url, '_blank', 'noopener'); };
 
@@ -284,14 +337,16 @@ function tweetHead(entry, { name, handle, publishedAt }) {
   );
 }
 
-function photoGrid(images) {
+function photoGrid(images, url) {
   const imgs = images.slice(0, 4);
+  const gallery = images.map((i) => ({ src: i.full || i.thumb, alt: i.alt }));
+  const zoom = (index) => ({ gallery, index, url });
   if (imgs.length === 1) {
     const ar = Math.min(Math.max(imgs[0].aspect || 1.5, 0.8), 2.2);
-    const box = h('div', { class: 'media', style: `aspect-ratio:${ar}` }, image(imgs[0].thumb, imgs[0].alt));
+    const box = h('div', { class: 'media', style: `aspect-ratio:${ar}` }, image(imgs[0].thumb, imgs[0].alt, zoom(0)));
     return box;
   }
-  return h('div', { class: `media grid n${imgs.length}` }, imgs.map((i) => image(i.thumb, i.alt)));
+  return h('div', { class: `media grid n${imgs.length}` }, imgs.map((i, n) => image(i.thumb, i.alt, zoom(n))));
 }
 
 // ---- Inline video (Bluesky posts in Actus): muted autoplay while visible ----
@@ -358,7 +413,7 @@ function linkCard(url, { title, description, thumb }) {
   const dom = domainOf(url);
   if (thumb) {
     return h('a', { class: 'link-card', href: url, target: '_blank', rel: 'noopener' },
-      h('div', { class: 'media', style: 'aspect-ratio:1.91' }, image(thumb)),
+      h('div', { class: 'media', style: 'aspect-ratio:1.91' }, image(thumb, title || '', { url })),
       h('span', { class: 'link-pill', text: title ? truncateText(title, 70) : dom }),
       title ? h('div', { class: 'link-from', text: `De ${dom}` }) : null,
     );
@@ -382,7 +437,7 @@ function quoteCard(q) {
       q.publishedAt ? h('time', { class: 'time', datetime: q.publishedAt, text: relativeTime(q.publishedAt) }) : null,
     ),
     q.text ? h('div', { class: 'quote-text', text: q.text }) : null,
-    q.image ? h('div', { class: 'media', style: 'aspect-ratio:1.78' }, image(q.image)) : null,
+    q.image ? h('div', { class: 'media', style: 'aspect-ratio:1.78' }, image(q.image, '', { url: q.url })) : null,
   );
 }
 
@@ -420,7 +475,7 @@ function postCard(item) {
       item.video.poster ? image(item.video.poster) : null);
     item = { ...item, text: item.title || item.text, segments: undefined };
   } else if (item.video?.type === 'hls') media = inlineVideo(item.video);
-  else if (item.images?.length) media = photoGrid(item.images);
+  else if (item.images?.length) media = photoGrid(item.images, item.url);
   else if (item.external?.url) media = linkCard(item.external.url, item.external);
   return cardShell(item, avatar(item.source.avatar, item.source.name), [
     tweetHead(item, { name: item.source.name, handle: item.source.handle ? '@' + item.source.handle : '', publishedAt: item.publishedAt }),
@@ -438,7 +493,7 @@ function groupCard(entry) {
     tweetHead(entry, { name: `${items.length} médias en parlent`, publishedAt: newest.publishedAt }),
     h('div', { class: 'tweet-text' }, lead.title),
     lead.text ? h('div', { class: 'tweet-text dim' }, lead.text) : null,
-    lead.image ? h('div', { class: 'media', style: 'aspect-ratio:1.91' }, image(lead.image)) : null,
+    lead.image ? h('div', { class: 'media', style: 'aspect-ratio:1.91' }, image(lead.image, lead.title, { url: lead.url })) : null,
     h('div', { class: 'group-list' }, items.map((i) =>
       h('a', { class: 'group-item', href: i.url, target: '_blank', rel: 'noopener' },
         avatar(i.source.avatar, i.source.name, { square: true }),
@@ -772,7 +827,10 @@ function closeProfile() {
   window.scrollTo({ top: profile.prevScroll || 0 });
 }
 
-window.addEventListener('popstate', () => { if (state.view === 'profile') closeProfile(); });
+window.addEventListener('popstate', () => {
+  if (viewer.open) { closeViewer(false); return; }
+  if (state.view === 'profile') closeProfile();
+});
 
 function renderProfileFollow() {
   const slot = $('#profile-follow');
