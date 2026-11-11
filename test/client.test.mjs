@@ -169,3 +169,21 @@ test('shared labels and aspect clamp', () => {
   assert.equal(clampAspect(1.78, 1.5), 1.78);
   assert.equal(KIND_LABEL.media, 'Site');
 });
+
+// ---------- keyboard accessibility ----------
+import { nextFocusIndex, isActivationKey } from '../public/app/focus.js';
+
+test('Tab cycling: wraps at both ends and enters the dialog when focus is outside', () => {
+  assert.equal(nextFocusIndex(3, 0, false), 1);
+  assert.equal(nextFocusIndex(3, 2, false), 0, 'Tab on the last element goes to the first');
+  assert.equal(nextFocusIndex(3, 0, true), 2, 'Shift+Tab on the first goes to the last');
+  assert.equal(nextFocusIndex(3, -1, false), 0, 'focus outside: enter at the start');
+  assert.equal(nextFocusIndex(3, -1, true), 2);
+  assert.equal(nextFocusIndex(0, -1, false), -1, 'nothing focusable');
+  assert.equal(nextFocusIndex(1, 0, false), 0);
+});
+
+test('custom buttons answer to Enter and Space only', () => {
+  assert.ok(isActivationKey('Enter') && isActivationKey(' '));
+  assert.ok(!isActivationKey('a') && !isActivationKey('Tab') && !isActivationKey('Escape'));
+});

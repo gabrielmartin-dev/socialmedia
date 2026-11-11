@@ -2,6 +2,7 @@
 
 import { h } from './dom.js';
 import { openViewer } from './viewer.js';
+import { makeButton } from './focus.js';
 import { safeUrl } from '../url.js';
 
 export function avatar(src, name, { square = false, size } = {}) {
@@ -21,7 +22,8 @@ export function image(src, alt = '', zoom = null) {
   img.addEventListener('error', () => (img.closest('.media, .ext-img') || img).remove(), { once: true });
   if (zoom) {
     img.classList.add('zoomable');
-    img.addEventListener('click', (e) => {
+    img.setAttribute('aria-label', alt ? `Agrandir : ${alt}` : "Agrandir l'image");
+    makeButton(img, (e) => {
       e.preventDefault(); e.stopPropagation();
       openViewer(zoom.gallery || [{ src, alt }], zoom.index || 0, zoom.url);
     });

@@ -4,6 +4,7 @@ import { rank, relativeTime } from '../rank.js';
 import { safeUrl } from '../url.js';
 import { $, h, svg, ICONS, toast } from './dom.js';
 import { avatar } from './media.js';
+import { makeButton } from './focus.js';
 import { loadHls } from './hls.js';
 import { state, entriesFor, rankOpts, markSeen } from './store.js';
 import { actions } from './actions.js';
@@ -23,7 +24,11 @@ function reelSlide(item) {
   const poster = v.poster || item.image;
   const landscape = (v.aspect ?? 9 / 16) > 1;
   const textContent = item.title || item.text;
-  const text = textContent ? h('div', { class: 'reel-text', text: textContent, onclick: (e) => e.currentTarget.classList.toggle('expanded') }) : null;
+  let text = null;
+  if (textContent) {
+    text = h('div', { class: 'reel-text', text: textContent, 'aria-expanded': 'false' });
+    makeButton(text, () => text.setAttribute('aria-expanded', String(text.classList.toggle('expanded'))));
+  }
 
   const muteBtn = v.type === 'hls'
     ? h('button', { class: 'reel-btn mute', 'aria-label': 'Son', onclick: (e) => { e.stopPropagation(); toggleMute(); } }, svg(state.muted ? ICONS.muted : ICONS.sound, 24))
@@ -32,7 +37,7 @@ function reelSlide(item) {
   const slide = h('div', { class: `reel${landscape ? ' landscape' : ''}`, dataset: { id: item.id } },
     poster ? h('img', { class: 'reel-poster blur', src: poster, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }) : null,
     poster ? h('img', { class: 'reel-poster', src: poster, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }) : null,
-    h('div', { class: 'reel-play auto', onclick: () => activateReel(slide, true) }, h('span', { text: '▶' })),
+    h('button', { class: 'reel-play auto', type: 'button', 'aria-label': 'Lire la vidéo', onclick: () => activateReel(slide, true) }, h('span', { text: '▶', 'aria-hidden': 'true' })),
     h('div', { class: 'reel-overlay' },
       h('button', { class: 'reel-author', onclick: (e) => { e.stopPropagation(); actions.openProfile(item.source); } },
         avatar(item.source.avatar, item.source.name),
@@ -104,7 +109,8 @@ export async function activateReel(slide, userGesture = false) {
     if (!hlsSrc) return;
     const video = h('video', { playsinline: true, 'webkit-playsinline': true, loop: true, preload: 'auto', poster: safeUrl(v.poster, location.href) || undefined });
     video.muted = state.muted;
-    video.addEventListener('click', () => (video.paused ? video.play() : video.pause()));
+    makeButton(video, () => (video.paused ? video.play() : video.pause()));
+    video.setAttribute('aria-label', 'Lecture / pause');
     slide.insertBefore(video, slide.querySelector('.reel-play'));
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = hlsSrc;

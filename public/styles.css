@@ -25,6 +25,32 @@ body {
 }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 a { color: inherit; text-decoration: none; }
+
+/* ---------- Accessibility ---------- */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.tweet:focus-visible, .sheet-btn:focus-visible, .reel-btn:focus-visible { outline-offset: -2px; }
+.reel-btn:focus-visible, .reel-author:focus-visible, .reel-text:focus-visible, .reel-play:focus-visible, .viewer :focus-visible { outline-color: #fff; }
+.zoomable:focus-visible { outline-offset: -3px; }
+#discover-search:focus-visible { outline: none; } /* it has its own focus ring (border) */
+/* Visually hidden, still read by screen readers. */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* Buttons that replaced spans / divs keep the look of the element they replaced. */
+button.name { text-align: left; font-weight: 700; }
+button.tweet-avatar { display: block; align-self: start; justify-self: start; text-align: left; border-radius: 50%; }
+button.group-toggle { display: block; text-align: left; }
+.time-link { flex: none; color: var(--muted); }
+.time-link:hover .time { text-decoration: underline; }
+button.reel-play { border: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .reels { scroll-snap-stop: normal; }
+}
 img { display: block; }
 
 /* ---------- Top bar ---------- */

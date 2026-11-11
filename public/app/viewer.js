@@ -1,8 +1,9 @@
 // Image viewer (fullscreen, swipe between images, back gesture closes).
 
-import { h, svg, ICONS } from './dom.js';
+import { h, svg, ICONS, scrollBehavior } from './dom.js';
+import { trapFocus } from './focus.js';
 
-export const viewer = { el: null, open: false };
+export const viewer = { el: null, open: false, release: null };
 
 export function openViewer(gallery, index = 0, url = null) {
   closeViewer(false);
@@ -18,7 +19,15 @@ export function openViewer(gallery, index = 0, url = null) {
     caption.hidden = !gallery[i]?.alt;
   };
   track.addEventListener('scroll', update, { passive: true });
-  viewer.el = h('div', { class: 'viewer', role: 'dialog', 'aria-modal': 'true' },
+  // The track scrolls horizontally: make it keyboard-operable (←/→ change image).
+  track.tabIndex = 0;
+  track.setAttribute('role', 'group');
+  track.setAttribute('aria-label', 'Images');
+  track.addEventListener('keydown', (e) => {
+    const dir = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    if (dir) { e.preventDefault(); track.scrollBy({ left: dir * track.clientWidth, behavior: scrollBehavior() }); }
+  });
+  viewer.el = h('div', { class: 'viewer', role: 'dialog', 'aria-modal': 'true', 'aria-label': "Visionneuse d'images" },
     track,
     h('div', { class: 'viewer-bar' },
       h('button', { class: 'viewer-btn', 'aria-label': 'Fermer', text: '✕', onclick: () => closeViewer() }),
@@ -30,6 +39,7 @@ export function openViewer(gallery, index = 0, url = null) {
   document.body.append(viewer.el);
   document.body.classList.add('no-scroll');
   viewer.open = true;
+  viewer.release = trapFocus(viewer.el, { onClose: () => closeViewer() });
   history.pushState({ viewer: true }, '');
   requestAnimationFrame(() => { track.scrollLeft = index * track.clientWidth; update(); });
 }
@@ -38,12 +48,10 @@ export function openViewer(gallery, index = 0, url = null) {
 export function closeViewer(viaHistory = true) {
   if (!viewer.open) return;
   viewer.open = false;
+  viewer.release?.(); // inert off, focus back on the image that opened the viewer
+  viewer.release = null;
   viewer.el.remove();
   viewer.el = null;
   document.body.classList.remove('no-scroll');
   if (viaHistory && history.state?.viewer) history.back();
-}
-
-export function initViewer() {
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeViewer(); });
 }

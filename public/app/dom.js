@@ -53,6 +53,9 @@ export const openUrl = (url) => {
   if (u) window.open(u, '_blank', 'noopener');
 };
 
+/** Smooth scrolling unless the user asked for reduced motion. */
+export const scrollBehavior = () => (matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
+
 export function toast(msg) {
   const t = $('#toast');
   t.textContent = msg;

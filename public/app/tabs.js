@@ -1,6 +1,6 @@
 // Tab bar and view switching.
 
-import { $ } from './dom.js';
+import { $, scrollBehavior } from './dom.js';
 import { state, isFeed } from './store.js';
 import { renderFeed } from './feed.js';
 import { renderDiscover } from './discover.js';
@@ -12,15 +12,19 @@ const TITLES = { actus: 'Actus', tech: 'Tech', videos: 'Vidéos', discover: 'Dé
 export function switchView(view) {
   if (view === state.view) {
     // Tap on the active tab: scroll back to top.
-    if (view === 'videos') $('#videos-list').scrollTo({ top: 0, behavior: 'smooth' });
-    else window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (view === 'videos') $('#videos-list').scrollTo({ top: 0, behavior: scrollBehavior() });
+    else window.scrollTo({ top: 0, behavior: scrollBehavior() });
     return;
   }
   if (isFeed(state.view)) state.feeds[state.view].scroll = window.scrollY;
   if (view !== 'discover') $('#discover-search').blur();
   document.body.classList.remove('profile-mode');
   state.view = view;
-  document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.view === view));
+  document.querySelectorAll('.tab').forEach((t) => {
+    const on = t.dataset.view === view;
+    t.classList.toggle('active', on);
+    if (on) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
+  });
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${view}`));
   document.body.classList.toggle('videos-mode', view === 'videos');
   $('#title').textContent = TITLES[view];

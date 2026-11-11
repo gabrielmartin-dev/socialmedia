@@ -4,11 +4,13 @@ import { applyLess } from '../rank.js';
 import { safeUrl } from '../url.js';
 import { $, toast } from './dom.js';
 import { state, isFollowed, isFeed, FEED_KEYS, savePrefs, accountFromSource } from './store.js';
+import { trapFocus } from './focus.js';
 import { setFollow } from './follow.js';
 import { renderFooter } from './feed.js';
 import { removeReel } from './reels.js';
 
 let sheetEntry = null;
+let releaseFocus = null;
 
 export function openSheet(entry) {
   sheetEntry = entry;
@@ -28,12 +30,18 @@ export function openSheet(entry) {
   if (openHref) link.href = openHref; else link.removeAttribute('href');
   $('#sheet').hidden = false;
   $('#sheet-backdrop').hidden = false;
+  releaseFocus?.();
+  // Focus goes into the sheet, Tab stays inside, Escape closes, focus returns to the ⋯ button.
+  releaseFocus = trapFocus($('#sheet'), { onClose: closeSheet, keep: [$('#sheet-backdrop'), $('#toast')] });
 }
 
 export function closeSheet() {
+  const release = releaseFocus;
+  releaseFocus = null;
   $('#sheet').hidden = true;
   $('#sheet-backdrop').hidden = true;
   sheetEntry = null;
+  release?.(); // after hiding: restoring focus on the opener must not be blocked by inert
 }
 
 export function initSheet() {

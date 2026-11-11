@@ -49,15 +49,22 @@ function tweetText(item) {
   return el;
 }
 
-function tweetHead(entry, { name, handle, publishedAt }) {
+function tweetHead(entry, { name, handle, publishedAt, url }) {
   const toProfile = entry.kind !== 'group' && entry.source
     ? (e) => { e.stopPropagation(); actions.openProfile(entry.source); }
     : null;
+  const time = h('time', { class: 'time', datetime: publishedAt, text: relativeTime(publishedAt) });
   return h('div', { class: 'tweet-head' },
-    h('span', { class: 'name' + (toProfile ? ' clickable' : ''), text: name, onclick: toProfile }),
+    // A real button when it opens the profile (keyboard + screen readers), plain text otherwise.
+    toProfile
+      ? h('button', { class: 'name clickable', type: 'button', text: name, onclick: toProfile })
+      : h('span', { class: 'name', text: name }),
     handle ? h('span', { class: 'handle', text: handle }) : null,
     h('span', { class: 'dot', text: '·' }),
-    h('time', { class: 'time', datetime: publishedAt, text: relativeTime(publishedAt) }),
+    // The timestamp is the permalink, like on X: the keyboard way to open the whole card.
+    safeUrl(url, location.href)
+      ? h('a', { class: 'time-link', href: url, target: '_blank', rel: 'noopener', title: 'Ouvrir l\'original' }, time, h('span', { class: 'sr-only', text: ' — ouvrir l\'original' }))
+      : time,
     h('button', { class: 'more', 'aria-label': 'Options', onclick: (e) => { e.stopPropagation(); actions.openSheet(entry); } }, svg(ICONS.more, 20)),
   );
 }
@@ -169,21 +176,25 @@ function cardShell(entry, avatarNode, mainChildren, url) {
     dataset: { id: entry.id },
     onclick: (e) => {
       if (e.target.closest('a, button')) return;
-      if (entry.kind === 'group') e.currentTarget.classList.toggle('open');
-      else openUrl(url);
+      if (entry.kind === 'group') {
+        const open = e.currentTarget.classList.toggle('open');
+        e.currentTarget.querySelector('.group-toggle')?.setAttribute('aria-expanded', String(open));
+      } else openUrl(url);
     },
   },
-  h('div', {
-    class: 'tweet-avatar' + (entry.kind !== 'group' ? ' clickable' : ''),
-    onclick: entry.kind !== 'group' ? (e) => { e.stopPropagation(); actions.openProfile(entry.source); } : null,
-  }, avatarNode),
+  entry.kind !== 'group'
+    ? h('button', {
+      class: 'tweet-avatar clickable', type: 'button', 'aria-label': `Voir le profil de ${entry.source.name}`,
+      onclick: (e) => { e.stopPropagation(); actions.openProfile(entry.source); },
+    }, avatarNode)
+    : h('div', { class: 'tweet-avatar' }, avatarNode),
   h('div', { class: 'tweet-main' }, ...mainChildren));
 }
 
 function articleCard(item) {
   const dom = domainOf(item.url);
   return cardShell(item, avatar(item.source.avatar, item.source.name, { square: true }), [
-    tweetHead(item, { name: item.source.name, handle: dom, publishedAt: item.publishedAt }),
+    tweetHead(item, { name: item.source.name, handle: dom, publishedAt: item.publishedAt, url: item.url }),
     h('div', { class: 'tweet-text' }, item.title),
     item.text ? h('div', { class: 'tweet-text dim' }, item.text) : null,
     item.image ? linkCard(item.url, { thumb: item.image, title: '' }) : null,
@@ -200,7 +211,7 @@ function postCard(item) {
   else if (item.images?.length) media = photoGrid(item.images, item.url);
   else if (item.external?.url) media = linkCard(item.external.url, item.external);
   return cardShell(item, avatar(item.source.avatar, item.source.name), [
-    tweetHead(item, { name: item.source.name, handle: item.source.handle ? '@' + item.source.handle : '', publishedAt: item.publishedAt }),
+    tweetHead(item, { name: item.source.name, handle: item.source.handle ? '@' + item.source.handle : '', publishedAt: item.publishedAt, url: item.url }),
     tweetText(item),
     media,
     item.quote ? quoteCard(item.quote) : null,
@@ -224,7 +235,13 @@ function groupCard(entry) {
           h('div', { text: i.title }),
         ),
       ))),
-    h('div', { class: 'group-toggle', text: `Voir les ${items.length} articles` }),
+    h('button', { class: 'group-toggle', type: 'button', 'aria-expanded': 'false', text: `Voir les ${items.length} articles`, onclick: (e) => {
+      e.stopPropagation();
+      const card = e.currentTarget.closest('.tweet');
+      card.classList.add('open');
+      e.currentTarget.setAttribute('aria-expanded', 'true');
+      card.querySelector('.group-item')?.focus(); // the toggle just disappeared: keep the focus in the card
+    } }),
   ]);
 }
 

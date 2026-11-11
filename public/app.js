@@ -2,7 +2,6 @@
 
 import { actions } from './app/actions.js';
 import { state, initStore } from './app/store.js';
-import { initViewer } from './app/viewer.js';
 import { initFeeds, renderAllFeeds } from './app/feed.js';
 import { loadData, loadLive } from './app/live.js';
 import { initSheet, openSheet } from './app/sheet.js';
@@ -20,7 +19,6 @@ actions.afterFollow = () => {
 };
 
 initStore();
-initViewer();
 initFeeds();
 initSheet();
 initDiscover();

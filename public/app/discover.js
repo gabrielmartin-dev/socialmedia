@@ -26,11 +26,11 @@ export function followButton(account) {
 
 function accountRow(a) {
   return h('div', { class: 'account' },
-    h('button', { class: 'clickable', onclick: () => actions.openProfile(a) }, avatar(a.avatar, a.name, { square: a.kind === 'media' })),
+    h('button', { class: 'clickable', type: 'button', 'aria-label': `Voir le profil de ${a.name}`, onclick: () => actions.openProfile(a) }, avatar(a.avatar, a.name, { square: a.kind === 'media' })),
     h('div', { class: 'account-main' },
       h('div', { class: 'account-head' },
         h('div', { class: 'account-names' },
-          h('span', { class: 'name clickable', text: a.name, onclick: () => actions.openProfile(a) }),
+          h('button', { class: 'name clickable', type: 'button', text: a.name, onclick: () => actions.openProfile(a) }),
           h('span', { class: 'handle', text: [a.handle, KIND_LABEL[a.kind]].filter(Boolean).join(' · ') }),
         ),
         followButton(a),
