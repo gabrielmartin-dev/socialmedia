@@ -1,0 +1,733 @@
+{
+  "settings": {
+    "actusMaxAgeHours": 72,
+    "videosMaxAgeHours": 168,
+    "techMaxAgeHours": 168,
+    "bskyPostsPerAccount": 30,
+    "bskySearchLimit": 100,
+    "health": { "maxFailureRatio": 0.5, "minTotalItems": 30 }
+  },
+  "media": [
+    {
+      "id": "mediapart",
+      "name": "Mediapart",
+      "site": "https://www.mediapart.fr",
+      "feed": "https://www.mediapart.fr/articles/feed"
+    },
+    {
+      "id": "lfi",
+      "name": "La France insoumise",
+      "site": "https://lafranceinsoumise.fr",
+      "feed": "https://lafranceinsoumise.fr/feed/"
+    },
+    {
+      "id": "lemedia",
+      "name": "Le Média",
+      "site": "https://www.lemediatv.fr"
+    },
+    {
+      "id": "politis",
+      "name": "Politis",
+      "site": "https://www.politis.fr",
+      "feed": "https://www.politis.fr/rss.xml"
+    },
+    {
+      "id": "regards",
+      "name": "Regards",
+      "site": "https://regards.fr",
+      "feed": "https://regards.fr/feed/"
+    },
+    {
+      "id": "reporterre",
+      "name": "Reporterre",
+      "site": "https://reporterre.net",
+      "feed": "https://reporterre.net/spip.php?page=backend"
+    },
+    {
+      "id": "basta",
+      "name": "Basta!",
+      "site": "https://basta.media",
+      "feed": "https://basta.media/spip.php?page=backend"
+    },
+    {
+      "id": "rapportsdeforce",
+      "name": "Rapports de Force",
+      "site": "https://rapportsdeforce.fr",
+      "feed": "https://rapportsdeforce.fr/feed"
+    },
+    {
+      "id": "streetpress",
+      "name": "StreetPress",
+      "site": "https://www.streetpress.com"
+    },
+    {
+      "id": "mondediplo",
+      "name": "Le Monde diplomatique",
+      "site": "https://www.monde-diplomatique.fr",
+      "feed": "https://www.monde-diplomatique.fr/rss/"
+    },
+    {
+      "id": "frustration",
+      "name": "Frustration",
+      "site": "https://www.frustrationmagazine.fr",
+      "feed": "https://www.frustrationmagazine.fr/feed/"
+    },
+    {
+      "id": "asi",
+      "name": "Arrêt sur images",
+      "site": "https://www.arretsurimages.net"
+    },
+    {
+      "id": "liberation",
+      "name": "Libération",
+      "site": "https://www.liberation.fr",
+      "feed": "https://www.liberation.fr/arc/outboundfeeds/rss/?outputType=xml",
+      "suggested": true
+    },
+    {
+      "id": "altereco",
+      "name": "Alternatives Économiques",
+      "site": "https://www.alternatives-economiques.fr",
+      "suggested": true
+    },
+    {
+      "id": "contreattaque",
+      "name": "Contre Attaque",
+      "site": "https://contre-attaque.net",
+      "feed": "https://contre-attaque.net/feed/",
+      "suggested": true
+    },
+    {
+      "id": "revperm",
+      "name": "Révolution Permanente",
+      "site": "https://www.revolutionpermanente.fr",
+      "feed": "https://www.revolutionpermanente.fr/spip.php?page=backend",
+      "suggested": true
+    },
+    {
+      "id": "bondyblog",
+      "name": "Bondy Blog",
+      "site": "https://www.bondyblog.fr",
+      "feed": "https://www.bondyblog.fr/feed/",
+      "suggested": true
+    },
+    {
+      "id": "mrmondialisation",
+      "name": "Mr Mondialisation",
+      "site": "https://mrmondialisation.org",
+      "feed": "https://mrmondialisation.org/feed/",
+      "suggested": true
+    },
+    {
+      "id": "socialter",
+      "name": "Socialter",
+      "site": "https://www.socialter.fr",
+      "suggested": true
+    },
+    {
+      "id": "lundimatin",
+      "name": "lundimatin",
+      "site": "https://lundi.am",
+      "suggested": true
+    },
+    {
+      "id": "disclose",
+      "name": "Disclose",
+      "site": "https://disclose.ngo",
+      "_comment": "ONG de journalisme d’investigation, financée par les dons."
+    },
+    {
+      "id": "afpfactuel",
+      "name": "AFP Factuel",
+      "site": "https://factuel.afp.com",
+      "_comment": "Fact-checking de l’AFP."
+    },
+    {
+      "id": "decodeurs",
+      "name": "Les Décodeurs (Le Monde)",
+      "site": "https://www.lemonde.fr/les-decodeurs/",
+      "feed": "https://www.lemonde.fr/les-decodeurs/rss_full.xml",
+      "_comment": "Fact-checking du Monde."
+    },
+    {
+      "id": "lemonde",
+      "name": "Le Monde",
+      "site": "https://www.lemonde.fr",
+      "feed": "https://www.lemonde.fr/rss/une.xml"
+    },
+    {
+      "id": "franceinfo",
+      "name": "franceinfo",
+      "site": "https://www.francetvinfo.fr",
+      "feed": "https://www.francetvinfo.fr/titres.rss"
+    },
+    {
+      "id": "humanite",
+      "name": "L’Humanité",
+      "site": "https://www.humanite.fr"
+    },
+    {
+      "id": "acrimed",
+      "name": "Acrimed",
+      "site": "https://www.acrimed.org",
+      "feed": "https://www.acrimed.org/spip.php?page=backend",
+      "_comment": "Observatoire critique des médias."
+    },
+    {
+      "id": "surligneurs",
+      "name": "Les Surligneurs",
+      "site": "https://www.lessurligneurs.eu",
+      "_comment": "Juristes qui vérifient les propos politiques sur le plan du droit."
+    },
+    {
+      "id": "inegalites",
+      "name": "Observatoire des inégalités",
+      "site": "https://www.inegalites.fr"
+    },
+    {
+      "id": "mediacites",
+      "name": "Mediacités",
+      "site": "https://www.mediacites.fr",
+      "_comment": "Investigation locale (Lille, Lyon, Nantes, Toulouse)."
+    },
+    {
+      "id": "blast-site",
+      "name": "Blast (articles)",
+      "site": "https://www.blast-info.fr"
+    },
+    {
+      "id": "offinvestigation",
+      "name": "Off Investigation",
+      "site": "https://www.off-investigation.fr"
+    },
+    {
+      "id": "orientxxi",
+      "name": "Orient XXI",
+      "site": "https://orientxxi.info",
+      "feed": "https://orientxxi.info/?page=backend"
+    },
+    {
+      "id": "afriquexxi",
+      "name": "Afrique XXI",
+      "site": "https://afriquexxi.info",
+      "feed": "https://afriquexxi.info/?page=backend"
+    },
+    {
+      "id": "courrierintl",
+      "name": "Courrier international",
+      "site": "https://www.courrierinternational.com"
+    },
+    {
+      "id": "vert",
+      "name": "Vert",
+      "site": "https://vert.eco",
+      "_comment": "Média climat."
+    },
+    {
+      "id": "bonpote",
+      "name": "Bon Pote",
+      "site": "https://bonpote.com",
+      "feed": "https://bonpote.com/feed/",
+      "_comment": "Climat, vulgarisation sourcée."
+    }
+  ],
+  "tech": [
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "site": "https://www.anthropic.com",
+      "feed": "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_news.xml",
+      "_comment": "Anthropic ne publie pas de RSS officiel : flux généré par le projet open source Olshansk/rss-feeds."
+    },
+    {
+      "id": "claude",
+      "name": "Claude",
+      "site": "https://claude.com",
+      "feed": "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_claude.xml"
+    },
+    {
+      "id": "anthropic-research",
+      "name": "Anthropic Research",
+      "site": "https://www.anthropic.com",
+      "feed": "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_research.xml"
+    },
+    {
+      "id": "anthropic-eng",
+      "name": "Anthropic Engineering",
+      "site": "https://www.anthropic.com",
+      "feed": "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_engineering.xml"
+    },
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "site": "https://openai.com",
+      "feed": "https://openai.com/news/rss.xml"
+    },
+    {
+      "id": "deepmind",
+      "name": "Google DeepMind",
+      "site": "https://deepmind.google",
+      "feed": "https://deepmind.google/blog/rss.xml"
+    },
+    {
+      "id": "huggingface",
+      "name": "Hugging Face",
+      "site": "https://huggingface.co",
+      "feed": "https://huggingface.co/blog/feed.xml"
+    },
+    {
+      "id": "github-blog",
+      "name": "GitHub Blog",
+      "site": "https://github.blog",
+      "feed": "https://github.blog/feed/"
+    },
+    {
+      "id": "simonw",
+      "name": "Simon Willison",
+      "site": "https://simonwillison.net",
+      "feed": "https://simonwillison.net/atom/entries/"
+    },
+    {
+      "id": "verge-ai",
+      "name": "The Verge",
+      "site": "https://www.theverge.com",
+      "feed": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml"
+    },
+    {
+      "id": "ars",
+      "name": "Ars Technica",
+      "site": "https://arstechnica.com",
+      "feed": "https://feeds.arstechnica.com/arstechnica/technology-lab"
+    },
+    {
+      "id": "mittr",
+      "name": "MIT Technology Review",
+      "site": "https://www.technologyreview.com",
+      "feed": "https://www.technologyreview.com/topic/artificial-intelligence/feed"
+    },
+    {
+      "id": "next",
+      "name": "Next",
+      "site": "https://next.ink",
+      "feed": "https://next.ink/feed/"
+    },
+    {
+      "id": "hn",
+      "name": "Hacker News",
+      "site": "https://news.ycombinator.com",
+      "feed": "https://hnrss.org/best",
+      "_comment": "Seulement les articles les mieux notés par la communauté."
+    },
+    {
+      "id": "techcrunch-ai",
+      "name": "TechCrunch",
+      "site": "https://techcrunch.com",
+      "feed": "https://techcrunch.com/category/artificial-intelligence/feed/",
+      "suggested": true
+    },
+    {
+      "id": "wired-ai",
+      "name": "Wired",
+      "site": "https://www.wired.com",
+      "feed": "https://www.wired.com/feed/tag/ai/latest/rss",
+      "suggested": true
+    },
+    {
+      "id": "404media",
+      "name": "404 Media",
+      "site": "https://www.404media.co",
+      "feed": "https://www.404media.co/rss/",
+      "suggested": true
+    },
+    {
+      "id": "theregister",
+      "name": "The Register",
+      "site": "https://www.theregister.com",
+      "feed": "https://www.theregister.com/headlines.atom",
+      "suggested": true
+    },
+    {
+      "id": "google-ai",
+      "name": "Google AI",
+      "site": "https://blog.google",
+      "feed": "https://blog.google/technology/ai/rss/",
+      "suggested": true
+    },
+    {
+      "id": "latentspace",
+      "name": "Latent Space",
+      "site": "https://www.latent.space",
+      "feed": "https://www.latent.space/feed",
+      "suggested": true
+    },
+    {
+      "id": "stackoverflow",
+      "name": "Stack Overflow Blog",
+      "site": "https://stackoverflow.blog",
+      "feed": "https://stackoverflow.blog/feed/",
+      "suggested": true
+    },
+    {
+      "id": "numerama",
+      "name": "Numerama",
+      "site": "https://www.numerama.com",
+      "feed": "https://www.numerama.com/feed/",
+      "suggested": true
+    },
+    {
+      "id": "korben",
+      "name": "Korben",
+      "site": "https://korben.info",
+      "feed": "https://korben.info/feed",
+      "suggested": true
+    },
+    {
+      "id": "lemonde-pixels",
+      "name": "Pixels (Le Monde)",
+      "site": "https://www.lemonde.fr/pixels/",
+      "feed": "https://www.lemonde.fr/pixels/rss_full.xml"
+    },
+    {
+      "id": "lqdn",
+      "name": "La Quadrature du Net",
+      "site": "https://www.laquadrature.net",
+      "feed": "https://www.laquadrature.net/feed/"
+    },
+    {
+      "id": "eff",
+      "name": "EFF",
+      "site": "https://www.eff.org",
+      "feed": "https://www.eff.org/rss/updates.xml"
+    },
+    {
+      "id": "lwn",
+      "name": "LWN.net",
+      "site": "https://lwn.net",
+      "feed": "https://lwn.net/headlines/newrss"
+    },
+    {
+      "id": "thedecoder",
+      "name": "The Decoder",
+      "site": "https://the-decoder.com",
+      "feed": "https://the-decoder.com/feed/"
+    },
+    {
+      "id": "importai",
+      "name": "Import AI",
+      "site": "https://jack-clark.net",
+      "feed": "https://jack-clark.net/feed/"
+    },
+    {
+      "id": "interconnects",
+      "name": "Interconnects",
+      "site": "https://www.interconnects.ai",
+      "feed": "https://www.interconnects.ai/feed"
+    },
+    {
+      "id": "pragmatic",
+      "name": "The Pragmatic Engineer",
+      "site": "https://newsletter.pragmaticengineer.com",
+      "feed": "https://newsletter.pragmaticengineer.com/feed"
+    },
+    {
+      "id": "cloudflare",
+      "name": "Cloudflare Blog",
+      "site": "https://blog.cloudflare.com",
+      "feed": "https://blog.cloudflare.com/rss/"
+    },
+    {
+      "id": "lobsters",
+      "name": "Lobsters",
+      "site": "https://lobste.rs",
+      "feed": "https://lobste.rs/rss"
+    }
+  ],
+  "bluesky": {
+    "_comment": "Si 'handle' est absent, le compte est recherché par son nom (correspondance exacte du nom affiché, comptes vérifiés en priorité). Vérifie le résultat dans public/data/status.json et fixe le handle ici si besoin.",
+    "accounts": [
+      {
+        "name": "Jean-Luc Mélenchon"
+      },
+      {
+        "name": "Mathilde Panot"
+      },
+      {
+        "name": "Manuel Bompard"
+      },
+      {
+        "name": "Clémence Guetté"
+      },
+      {
+        "name": "Éric Coquerel"
+      },
+      {
+        "name": "Manon Aubry"
+      },
+      {
+        "name": "Louis Boyard"
+      },
+      {
+        "name": "Rima Hassan"
+      },
+      {
+        "name": "Antoine Léaument"
+      },
+      {
+        "name": "Thomas Portes"
+      },
+      {
+        "name": "David Dufresne"
+      },
+      {
+        "name": "Rémy Buisine"
+      },
+      {
+        "name": "Clément Lanot"
+      },
+      {
+        "name": "Cemil Şanlı",
+        "handle": "cemilsanli.bsky.social"
+      },
+      {
+        "name": "Brèves de presse",
+        "_comment": "Recherché par nom exact : vérifier le compte trouvé dans status.json et fixer le handle si besoin."
+      },
+      {
+        "name": "Sophia Chikirou",
+        "suggested": true
+      },
+      {
+        "name": "Aurélie Trouvé",
+        "suggested": true
+      },
+      {
+        "name": "Danièle Obono",
+        "suggested": true
+      },
+      {
+        "name": "Ugo Bernalicis",
+        "suggested": true
+      },
+      {
+        "name": "Paul Vannier",
+        "suggested": true
+      },
+      {
+        "name": "Hadrien Clouet",
+        "suggested": true
+      },
+      {
+        "name": "Aymeric Caron",
+        "suggested": true
+      },
+      {
+        "name": "Alma Dufour",
+        "suggested": true
+      },
+      {
+        "name": "Sébastien Delogu",
+        "suggested": true
+      },
+      {
+        "name": "Ersilia Soudais",
+        "suggested": true
+      },
+      {
+        "name": "François Piquemal",
+        "suggested": true
+      },
+      {
+        "name": "Mathilde Larrère",
+        "suggested": true
+      },
+      {
+        "name": "Salomé Saqué",
+        "suggested": true
+      },
+      {
+        "name": "Taha Bouhafs",
+        "suggested": true
+      },
+      {
+        "name": "Nicolas Framont",
+        "suggested": true
+      },
+      {
+        "name": "Julia Cagé",
+        "suggested": true
+      },
+      {
+        "name": "Thomas Piketty",
+        "suggested": true
+      },
+      {
+        "name": "Mediapart",
+        "suggested": true
+      },
+      {
+        "name": "Blast",
+        "suggested": true
+      },
+      {
+        "name": "Le Média",
+        "suggested": true
+      },
+      {
+        "name": "Reporterre",
+        "suggested": true
+      },
+      {
+        "name": "StreetPress",
+        "suggested": true
+      },
+      {
+        "name": "Simon Willison",
+        "feed": "tech",
+        "suggested": true
+      },
+      {
+        "name": "Ethan Mollick",
+        "feed": "tech",
+        "suggested": true
+      },
+      {
+        "name": "Hugging Face",
+        "feed": "tech",
+        "suggested": true
+      },
+      {
+        "name": "Molly White",
+        "feed": "tech",
+        "suggested": true
+      }
+    ],
+    "videoHashtags": [
+      "#manif",
+      "#manifestation",
+      "#greve",
+      "#grève",
+      "#violencespolicieres",
+      "#blocage",
+      "#retraites",
+      "#mobilisation"
+    ]
+  },
+  "youtube": [
+    {
+      "id": "yt-taranis",
+      "name": "Taranis News",
+      "url": "https://www.youtube.com/@TaranisNews"
+    },
+    {
+      "id": "yt-linepress",
+      "name": "Line Press",
+      "url": "https://www.youtube.com/@LinePress"
+    },
+    {
+      "id": "yt-lemedia",
+      "name": "Le Média",
+      "channelId": "UCT67YOMntJxfRnO_9bXDpvw"
+    },
+    {
+      "id": "yt-blast",
+      "name": "Blast",
+      "url": "https://www.youtube.com/@BlastInfo"
+    },
+    {
+      "id": "yt-mediapart",
+      "name": "Mediapart",
+      "url": "https://www.youtube.com/@Mediapart"
+    },
+    {
+      "id": "yt-zawa",
+      "name": "Zawa Prod",
+      "channelId": "UCeQRERCvEY3-ZeQONwnx0zw"
+    },
+    {
+      "id": "yt-zawa-replay",
+      "name": "Zawa Prod - Replay & Live",
+      "url": "https://www.youtube.com/@ZawaReplayLive"
+    },
+    {
+      "id": "yt-danyetraz",
+      "name": "Dany et Raz",
+      "url": "https://www.youtube.com/c/DANYetRAZ"
+    },
+    {
+      "id": "yt-wissam",
+      "name": "Wissam Xelka",
+      "url": "https://www.youtube.com/@wissamxelka"
+    },
+    {
+      "id": "yt-ilies",
+      "name": "Ilies",
+      "url": "https://www.youtube.com/@iliesomg"
+    },
+    {
+      "id": "yt-mouffette",
+      "name": "Mouffette",
+      "url": "https://www.youtube.com/@MouffetteVOD"
+    },
+    {
+      "id": "yt-osonscauser",
+      "name": "Osons Causer",
+      "url": "https://www.youtube.com/@OsonsCauser",
+      "suggested": true
+    },
+    {
+      "id": "yt-thinkerview",
+      "name": "Thinkerview",
+      "url": "https://www.youtube.com/@thinkerview",
+      "suggested": true
+    },
+    {
+      "id": "yt-hugodecrypte",
+      "name": "HugoDécrypte",
+      "url": "https://www.youtube.com/@HugoDecrypte",
+      "suggested": true
+    },
+    {
+      "id": "yt-usul",
+      "name": "Usul",
+      "url": "https://www.youtube.com/@usul2000",
+      "suggested": true
+    },
+    {
+      "id": "yt-underscore",
+      "name": "Underscore_",
+      "url": "https://www.youtube.com/@Underscore_",
+      "category": "Tech",
+      "suggested": true
+    },
+    {
+      "id": "yt-micode",
+      "name": "Micode",
+      "url": "https://www.youtube.com/@Micode",
+      "category": "Tech",
+      "suggested": true
+    },
+    {
+      "id": "yt-fireship",
+      "name": "Fireship",
+      "url": "https://www.youtube.com/@Fireship",
+      "category": "Tech",
+      "suggested": true
+    }
+  ],
+  "tiktok": [
+    {
+      "id": "tt-zawaprod",
+      "name": "Zawa Prod",
+      "user": "zawaprod",
+      "_comment": "Via RSSHub (fragile). Remplace l'instance si elle bloque : la variable d'env RSSHUB_BASE est prise en priorité.",
+      "rsshub": "https://rsshub.app"
+    },
+    {
+      "id": "tt-valadista",
+      "name": "Valadista",
+      "user": "valadista",
+      "rsshub": "https://rsshub.app"
+    }
+  ],
+  "_suggestions": "Les sources marquées \"suggested\": true sont collectées mais n'apparaissent dans les feeds qu'une fois suivies depuis l'onglet Découvrir."
+}

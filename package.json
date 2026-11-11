@@ -1,0 +1,19 @@
+{
+  "name": "timeline-perso",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Timeline perso façon X : actus et vidéos agrégées, triées par sujets.",
+  "scripts": {
+    "collect": "node scripts/collect.mjs",
+    "sample": "node scripts/sample-data.mjs",
+    "dev": "node scripts/serve.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.2.0"
+  }
+}

@@ -1,0 +1,5 @@
+node_modules/
+public/data/*.json
+!public/data/.gitkeep
+public/data/sample/
+.cache/

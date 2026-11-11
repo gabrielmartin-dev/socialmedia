@@ -1,0 +1,93 @@
+name: Collecte et déploiement
+
+on:
+  schedule:
+    - cron: '*/20 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+  # Les pull requests ne lancent que les tests : ni collecte, ni déploiement.
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.ref) || 'pages' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  build:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      # Cache des résolutions (ID de chaînes YouTube, handles Bluesky, URLs de flux découvertes) :
+      # restauré depuis le dernier run, sauvegardé à la fin même si la collecte est rejetée.
+      - name: Restauration du cache de résolutions
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/collect
+          key: collect-resolutions-${{ github.run_id }}
+          restore-keys: collect-resolutions-
+      # Si la collecte échoue massivement (panne réseau, API en rade), collect.mjs sort avec un
+      # code non nul : l'étape échoue, rien n'est déployé et la version précédente reste en ligne.
+      - name: Collecte des sources
+        run: npm run collect
+        env:
+          # Optionnel : compte Bluesky gratuit (mot de passe d'application) pour la recherche par hashtags.
+          BSKY_IDENTIFIER: ${{ secrets.BSKY_IDENTIFIER }}
+          BSKY_APP_PASSWORD: ${{ secrets.BSKY_APP_PASSWORD }}
+          # Optionnel : instance RSSHub alternative pour TikTok.
+          RSSHUB_BASE: ${{ vars.RSSHUB_BASE }}
+      - name: Sauvegarde du cache de résolutions
+        if: ${{ !cancelled() }}
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/collect
+          key: collect-resolutions-${{ github.run_id }}
+      # Version du service worker = hash du contenu du shell : mise à jour atomique côté client.
+      - name: Version du service worker
+        run: node scripts/stamp-sw.mjs
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
