@@ -1,6 +1,8 @@
 // Minimal Bluesky client for the browser (public AppView, CORS-enabled):
 // account search and posts of accounts followed from the app.
 
+import { safeUrl } from './url.js';
+
 const API = 'https://public.api.bsky.app/xrpc';
 
 async function call(method, params) {
@@ -33,7 +35,7 @@ function segments(record) {
     const feat = (f.features || [])[0] || {};
     const type = feat.$type || '';
     let href = null;
-    if (type.endsWith('#link')) href = feat.uri;
+    if (type.endsWith('#link')) href = safeUrl(feat.uri);
     else if (type.endsWith('#mention')) href = `https://bsky.app/profile/${feat.did}`;
     else if (type.endsWith('#tag')) href = `https://bsky.app/hashtag/${encodeURIComponent(feat.tag)}`;
     return href ? { start: f.index?.byteStart, end: f.index?.byteEnd, href } : null;

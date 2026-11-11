@@ -4,6 +4,7 @@
 // workflow always runs the real collector.
 
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { compileTopics, annotate, groupDuplicates } from './lib/score.mjs';
@@ -13,9 +14,14 @@ const topicsCfg = JSON.parse(await fs.readFile(path.join(ROOT, 'config/topics.js
 const matchers = compileTopics(topicsCfg);
 
 const ago = (min) => new Date(Date.now() - min * 60e3).toISOString();
-const pic = (hue, label = '') => 'data:image/svg+xml,' + encodeURIComponent(
+// Demo images are written as SVG files (the app only accepts http(s)/same-origin URLs, not data: URIs).
+const SAMPLE_DIR = path.join(ROOT, 'public', 'data', 'sample');
+await fs.mkdir(SAMPLE_DIR, { recursive: true });
+const svgFile = (name, svg) => { fsSync.writeFileSync(path.join(SAMPLE_DIR, name), svg); return `data/sample/${name}`; };
+const slug = (label) => label.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+const pic = (hue, label = '') => svgFile(`pic-${hue}-${slug(label)}.svg`,
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${hue},55%,35%)"/><stop offset="1" stop-color="hsl(${hue + 40},60%,15%)"/></linearGradient></defs><rect width="640" height="360" fill="url(#g)"/><text x="320" y="190" font-family="sans-serif" font-size="28" fill="rgba(255,255,255,.6)" text-anchor="middle">${label}</text></svg>`);
-const tall = (hue, label = '') => 'data:image/svg+xml,' + encodeURIComponent(
+const tall = (hue, label = '') => svgFile(`tall-${hue}-${slug(label)}.svg`,
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 640"><rect width="360" height="640" fill="hsl(${hue},45%,22%)"/><text x="180" y="320" font-family="sans-serif" font-size="24" fill="rgba(255,255,255,.6)" text-anchor="middle">${label}</text></svg>`);
 
 const src = (id, name) => ({ id, name, avatar: null });

@@ -4,6 +4,7 @@ import { XMLParser } from 'fast-xml-parser';
 import crypto from 'node:crypto';
 import { fetchText } from './http.mjs';
 import { stripHtml, truncate, decodeEntities } from './text.mjs';
+import { safeUrl } from '../../public/url.js';
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -148,16 +149,19 @@ export async function fetchSourceFeed(source) {
   throw new Error(`Aucun flux valide trouvé (essayés : ${[...new Set(tried)].join(', ') || 'aucun'})`);
 }
 
+/** Returns null when the entry has no valid http(s) link. */
 export function entryToArticle(entry, source) {
+  const url = safeUrl(entry.link);
+  if (!url) return null;
   return {
     id: 'a-' + hashId(source.id, entry.guid || entry.link || entry.title),
     kind: 'article',
     platform: 'rss',
-    source: { id: source.id, name: source.name, avatar: source.avatar || null, url: source.site || null, ...(source.suggested ? { suggested: true } : {}) },
+    source: { id: source.id, name: source.name, avatar: safeUrl(source.avatar), url: safeUrl(source.site), ...(source.suggested ? { suggested: true } : {}) },
     title: truncate(entry.title, 220),
     text: truncate(entry.text && entry.text !== entry.title ? entry.text : '', 280),
-    url: entry.link,
-    image: entry.image || null,
+    url,
+    image: safeUrl(entry.image, url),
     publishedAt: entry.publishedAt,
   };
 }

@@ -4,7 +4,8 @@
     "videosMaxAgeHours": 168,
     "techMaxAgeHours": 168,
     "bskyPostsPerAccount": 30,
-    "bskySearchLimit": 100
+    "bskySearchLimit": 100,
+    "health": { "maxFailureRatio": 0.5, "minTotalItems": 30 }
   },
   "media": [
     {

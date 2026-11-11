@@ -4,6 +4,7 @@
 
 import { fetchJson } from './http.mjs';
 import { normalize, truncate } from './text.mjs';
+import { safeUrl } from '../../public/url.js';
 
 const PUBLIC = 'https://public.api.bsky.app/xrpc';
 
@@ -103,7 +104,7 @@ export function textSegments(record) {
       const feat = (f.features || [])[0] || {};
       const type = feat.$type || '';
       let href = null;
-      if (type.endsWith('#link')) href = feat.uri;
+      if (type.endsWith('#link')) href = safeUrl(feat.uri);
       else if (type.endsWith('#mention')) href = `https://bsky.app/profile/${feat.did}`;
       else if (type.endsWith('#tag')) href = `https://bsky.app/hashtag/${encodeURIComponent(feat.tag)}`;
       return href ? { start: f.index?.byteStart, end: f.index?.byteEnd, href } : null;

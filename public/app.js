@@ -1,8 +1,10 @@
 import { rank, applyLess, emptyPrefs, relativeTime } from './rank.js';
 import { searchAccounts, authorPosts, getProfile } from './bsky.js';
 import { compileTopics, matchKeywords } from './topics.js';
+import { safeUrl } from './url.js';
 
 const HLS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js';
+const HLS_SRI = 'sha384-w6Gb3fXHb5e1LUYa/hYA5Q41bEDglN5ZPCG7Jvnoo8/X90oGnlPqBlBJCe38mEMm';
 const PLATFORM_LABELS = { bluesky: 'Bluesky', youtube: 'YouTube', tiktok: 'TikTok', rss: '' };
 const ACTUS_CHUNK = 15;
 const REELS_CHUNK = 5;
@@ -137,6 +139,10 @@ function h(tag, attrs = {}, ...children) {
     else if (k === 'dataset') Object.assign(el.dataset, v);
     else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
     else if (k === 'text') el.textContent = v;
+    // Style via CSSOM (allowed by the CSP, unlike a style attribute).
+    else if (k === 'style') el.style.cssText = v;
+    // Every link / source coming from the data goes through the http(s) filter.
+    else if (k === 'href' || k === 'src') { const u = safeUrl(v, location.href); if (u) el.setAttribute(k, u); }
     else el.setAttribute(k, v === true ? '' : v);
   }
   for (const c of children.flat()) {
@@ -169,7 +175,7 @@ const ICONS = {
 function avatar(src, name, { square = false, size } = {}) {
   const initial = (name || '?').trim().charAt(0).toUpperCase();
   const fallback = () => h('div', { class: `avatar${square ? ' square' : ''}`, text: initial });
-  if (!src) return fallback();
+  if (!safeUrl(src, location.href)) return fallback();
   const img = h('img', { class: `avatar${square ? ' square' : ''}`, src, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' });
   if (size) { img.width = size; img.height = size; }
   img.addEventListener('error', () => img.replaceWith(fallback()), { once: true });
@@ -178,6 +184,7 @@ function avatar(src, name, { square = false, size } = {}) {
 
 /** Feed image. With `zoom`, tapping it opens the in-app viewer instead of the article. */
 function image(src, alt = '', zoom = null) {
+  if (!safeUrl(src, location.href)) return document.createDocumentFragment();
   const img = h('img', { src, alt, loading: 'lazy', referrerpolicy: 'no-referrer' });
   img.addEventListener('error', () => (img.closest('.media, .ext-img') || img).remove(), { once: true });
   if (zoom) {
@@ -235,7 +242,10 @@ function closeViewer(viaHistory = true) {
 
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeViewer(); });
 
-const openUrl = (url) => { if (url) window.open(url, '_blank', 'noopener'); };
+const openUrl = (url) => {
+  const u = safeUrl(url, location.href);
+  if (u) window.open(u, '_blank', 'noopener');
+};
 
 function domainOf(url) {
   try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
@@ -289,7 +299,8 @@ const TEXT_LIMIT = 280;
 const LINKIFY = /(https?:\/\/[^\s]+)|(#[\p{L}\p{N}_]+)|(@[a-z0-9-]+(?:\.[a-z0-9-]+)+)/giu;
 
 function linkNode(text, href) {
-  return h('a', { class: 'link', href, target: '_blank', rel: 'noopener', text });
+  const u = safeUrl(href, location.href);
+  return u ? h('a', { class: 'link', href: u, target: '_blank', rel: 'noopener', text }) : document.createTextNode(text);
 }
 
 /** Plain text → nodes, with URLs, #hashtags and @handles in blue. */
@@ -397,7 +408,8 @@ function inlineVideo(v) {
     v.poster ? image(v.poster) : null,
     muteBtn,
   );
-  box._src = v.src;
+  box._src = safeUrl(v.src, location.href);
+  if (!box._src) return box;
   muteBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     box._muted = box._muted === false;
@@ -600,8 +612,9 @@ function openSheet(entry) {
     followBtn.querySelector('strong').textContent = following ? `Ne plus suivre ${entry.source.name}` : `Suivre ${entry.source.name}`;
   }
   const link = $('#sheet-open');
-  link.hidden = isGroup;
-  if (!isGroup) link.href = entry.url;
+  const openHref = isGroup ? null : safeUrl(entry.url, location.href);
+  link.hidden = !openHref;
+  if (openHref) link.href = openHref; else link.removeAttribute('href');
   $('#sheet').hidden = false;
   $('#sheet-backdrop').hidden = false;
 }
@@ -884,7 +897,8 @@ async function renderProfile() {
     try {
       const [p, posts] = await Promise.all([getProfile(handle), authorPosts(handle, 50)]);
       if (seq !== profile.seq) return;
-      if (p.banner) banner.style.backgroundImage = `url("${p.banner.replace(/"/g, '%22')}")`;
+      const bannerUrl = safeUrl(p.banner, location.href);
+      if (bannerUrl) banner.style.backgroundImage = `url("${bannerUrl.replace(/"/g, '%22')}")`;
       if (p.avatar && !a.avatar) avatarBox.replaceChildren(avatar(p.avatar, a.name));
       if (p.description && !a.description) bio.replaceChildren(...linkify(p.description));
       const known = state.accounts.get(a.id);
@@ -900,6 +914,7 @@ function loadHls() {
   hlsPromise ||= new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = HLS_URL;
+    s.integrity = HLS_SRI;
     s.crossOrigin = 'anonymous';
     s.onload = () => resolve(window.Hls);
     s.onerror = reject;
@@ -996,23 +1011,25 @@ async function activateReel(slide, userGesture = false) {
   }
 
   if (v.type === 'hls') {
-    const video = h('video', { playsinline: true, 'webkit-playsinline': true, loop: true, preload: 'auto', poster: v.poster || undefined });
+    const hlsSrc = safeUrl(v.src, location.href);
+    if (!hlsSrc) return;
+    const video = h('video', { playsinline: true, 'webkit-playsinline': true, loop: true, preload: 'auto', poster: safeUrl(v.poster, location.href) || undefined });
     video.muted = state.muted;
     video.addEventListener('click', () => (video.paused ? video.play() : video.pause()));
     slide.insertBefore(video, slide.querySelector('.reel-play'));
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = v.src;
+      video.src = hlsSrc;
     } else {
       try {
         const Hls = await loadHls();
         if (state.reels.active !== slide) return;
         if (Hls?.isSupported()) {
           const hls = new Hls({ maxBufferLength: 20 });
-          hls.loadSource(v.src);
+          hls.loadSource(hlsSrc);
           hls.attachMedia(video);
           slide._hls = hls;
         } else {
-          video.src = v.src;
+          video.src = hlsSrc;
         }
       } catch {
         toast('Lecture vidéo indisponible');

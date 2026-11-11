@@ -11,6 +11,9 @@ import * as bsky from './lib/bluesky.mjs';
 import * as yt from './lib/youtube.mjs';
 import { compileTopics, annotate, groupDuplicates } from './lib/score.mjs';
 import { truncate } from './lib/text.mjs';
+import { sanitizeItem } from './lib/sanitize.mjs';
+import { safeUrl } from '../public/url.js';
+import { checkRun } from './lib/health.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'public', 'data');
@@ -27,7 +30,7 @@ const report = (type, name, ok, info) => {
 // Directory of every working account, for the "Découvrir" tab.
 const directory = new Map();
 function register(entry) {
-  if (!directory.has(entry.id)) directory.set(entry.id, { ...entry, description: truncate(entry.description || '', 200) });
+  if (!directory.has(entry.id)) directory.set(entry.id, { ...entry, avatar: safeUrl(entry.avatar), url: safeUrl(entry.url), description: truncate(entry.description || '', 200) });
 }
 
 async function collectMedia(media, type = 'rss') {
@@ -40,7 +43,7 @@ async function collectMedia(media, type = 'rss') {
       url: src.site || feed.feedUrl, handle: (src.site || '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''),
       description: feed.description, suggested: !!src.suggested, category: src.category || (type === 'tech' ? 'Tech' : 'Médias'),
     });
-    return feed.entries.filter((e) => e.link && e.title).map((e) => entryToArticle(e, source));
+    return feed.entries.filter((e) => e.link && e.title).map((e) => entryToArticle(e, source)).filter(Boolean);
   }));
   const items = [];
   results.forEach((r, i) => {
@@ -158,7 +161,9 @@ function freshAndUnique(items, maxAgeHours) {
   const future = Date.now() + 3600e3;
   const map = new Map();
   const urls = new Set();
-  for (const it of items) {
+  for (const raw of items) {
+    const it = sanitizeItem(raw);
+    if (!it) continue;
     const t = Date.parse(it.publishedAt);
     if (!Number.isFinite(t) || t < cutoff || t > future) continue;
     if (map.has(it.id) || (it.url && urls.has(it.url))) continue;
@@ -186,6 +191,15 @@ async function main() {
   const actusItems = freshAndUnique([...articles, ...bluesky.posts], settings.actusMaxAgeHours).map((i) => annotate(i, matchers));
   const techItems = freshAndUnique([...techArticles, ...bluesky.tech], settings.techMaxAgeHours ?? 168).map((i) => annotate(i, techMatchers));
   const videoItems = freshAndUnique([...bluesky.videos, ...ytVideos, ...ttVideos], settings.videosMaxAgeHours).map((i) => annotate(i, matchers));
+
+  // Refuse to publish a mostly-failed run: exiting non-zero keeps the previous deployment.
+  const health = checkRun(status, { actus: actusItems.length, tech: techItems.length, videos: videoItems.length }, settings);
+  if (!health.ok) {
+    const failedN = status.filter((s) => !s.ok).length;
+    console.error(`\nCollecte jugée défaillante (${failedN}/${status.length} sources en échec) : ${health.reasons.join(' ; ')}.`);
+    console.error('Aucune donnée écrite : le déploiement précédent est conservé.');
+    process.exit(2);
+  }
 
   const meta = {
     generatedAt: new Date().toISOString(),
