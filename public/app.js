@@ -48,11 +48,14 @@ function saveFollows() {
   const f = state.follows;
   store.set('follows', { followed: [...f.followed], unfollowed: [...f.unfollowed], live: f.live });
 }
-function isFollowed(source) {
+// strict: an account missing from the directory (e.g. a Bluesky search result)
+// is not followed unless explicitly followed. Feed items keep the lenient default.
+function isFollowed(source, { strict = false } = {}) {
   if (!source) return true;
   const f = state.follows;
   if (f.followed.has(source.id)) return true;
   if (f.unfollowed.has(source.id)) return false;
+  if (strict && !state.accounts.has(source.id) && source.suggested === undefined) return false;
   const suggested = source.suggested ?? state.accounts.get(source.id)?.suggested;
   return !suggested;
 }
@@ -632,12 +635,18 @@ async function setFollow(account, follow) {
 
 // ---------- Découvrir ----------
 function followButton(account) {
-  const following = isFollowed(account);
-  return h('button', {
+  const following = isFollowed(account, { strict: true });
+  const btn = h('button', {
     class: 'follow-btn' + (following ? ' following' : ''),
     text: following ? 'Abonné' : 'Suivre',
-    onclick: (e) => { e.stopPropagation(); setFollow(account, !following); },
+    onclick: async (e) => {
+      e.stopPropagation();
+      await setFollow(account, !following);
+      // Search results are not re-rendered by setFollow: refresh this button.
+      if (btn.isConnected) btn.replaceWith(followButton(account));
+    },
   });
+  return btn;
 }
 
 const KIND_LABEL = { media: 'Site', bluesky: 'Bluesky', youtube: 'YouTube', tiktok: 'TikTok' };
