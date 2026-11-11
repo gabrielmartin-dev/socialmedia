@@ -80,6 +80,88 @@
       "site": "https://www.arretsurimages.net"
     },
     {
+      "id": "insoumission",
+      "name": "L’Insoumission",
+      "site": "https://linsoumission.fr",
+      "_comment": "Média proche de LFI."
+    },
+    {
+      "id": "lvsl",
+      "name": "Le Vent Se Lève",
+      "site": "https://lvsl.fr"
+    },
+    {
+      "id": "npa",
+      "name": "NPA - L’Anticapitaliste",
+      "site": "https://npa-lanticapitaliste.org",
+      "_comment": "Site et journal du NPA-L’Anticapitaliste."
+    },
+    {
+      "id": "npa-rev",
+      "name": "NPA - Révolutionnaires",
+      "site": "https://npa-revolutionnaires.org"
+    },
+    {
+      "id": "lutteouvriere",
+      "name": "Lutte ouvrière",
+      "site": "https://www.lutte-ouvriere.org"
+    },
+    {
+      "id": "contretemps",
+      "name": "Contretemps",
+      "site": "https://www.contretemps.eu"
+    },
+    {
+      "id": "ballast",
+      "name": "Ballast",
+      "site": "https://www.revue-ballast.fr"
+    },
+    {
+      "id": "fakir",
+      "name": "Fakir",
+      "site": "https://fakirpresse.info"
+    },
+    {
+      "id": "attac",
+      "name": "Attac France",
+      "site": "https://france.attac.org"
+    },
+    {
+      "id": "nantesrevoltee",
+      "name": "Nantes Révoltée",
+      "site": "https://www.nantes-revoltee.com"
+    },
+    {
+      "id": "parisluttes",
+      "name": "Paris-luttes.info",
+      "site": "https://paris-luttes.info"
+    },
+    {
+      "id": "rebellyon",
+      "name": "Rebellyon",
+      "site": "https://rebellyon.info"
+    },
+    {
+      "id": "cqfd",
+      "name": "CQFD",
+      "site": "https://cqfd-journal.org"
+    },
+    {
+      "id": "deferlante",
+      "name": "La Déferlante",
+      "site": "https://revueladeferlante.org"
+    },
+    {
+      "id": "marxiste",
+      "name": "Révolution (marxiste.org)",
+      "site": "https://www.marxiste.org"
+    },
+    {
+      "id": "economistesatterres",
+      "name": "Les Économistes atterrés",
+      "site": "https://www.atterres.org"
+    },
+    {
       "id": "liberation",
       "name": "Libération",
       "site": "https://www.liberation.fr",
@@ -523,6 +605,96 @@
         "_comment": "Recherché par nom exact : vérifier le compte trouvé dans status.json et fixer le handle si besoin."
       },
       {
+        "name": "Aurélien Le Coq"
+      },
+      {
+        "name": "Gabrielle Cathala"
+      },
+      {
+        "name": "Andy Kerbrat"
+      },
+      {
+        "name": "Nadège Abomangoli"
+      },
+      {
+        "name": "Carlos Martens Bilongo"
+      },
+      {
+        "name": "Bastien Lachaud"
+      },
+      {
+        "name": "Pierre-Yves Cadalen"
+      },
+      {
+        "name": "Abdelkader Lahmar"
+      },
+      {
+        "name": "Mathilde Hignet"
+      },
+      {
+        "name": "Raquel Garrido"
+      },
+      {
+        "name": "Philippe Poutou"
+      },
+      {
+        "name": "Olivier Besancenot"
+      },
+      {
+        "name": "Anasse Kazib"
+      },
+      {
+        "name": "Nathalie Arthaud"
+      },
+      {
+        "name": "Edwy Plenel"
+      },
+      {
+        "name": "Fabrice Arfi"
+      },
+      {
+        "name": "Denis Robert"
+      },
+      {
+        "name": "Aude Lancelin"
+      },
+      {
+        "name": "Daniel Schneidermann"
+      },
+      {
+        "name": "Paloma Moritz"
+      },
+      {
+        "name": "Pablo Pillaud-Vivien"
+      },
+      {
+        "name": "Hervé Kempf"
+      },
+      {
+        "name": "Clément Viktorovitch"
+      },
+      {
+        "name": "Mathieu Molard"
+      },
+      {
+        "name": "Usul"
+      },
+      {
+        "name": "Pierre Jacquemain"
+      },
+      {
+        "name": "Lénaïg Bredoux"
+      },
+      {
+        "name": "Marine Turchi"
+      },
+      {
+        "name": "Ilyes Ramdani"
+      },
+      {
+        "name": "Antton Rouget"
+      },
+      {
         "name": "Sophia Chikirou",
         "suggested": true
       },
@@ -697,6 +869,61 @@
       "id": "yt-mouffette",
       "name": "Mouffette",
       "url": "https://www.youtube.com/@MouffetteVOD"
+    },
+    {
+      "id": "yt-jlm",
+      "name": "Jean-Luc Mélenchon",
+      "url": "https://www.youtube.com/@JLMelenchon"
+    },
+    {
+      "id": "yt-lfi",
+      "name": "La France insoumise",
+      "url": "https://www.youtube.com/@lafranceinsoumise"
+    },
+    {
+      "id": "yt-insoumission",
+      "name": "L’Insoumission",
+      "url": "https://www.youtube.com/@LInsoumission"
+    },
+    {
+      "id": "yt-revperm",
+      "name": "Révolution Permanente",
+      "url": "https://www.youtube.com/@RevolutionPermanente"
+    },
+    {
+      "id": "yt-npa",
+      "name": "NPA - L’Anticapitaliste",
+      "url": "https://www.youtube.com/@NPAanticapitaliste"
+    },
+    {
+      "id": "yt-lvsl",
+      "name": "Le Vent Se Lève",
+      "url": "https://www.youtube.com/@LeVentSeLeve"
+    },
+    {
+      "id": "yt-hors-serie",
+      "name": "Hors-Série",
+      "url": "https://www.youtube.com/@HorsSerie"
+    },
+    {
+      "id": "yt-partager",
+      "name": "Partager C’est Sympa",
+      "url": "https://www.youtube.com/@partagercestsympa"
+    },
+    {
+      "id": "yt-datagueule",
+      "name": "DataGueule",
+      "url": "https://www.youtube.com/@datagueule"
+    },
+    {
+      "id": "yt-histony",
+      "name": "Histony",
+      "url": "https://www.youtube.com/@Histony"
+    },
+    {
+      "id": "yt-viktorovitch",
+      "name": "Clément Viktorovitch",
+      "url": "https://www.youtube.com/@ClementViktorovitch"
     },
     {
       "id": "yt-osonscauser",
