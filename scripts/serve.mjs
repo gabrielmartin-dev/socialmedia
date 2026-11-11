@@ -4,6 +4,7 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stampedSw } from './lib/stamp.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const PORT = Number(process.env.PORT) || 8080;
@@ -18,7 +19,8 @@ http.createServer(async (req, res) => {
   const file = path.join(ROOT, path.normalize(p));
   if (!file.startsWith(ROOT)) { res.writeHead(403).end(); return; }
   try {
-    const body = await fs.readFile(file);
+    // Same versioning as the deployment: sw.js carries the hash of the shell files.
+    const body = p === '/sw.js' ? Buffer.from(await stampedSw(ROOT)) : await fs.readFile(file);
     res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
     res.end(body);
   } catch {

@@ -111,3 +111,61 @@ test('Bluesky requests time out instead of hanging', async () => {
     assert.ok(Date.now() - t0 < 1000);
   } finally { globalThis.fetch = real; }
 });
+
+// ---------- live accounts: windows and topics come from the config ----------
+import { classifyLive, maxAgeMs } from '../public/app/live.js';
+import { state } from '../public/app/store.js';
+import { topicsForClient } from '../scripts/lib/client-config.mjs';
+import { clampAspect, KIND_LABEL } from '../public/app/util.js';
+
+const liveTopics = topicsForClient({
+  topics: {
+    social: { feed: 'actus', keywords: { greve: 2 } },
+    ia: { feed: 'tech', keywords: { 'intelligence artificielle': 3, greve: 9 } },
+  },
+}, { actusMaxAgeHours: 24, videosMaxAgeHours: 100 });
+const hoursAgo = (h) => new Date(Date.now() - h * 3600e3).toISOString();
+const livePost = (id, h, text, video) => ({ id, kind: 'post', source: { id: 'bsky:x' }, text, publishedAt: hoursAgo(h), video });
+
+test('topicsForClient exports the freshness windows of the config', () => {
+  assert.deepEqual(liveTopics.settings, { actusMaxAgeHours: 24, techMaxAgeHours: 168, videosMaxAgeHours: 100 });
+  assert.equal(liveTopics.topics.social.feed, 'actus');
+  assert.equal(topicsForClient({ topics: {} }).settings.actusMaxAgeHours, 72, 'defaults mirror the collector');
+});
+
+test('live posts use the configured windows, not a hard-coded 72 h', () => {
+  assert.equal(maxAgeMs('actus', liveTopics), 24 * 3600e3);
+  assert.equal(maxAgeMs('actus', null), 72 * 3600e3, 'fallback for data published before `settings` existed');
+  const posts = [livePost('new', 5, 'greve'), livePost('mid', 30, 'greve'), livePost('old', 200, 'greve')];
+  state.follows.live['bsky:x'] = { feed: 'actus' };
+  const out = classifyLive('bsky:x', posts, liveTopics);
+  assert.deepEqual(out.actus.map((p) => p.id), ['new'], '24 h window of this config');
+  assert.equal(classifyLive('bsky:x', posts, { ...liveTopics, settings: { ...liveTopics.settings, actusMaxAgeHours: 48 } }).actus.length, 2);
+});
+
+test('live posts are scored with the topics of their own feed; videos follow the videos window', () => {
+  const posts = [livePost('p', 1, 'greve et intelligence artificielle'),
+    livePost('v', 90, 'greve', { type: 'hls', src: 'https://v/p.m3u8' }), livePost('vold', 120, 'greve', { type: 'hls', src: 'https://v/q.m3u8' })];
+  state.follows.live['bsky:x'] = { feed: 'tech' };
+  const tech = classifyLive('bsky:x', posts, liveTopics);
+  assert.deepEqual(tech.tech[0].keywords.map((k) => k.k).sort(), ['greve', 'intelligence artificielle']);
+  assert.equal(tech.tech[0].keywords.find((k) => k.k === 'greve').w, 9, 'tech topics, not actus ones');
+  assert.deepEqual(tech.actus, []);
+  assert.deepEqual(tech.videos.map((p) => p.id), ['v'], 'videos window (100 h) applies, not the actus one');
+  assert.equal(tech.videos[0].kind, 'video');
+  assert.equal(tech.videos[0].keywords[0].w, 2, 'videos are scored with the actus topics, like the collector');
+
+  state.follows.live['bsky:x'] = { feed: 'actus' };
+  const actus = classifyLive('bsky:x', posts, liveTopics);
+  assert.deepEqual(actus.actus[0].keywords.map((k) => k.k), ['greve']);
+  assert.deepEqual(actus.tech, []);
+  delete state.follows.live['bsky:x'];
+});
+
+test('shared labels and aspect clamp', () => {
+  assert.equal(clampAspect(undefined, 1.5), 1.5);
+  assert.equal(clampAspect(0.3, 1.5), 0.8);
+  assert.equal(clampAspect(5, 1.5), 2.2);
+  assert.equal(clampAspect(1.78, 1.5), 1.78);
+  assert.equal(KIND_LABEL.media, 'Site');
+});

@@ -15,6 +15,7 @@ import { sanitizeItem } from './lib/sanitize.mjs';
 import { safeUrl } from '../public/url.js';
 import { checkRun } from './lib/health.mjs';
 import { packFeed } from '../public/pack.js';
+import { topicsForClient } from './lib/client-config.mjs';
 import { ResolutionCache, cachedResolve, DAY, HOUR } from './lib/cache.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -255,7 +256,7 @@ async function main() {
     return { ...a, lastTitle: last ? truncate(last.title || last.text || '', 140) : '', lastAt: last?.publishedAt || null };
   });
   await fs.writeFile(path.join(OUT, 'accounts.json'), JSON.stringify({ generatedAt: meta.generatedAt, accounts }));
-  await fs.writeFile(path.join(OUT, 'topics.json'), JSON.stringify(topicsCfg));
+  await fs.writeFile(path.join(OUT, 'topics.json'), JSON.stringify(topicsForClient(topicsCfg, settings)));
   await fs.writeFile(path.join(OUT, 'status.json'), JSON.stringify({ generatedAt: meta.generatedAt, sources: status }, null, 2));
 
   const failed = status.filter((s) => !s.ok).length;

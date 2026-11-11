@@ -70,6 +70,9 @@ jobs:
         with:
           path: .cache/collect
           key: collect-resolutions-${{ github.run_id }}
+      # Version du service worker = hash du contenu du shell : mise à jour atomique côté client.
+      - name: Version du service worker
+        run: node scripts/stamp-sw.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

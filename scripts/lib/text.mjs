@@ -1,4 +1,8 @@
-// Text helpers: normalisation, HTML stripping, tokenisation, similarity.
+// Text helpers: HTML stripping, tokenisation, similarity. normalize / truncate / escapeRegex
+// live in public/norm.js (shared with the browser).
+
+import { normalize } from '../../public/norm.js';
+export { normalize, escapeRegex, truncate } from '../../public/norm.js';
 
 const ENTITIES = {
   amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
@@ -26,23 +30,6 @@ export function stripHtml(html) {
   return decodeEntities(noTags).replace(/[ \t\r\f\v]+/g, ' ').replace(/\s*\n\s*/g, '\n').trim();
 }
 
-export function truncate(s, max) {
-  const str = String(s ?? '').trim();
-  if (str.length <= max) return str;
-  const cut = str.slice(0, max);
-  const lastSpace = cut.lastIndexOf(' ');
-  return (lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut).trimEnd() + '…';
-}
-
-/** Lowercase, strip accents, unify apostrophes. */
-export function normalize(s) {
-  return String(s ?? '')
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[’‘`]/g, "'");
-}
-
 const STOPWORDS = new Set(`
 a au aux avec ce ces cet cette dans de des du elle elles en et eux il ils je la le les leur leurs lui ma mais me meme
 mes moi mon ne nos notre nous on ou par pas pour qu que qui sa se ses son sur ta te tes toi ton tu un une vos votre vous
@@ -66,8 +53,4 @@ export function jaccard(a, b) {
   let inter = 0;
   for (const x of A) if (B.has(x)) inter++;
   return inter / (A.size + B.size - inter);
-}
-
-export function escapeRegex(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

@@ -1,17 +1,49 @@
-// Service worker: app shell cache-first, data network-first (offline fallback).
-const VERSION = 'v11';
-const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'rank.js', 'bsky.js', 'topics.js', 'url.js', 'pack.js', 'seen.js', 'pool.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
+// Service worker.
+//
+// App shell: ONE versioned cache. VERSION is a hash of every shell file, stamped at deploy
+// time by scripts/stamp-sw.mjs (no bundler). A new deployment therefore means a new
+// sw.js, which downloads the whole shell into a new cache and only then takes over: a
+// page can never mix an app.js of one deployment with a rank.js of another.
+// Data: network-first, last good response served offline.
+
+const VERSION = '__BUILD_ID__';
+const SHELL = [
+  './', 'index.html', 'styles.css', 'manifest.webmanifest',
+  'app.js',
+  'app/actions.js', 'app/cards.js', 'app/discover.js', 'app/dom.js', 'app/feed.js', 'app/follow.js', 'app/hls.js',
+  'app/live.js', 'app/media.js', 'app/profile.js', 'app/reels.js', 'app/refresh.js', 'app/sheet.js', 'app/store.js',
+  'app/tabs.js', 'app/util.js', 'app/viewer.js',
+  'bsky.js', 'bskypost.js', 'norm.js', 'pack.js', 'pool.js', 'rank.js', 'seen.js', 'topics.js', 'url.js',
+  'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
+];
+
+const SHELL_CACHE = `shell-${VERSION}`;
+const DATA_CACHE = 'data'; // stable name: offline data survives an app update
+// An unstamped copy (file opened without the dev server) must never cache the shell.
+const UNSTAMPED = VERSION.startsWith('__');
 
 const offlineResponse = () => new Response('Hors ligne', { status: 503, statusText: 'Offline', headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(`shell-${VERSION}`).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  if (UNSTAMPED) { e.waitUntil(self.skipWaiting()); return; }
+  e.waitUntil((async () => {
+    try {
+      const cache = await caches.open(SHELL_CACHE);
+      // `reload` bypasses the HTTP cache: the whole shell comes from the same deployment.
+      await cache.addAll(SHELL.map((p) => new Request(p, { cache: 'reload' })));
+    } catch (err) {
+      // All or nothing: a partial shell is never activated, the previous version stays.
+      await caches.delete(SHELL_CACHE);
+      throw err;
+    }
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => !k.endsWith(VERSION)).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== SHELL_CACHE && k !== DATA_CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });
@@ -28,7 +60,7 @@ self.addEventListener('fetch', (e) => {
         .then(async (res) => {
           if (res.ok) {
             const copy = res.clone();
-            caches.open(`data-${VERSION}`).then((c) => c.put(url.pathname, copy));
+            caches.open(DATA_CACHE).then((c) => c.put(url.pathname, copy));
             return res;
           }
           return (await fromCache()) || res;
@@ -38,22 +70,20 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Shell: stale-while-revalidate. Never resolves to undefined: with neither cache nor
-  // network, a navigation falls back to the cached index, anything else to a 503.
-  e.respondWith(
-    caches.match(e.request).then((cached) => {
-      const network = fetch(e.request)
-        .then((res) => {
-          if (res.ok) {
-            const copy = res.clone();
-            caches.open(`shell-${VERSION}`).then((c) => c.put(e.request, copy));
-          }
-          return res;
-        })
-        .catch(async () => cached
-          || (e.request.mode === 'navigate' && (await caches.match('index.html')))
-          || offlineResponse());
-      return cached || network;
-    }),
-  );
+  if (UNSTAMPED) return;
+
+  // Shell: cache-first, from the cache of THIS version only. Never resolves to undefined:
+  // with neither cache nor network, a navigation falls back to the cached index, anything
+  // else to a 503.
+  e.respondWith((async () => {
+    const cache = await caches.open(SHELL_CACHE);
+    const navigate = e.request.mode === 'navigate';
+    const cached = await cache.match(e.request, { ignoreSearch: navigate });
+    if (cached) return cached;
+    try {
+      return await fetch(e.request);
+    } catch {
+      return (navigate && (await cache.match('index.html'))) || offlineResponse();
+    }
+  })());
 });
