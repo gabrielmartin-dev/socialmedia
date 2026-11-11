@@ -1,10 +1,11 @@
 // Ranking logic shared by the app (and unit tests). No DOM here.
 //
-// score = (1 + topicScore) × sourceWeight × freshness × engagement × seen
+// score = √(1 + topicScore) × sourceWeight × freshness × engagement × seen × new
 // topicScore = min(cap, Σ keywordWeight × localKeywordFactor)
 // freshness  = 0.5 ^ (ageHours / halfLife)
 // engagement = 1 + 0.25 × log10(1 + likes + 2 × reposts)   (Bluesky only)
-// seen       = 0.3 if already displayed in a previous session, else 1
+// seen       = 0.2 ^ (number of sessions in which the item was displayed, max 3)
+// new        = 1.5 if published since the previous visit, else 1
 //
 // "Pour toi" mode (random given): weighted random sampling without replacement
 // (Efraimidis–Spirakis: key = U^(1/score)), so high scores tend to come first but
@@ -29,10 +30,25 @@ export function itemScore(item, { now = Date.now(), halfLife = 6, cap = 6, prefs
   const src = prefs.sources[item.source?.id] ?? 1;
   const st = item.stats;
   const engagement = st ? 1 + 0.25 * Math.log10(1 + (st.likes || 0) + 2 * (st.reposts || 0)) : 1;
-  return (1 + topicScore(item, prefs, cap)) * src * freshness * engagement;
+  // Square root keeps topics important without letting one hot post crush the rest.
+  return Math.sqrt(1 + topicScore(item, prefs, cap)) * src * freshness * engagement;
 }
 
-export const SEEN_FACTOR = 0.3;
+export const SEEN_FACTOR = 0.2;
+export const NEW_BOOST = 1.5;
+
+/** How many times an entry was displayed. `seen` is a Map(id → count) or a Set(id). */
+export function seenCount(entry, seen) {
+  if (!seen) return 0;
+  const get = (id) => (seen instanceof Map ? seen.get(id) || 0 : seen.has(id) ? 1 : 0);
+  // A group counts as seen if any of its articles was seen (its id changes as it grows).
+  const ids = entry.kind === 'group' ? [entry.id, ...entry.items.map((i) => i.id)] : [entry.id];
+  return Math.min(3, Math.max(...ids.map(get)));
+}
+
+function newestDate(entry) {
+  return entry.kind === 'group' ? Math.max(...entry.items.map((i) => Date.parse(i.publishedAt))) : Date.parse(entry.publishedAt);
+}
 
 export function entryScore(entry, opts) {
   if (entry.kind === 'group') return Math.max(...entry.items.map((i) => itemScore(i, opts)));
@@ -60,12 +76,14 @@ export function diversify(list, gap = 2) {
  * opts.seen: Set of ids already displayed, which are pushed down.
  */
 export function rank(entries, opts = {}, hidden = new Set()) {
-  const { random, seen } = opts;
+  const { random, seen, lastVisit } = opts;
   const scored = entries
     .filter((e) => !hidden.has(e.id))
     .map((e) => {
       let s = entryScore(e, opts);
-      if (seen?.has(e.id)) s *= SEEN_FACTOR;
+      const n = seenCount(e, seen);
+      if (n) s *= SEEN_FACTOR ** n;
+      else if (lastVisit && newestDate(e) > lastVisit) s *= NEW_BOOST;
       return { e, s: Math.max(s, 1e-9) };
     });
   if (!random) return scored.sort((a, b) => b.s - a.s).map((x) => x.e);

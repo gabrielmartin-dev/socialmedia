@@ -111,10 +111,11 @@ La correspondance est insensible à la casse et aux accents, sur le titre, le ch
 
 ### 4.2 Score et ordre « pour toi »
 ```
-score = (1 + score_sujet) × poids_source × fraîcheur × engagement × déjà_vu
+score = √(1 + score_sujet) × poids_source × fraîcheur × engagement × déjà_vu × nouveau
 fraîcheur  = 0.5 ^ (âge_en_heures / demi_vie)
 engagement = 1 + 0.25 × log10(1 + likes + 2 × reposts)   (posts Bluesky)
-déjà_vu    = 0.3 si le post a déjà été affiché, sinon 1
+déjà_vu    = 0.2 ^ (nombre de sessions où le post a été affiché, max 3)
+nouveau    = 1.5 si publié depuis la dernière visite, sinon 1
 ```
 - `score_sujet` est la somme des poids des mots-clés trouvés, plafonnée.
 - La demi-vie est configurable : par défaut 10 h pour Actus et 24 h pour Vidéos.

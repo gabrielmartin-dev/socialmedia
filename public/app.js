@@ -27,8 +27,10 @@ const state = {
   live: { actus: [], videos: [] },
   prefs: Object.assign(emptyPrefs(), store.get('prefs', {})),
   hidden: new Set(store.get('hidden', [])),
-  // id -> timestamp of first display; used to push already-seen items down.
-  seen: pruneSeen(store.get('seen', {})),
+  // id -> [last display timestamp, number of sessions it was displayed in].
+  seen: pruneSeen(store.get('seen2', {})),
+  // Timestamp of the previous visit: newer posts get a boost.
+  lastVisit: store.get('lastVisit', 0),
   // Text feeds (same rendering): Actus and Tech.
   feeds: {
     actus: { ranked: [], rendered: 0, dirty: false, scroll: 0 },
@@ -73,22 +75,46 @@ function entriesFor(key) {
 function pruneSeen(map) {
   const cutoff = Date.now() - 4 * 86400e3;
   const out = {};
-  for (const [id, t] of Object.entries(map || {})) if (t > cutoff) out[id] = t;
+  for (const [id, v] of Object.entries(map || {})) if (Array.isArray(v) && v[0] > cutoff) out[id] = v;
   return out;
 }
 
+// Ids already counted during this session (one impression per session).
+const sessionSeen = new Set();
 let seenTimer = null;
 function markSeen(id) {
-  if (!id || state.seen[id]) return;
-  state.seen[id] = Date.now();
+  if (!id || sessionSeen.has(id)) return;
+  sessionSeen.add(id);
+  const prev = state.seen[id];
+  state.seen[id] = [Date.now(), (prev?.[1] || 0) + 1];
   clearTimeout(seenTimer);
-  seenTimer = setTimeout(() => store.set('seen', state.seen), 1000);
+  seenTimer = setTimeout(() => store.set('seen2', state.seen), 1000);
 }
+
+function seenMap() {
+  return new Map(Object.entries(state.seen).map(([id, v]) => [id, v[1]]));
+}
+
+// A new session starts when the app comes back after 10 minutes in the background.
+function newSession() {
+  sessionSeen.clear();
+}
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { hiddenAt = Date.now(); store.set('lastVisit', Date.now()); }
+  else if (hiddenAt && Date.now() - hiddenAt > 10 * 60e3) { state.lastVisit = hiddenAt; newSession(); }
+});
+window.addEventListener('pagehide', () => store.set('lastVisit', Date.now()));
 
 // A card counts as seen once at least half of it has been on screen.
 const seenObserver = new IntersectionObserver((entries) => {
   for (const e of entries) {
-    if (e.isIntersecting) { markSeen(e.target.dataset.id); seenObserver.unobserve(e.target); }
+    if (e.isIntersecting) {
+      markSeen(e.target.dataset.id);
+      // Also count every article of a "N médias en parlent" card.
+      (e.target._memberIds || []).forEach(markSeen);
+      seenObserver.unobserve(e.target);
+    }
   }
 }, { threshold: 0.5 });
 
@@ -197,7 +223,8 @@ function rankOpts(dataset) {
     cap: dataset?.scoreCap ?? 6,
     prefs: state.prefs,
     random: Math.random, // new order on every refresh, like a "pour toi" timeline
-    seen: new Set(Object.keys(state.seen)),
+    seen: seenMap(),
+    lastVisit: state.lastVisit,
   };
 }
 
@@ -458,7 +485,9 @@ function appendFeed(key) {
   const end = Math.min(feed.ranked.length, feed.rendered + ACTUS_CHUNK);
   const frag = document.createDocumentFragment();
   for (let i = feed.rendered; i < end; i++) {
-    const card = renderEntry(feed.ranked[i]);
+    const entry = feed.ranked[i];
+    const card = renderEntry(entry);
+    if (entry.kind === 'group') card._memberIds = entry.items.map((it) => it.id);
     seenObserver.observe(card);
     frag.append(card);
   }
@@ -479,7 +508,8 @@ function renderFooter(key) {
         state.prefs = emptyPrefs();
         state.hidden.clear();
         state.seen = {};
-        store.set('seen', {});
+        sessionSeen.clear();
+        store.set('seen2', {});
         savePrefs();
         renderAllFeeds();
         state.reels.built = false;
