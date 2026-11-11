@@ -3,7 +3,22 @@
 import { h, svg, ICONS, scrollBehavior } from './dom.js';
 import { trapFocus } from './focus.js';
 
-export const viewer = { el: null, open: false, release: null };
+export const viewer = { el: null, open: false, release: null, popPending: false };
+
+let lastPop = { event: null, result: false };
+/**
+ * Called first by every popstate handler. True when this "back" belongs to the viewer (the
+ * gesture that closes it, or the history entry popped by the × button): the page behind must
+ * not react. The answer is computed once per event, so the handlers can run in any order.
+ */
+export function viewerPop(event) {
+  if (lastPop.event === event) return lastPop.result;
+  let result = false;
+  if (viewer.open) { closeViewer(false); result = true; }
+  else if (viewer.popPending) { viewer.popPending = false; result = true; }
+  lastPop = { event, result };
+  return result;
+}
 
 export function openViewer(gallery, index = 0, url = null) {
   closeViewer(false);
@@ -53,5 +68,5 @@ export function closeViewer(viaHistory = true) {
   viewer.el.remove();
   viewer.el = null;
   document.body.classList.remove('no-scroll');
-  if (viaHistory && history.state?.viewer) history.back();
+  if (viaHistory && history.state?.viewer) { viewer.popPending = true; history.back(); }
 }

@@ -53,3 +53,40 @@ export async function getProfile(handle) {
   const p = await call('app.bsky.actor.getProfile', { actor: handle });
   return { avatar: p.avatar || null, banner: p.banner || null, name: p.displayName || p.handle, description: p.description || '' };
 }
+
+/** AT-URI of a post from its bsky.app permalink (the AppView resolves handles too). */
+export function postUri(url) {
+  const m = /^https:\/\/bsky\.app\/profile\/([^/?#]+)\/post\/([^/?#]+)/.exec(url || '');
+  return m ? `at://${m[1]}/app.bsky.feed.post/${m[2]}` : null;
+}
+
+const isThreadPost = (n) => n?.post && String(n.$type || '').endsWith('#threadViewPost');
+
+/**
+ * app.bsky.feed.getPostThread response → { parents, item, replies }.
+ * `parents` run from the root of the conversation down to the post. `replies` is a tree
+ * of { item, own, replies }: `own` marks the original author continuing their own thread,
+ * who comes first at every level, then the most liked replies. Deleted / blocked posts are skipped.
+ */
+export function threadFromView(view) {
+  const node = view?.thread;
+  if (!isThreadPost(node)) return null;
+  const parents = [];
+  for (let p = node.parent; isThreadPost(p); p = p.parent) parents.unshift(postToLiveItem(p.post));
+  const build = (n, authorDid) => (n.replies || []).filter(isThreadPost).map((r) => ({
+    item: postToLiveItem(r.post),
+    own: r.post.author?.did === authorDid,
+    likes: r.post.likeCount || 0,
+    replies: build(r, authorDid),
+  })).sort((a, b) => (b.own - a.own) || (b.likes - a.likes));
+  const authorDid = node.post.author?.did;
+  const strip = (list) => list.map(({ item, own, replies }) => ({ item, own, replies: strip(replies) }));
+  return { parents, item: postToLiveItem(node.post), replies: strip(build(node, authorDid)) };
+}
+
+/** The conversation around a Bluesky post (the post, what it answers to, the replies). */
+export async function getThread(url, opts) {
+  const uri = postUri(url);
+  if (!uri) return null;
+  return threadFromView(await call('app.bsky.feed.getPostThread', { uri, depth: 6, parentHeight: 10 }, opts));
+}
