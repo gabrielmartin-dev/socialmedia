@@ -58,7 +58,7 @@ function media(embed) {
   const t = embed.$type || '';
   if (t.startsWith('app.bsky.embed.recordWithMedia')) return { ...media(embed.media), quote: quote(embed.record?.record) };
   if (t.startsWith('app.bsky.embed.record')) return { quote: quote(embed.record) };
-  if (t.startsWith('app.bsky.embed.images')) return { images: (embed.images || []).map((i) => ({ thumb: i.thumb, alt: i.alt || '', aspect: aspectOf(i.aspectRatio) })) };
+  if (t.startsWith('app.bsky.embed.images')) return { images: (embed.images || []).map((i) => ({ thumb: i.thumb, full: i.fullsize, alt: i.alt || '', aspect: aspectOf(i.aspectRatio) })) };
   if (t.startsWith('app.bsky.embed.video')) return { video: { type: 'hls', src: embed.playlist, poster: embed.thumbnail || null, aspect: aspectOf(embed.aspectRatio) } };
   if (t.startsWith('app.bsky.embed.external')) {
     const e = embed.external || {};
