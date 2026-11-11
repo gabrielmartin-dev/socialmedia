@@ -5,7 +5,10 @@
     "techMaxAgeHours": 168,
     "bskyPostsPerAccount": 30,
     "bskySearchLimit": 100,
-    "health": { "maxFailureRatio": 0.5, "minTotalItems": 30 }
+    "health": {
+      "maxFailureRatio": 0.5,
+      "minTotalItems": 30
+    }
   },
   "media": [
     {
@@ -30,7 +33,7 @@
       "id": "politis",
       "name": "Politis",
       "site": "https://www.politis.fr",
-      "feed": "https://www.politis.fr/rss.xml"
+      "feed": "https://www.politis.fr/flux-rss-apps/"
     },
     {
       "id": "regards",
@@ -127,21 +130,6 @@
       "site": "https://france.attac.org"
     },
     {
-      "id": "nantesrevoltee",
-      "name": "Nantes Révoltée",
-      "site": "https://www.nantes-revoltee.com"
-    },
-    {
-      "id": "parisluttes",
-      "name": "Paris-luttes.info",
-      "site": "https://paris-luttes.info"
-    },
-    {
-      "id": "rebellyon",
-      "name": "Rebellyon",
-      "site": "https://rebellyon.info"
-    },
-    {
       "id": "cqfd",
       "name": "CQFD",
       "site": "https://cqfd-journal.org"
@@ -193,13 +181,6 @@
       "name": "Bondy Blog",
       "site": "https://www.bondyblog.fr",
       "feed": "https://www.bondyblog.fr/feed/",
-      "suggested": true
-    },
-    {
-      "id": "mrmondialisation",
-      "name": "Mr Mondialisation",
-      "site": "https://mrmondialisation.org",
-      "feed": "https://mrmondialisation.org/feed/",
       "suggested": true
     },
     {
@@ -277,7 +258,8 @@
     {
       "id": "blast-site",
       "name": "Blast (articles)",
-      "site": "https://www.blast-info.fr"
+      "site": "https://www.blast-info.fr",
+      "feed": "https://api.blast-info.fr/rss_articles.xml"
     },
     {
       "id": "offinvestigation",
@@ -288,7 +270,7 @@
       "id": "orientxxi",
       "name": "Orient XXI",
       "site": "https://orientxxi.info",
-      "feed": "https://orientxxi.info/?page=backend"
+      "feed": "https://orientxxi.info/?page=backend&lang=fr"
     },
     {
       "id": "afriquexxi",
@@ -602,16 +584,13 @@
       },
       {
         "name": "Brèves de presse",
-        "_comment": "Recherché par nom exact : vérifier le compte trouvé dans status.json et fixer le handle si besoin."
+        "handle": "brevesdepresse.bsky.social"
       },
       {
         "name": "Aurélien Le Coq"
       },
       {
         "name": "Gabrielle Cathala"
-      },
-      {
-        "name": "Andy Kerbrat"
       },
       {
         "name": "Nadège Abomangoli"
@@ -641,16 +620,10 @@
         "name": "Olivier Besancenot"
       },
       {
-        "name": "Anasse Kazib"
-      },
-      {
         "name": "Nathalie Arthaud"
       },
       {
         "name": "Fabrice Arfi"
-      },
-      {
-        "name": "Denis Robert"
       },
       {
         "name": "Aude Lancelin"
@@ -686,14 +659,11 @@
         "name": "Marine Turchi"
       },
       {
-        "name": "Ilyes Ramdani"
+        "name": "Ilyes Ramdani",
+        "handle": "ilyesramdani.bsky.social"
       },
       {
         "name": "Antton Rouget"
-      },
-      {
-        "name": "Sophia Chikirou",
-        "suggested": true
       },
       {
         "name": "Aurélie Trouvé",
@@ -725,6 +695,7 @@
       },
       {
         "name": "Sébastien Delogu",
+        "handle": "delogusebastien.bsky.social",
         "suggested": true
       },
       {
@@ -752,10 +723,6 @@
         "suggested": true
       },
       {
-        "name": "Julia Cagé",
-        "suggested": true
-      },
-      {
         "name": "Thomas Piketty",
         "suggested": true
       },
@@ -765,14 +732,17 @@
       },
       {
         "name": "Blast",
+        "handle": "blast-info.fr",
         "suggested": true
       },
       {
         "name": "Le Média",
+        "handle": "lemediatv.bsky.social",
         "suggested": true
       },
       {
         "name": "Reporterre",
+        "handle": "reporterre.net",
         "suggested": true
       },
       {
@@ -875,22 +845,22 @@
     {
       "id": "yt-lfi",
       "name": "La France insoumise",
-      "url": "https://www.youtube.com/@lafranceinsoumise"
+      "channelId": "UCKHKSD-yanY2ZwwU_4Tgf0w"
     },
     {
       "id": "yt-insoumission",
       "name": "L’Insoumission",
-      "url": "https://www.youtube.com/@LInsoumission"
+      "channelId": "UCxc4L2LKEeViVyNA5taSBIA"
     },
     {
       "id": "yt-revperm",
       "name": "Révolution Permanente",
-      "url": "https://www.youtube.com/@RevolutionPermanente"
+      "channelId": "UCwLLr_Fo9dpdJ9UHq4A7PjA"
     },
     {
       "id": "yt-npa",
       "name": "NPA - L’Anticapitaliste",
-      "url": "https://www.youtube.com/@NPAanticapitaliste"
+      "channelId": "UCAKzgWr5laB3Yf44hvqqZZQ"
     },
     {
       "id": "yt-lvsl",
@@ -900,7 +870,7 @@
     {
       "id": "yt-hors-serie",
       "name": "Hors-Série",
-      "url": "https://www.youtube.com/@HorsSerie"
+      "channelId": "UC11tPrPcudLv8J2ladG2DsA"
     },
     {
       "id": "yt-partager",
@@ -920,7 +890,7 @@
     {
       "id": "yt-viktorovitch",
       "name": "Clément Viktorovitch",
-      "url": "https://www.youtube.com/@ClementViktorovitch"
+      "channelId": "UCQcas4dulTzVUrAo0fMfWWg"
     },
     {
       "id": "yt-osonscauser",
@@ -937,13 +907,7 @@
     {
       "id": "yt-hugodecrypte",
       "name": "HugoDécrypte",
-      "url": "https://www.youtube.com/@HugoDecrypte",
-      "suggested": true
-    },
-    {
-      "id": "yt-usul",
-      "name": "Usul",
-      "url": "https://www.youtube.com/@usul2000",
+      "channelId": "UCAcAnMF0OrCtUep3Y4M-ZPw",
       "suggested": true
     },
     {
@@ -973,14 +937,12 @@
       "id": "tt-zawaprod",
       "name": "Zawa Prod",
       "user": "zawaprod",
-      "_comment": "Via RSSHub (fragile). Remplace l'instance si elle bloque : la variable d'env RSSHUB_BASE est prise en priorité.",
-      "rsshub": "https://rsshub.app"
+      "_comment": "Nécessite une instance RSSHub auto-hébergée déclarée dans la variable RSSHUB_BASE (l'instance publique rsshub.app refuse les collecteurs). Sans elle, TikTok n'est pas collecté."
     },
     {
       "id": "tt-valadista",
       "name": "Valadista",
-      "user": "valadista",
-      "rsshub": "https://rsshub.app"
+      "user": "valadista"
     }
   ],
   "_suggestions": "Les sources marquées \"suggested\": true sont collectées mais n'apparaissent dans les feeds qu'une fois suivies depuis l'onglet Découvrir."
