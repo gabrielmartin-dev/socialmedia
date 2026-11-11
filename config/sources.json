@@ -488,6 +488,10 @@
         "handle": "cemilsanli.bsky.social"
       },
       {
+        "name": "Brèves de presse",
+        "_comment": "Recherché par nom exact : vérifier le compte trouvé dans status.json et fixer le handle si besoin."
+      },
+      {
         "name": "Sophia Chikirou",
         "suggested": true
       },
