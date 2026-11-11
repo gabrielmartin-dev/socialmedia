@@ -119,14 +119,19 @@ export function discoverFeeds(html, baseUrl) {
   return [...new Set(out)];
 }
 
+const FEED_URL_TTL = 14 * 24 * 3600e3;
 const COMMON_PATHS = ['/feed', '/feed/', '/rss', '/rss.xml', '/feed.xml', '/atom.xml', '/spip.php?page=backend', '/index.xml'];
 
-/** Fetch a source's feed: configured URL first, then autodiscovery, then common paths. */
-export async function fetchSourceFeed(source) {
+/**
+ * Fetch a source's feed: configured URL first, then the feed URL remembered in `cache`
+ * from a previous run, then autodiscovery, then common paths. A cached URL that stops
+ * working is dropped and the normal discovery takes over.
+ */
+export async function fetchSourceFeed(source, { cache } = {}) {
   const tried = [];
-  const attempt = async (url) => {
+  const attempt = async (url, opts) => {
     tried.push(url);
-    const { text, url: finalUrl } = await fetchText(url);
+    const { text, url: finalUrl } = await fetchText(url, opts);
     const parsed = parseFeed(text);
     if (!parsed.entries.some((e) => e.link && e.title)) throw new Error('Flux vide');
     return { ...parsed, feedUrl: finalUrl };
@@ -135,15 +140,27 @@ export async function fetchSourceFeed(source) {
   if (source.feed) {
     try { return await attempt(source.feed); } catch { /* fall through */ }
   }
+  const cacheKey = `feed:${source.id}`;
+  const remembered = !source.feed && cache?.get(cacheKey);
+  if (remembered) {
+    try { const feed = await attempt(remembered); cache.stats.hits++; return feed; }
+    catch { cache.delete(cacheKey); cache.stats.fallbacks++; }
+  } else if (!source.feed && cache) cache.stats.misses++;
+  const found = async (url, opts) => {
+    const feed = await attempt(url, opts);
+    if (!source.feed) cache?.set(cacheKey, feed.feedUrl, FEED_URL_TTL);
+    return feed;
+  };
   if (source.site) {
     try {
       const { text: html, url: base } = await fetchText(source.site);
       for (const f of discoverFeeds(html, base)) {
-        try { return await attempt(f); } catch { /* next */ }
+        try { return await found(f); } catch { /* next */ }
       }
     } catch { /* site unreachable, try common paths anyway */ }
+    // These paths are guesses: no retries, so that a dead site stays cheap.
     for (const p of COMMON_PATHS) {
-      try { return await attempt(new URL(p, source.site).href); } catch { /* next */ }
+      try { return await found(new URL(p, source.site).href, { retries: 0 }); } catch { /* next */ }
     }
   }
   throw new Error(`Aucun flux valide trouvé (essayés : ${[...new Set(tried)].join(', ') || 'aucun'})`);

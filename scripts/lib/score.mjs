@@ -52,12 +52,18 @@ export function groupDuplicates(items, { similarity = 0.34, windowHours = 12 } =
   const times = items.map((it) => Date.parse(it.publishedAt) || 0);
   const windowMs = windowHours * 3600e3;
 
-  for (let i = 0; i < n; i++) {
+  // Visit items newest first: past `windowHours` of gap, every further item is older still,
+  // so the inner loop stops there. The set of compared pairs is the same as with a full
+  // O(n²) scan, hence the same groups (the input needs no particular order).
+  const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => times[b] - times[a]);
+  for (let p = 0; p < n; p++) {
+    const i = order[p];
     if (items[i].kind !== 'article' || toks[i].size < 3) continue;
-    for (let j = i + 1; j < n; j++) {
+    for (let q = p + 1; q < n; q++) {
+      const j = order[q];
+      if (times[i] - times[j] > windowMs) break;
       if (items[j].kind !== 'article' || toks[j].size < 3) continue;
       if (items[i].source.id === items[j].source.id) continue;
-      if (Math.abs(times[i] - times[j]) > windowMs) continue;
       if (jaccard(toks[i], toks[j]) >= similarity) union(i, j);
     }
   }

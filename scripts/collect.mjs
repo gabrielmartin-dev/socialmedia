@@ -15,9 +15,13 @@ import { sanitizeItem } from './lib/sanitize.mjs';
 import { safeUrl } from '../public/url.js';
 import { checkRun } from './lib/health.mjs';
 import { packFeed } from '../public/pack.js';
+import { ResolutionCache, cachedResolve, DAY, HOUR } from './lib/cache.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'public', 'data');
+// Persistent resolutions (restored / saved by actions/cache between runs).
+const CACHE_DIR = process.env.COLLECT_CACHE_DIR || path.join(ROOT, '.cache', 'collect');
+const cache = new ResolutionCache(path.join(CACHE_DIR, 'resolutions.json'));
 
 const readJson = async (p) => JSON.parse(await fs.readFile(path.join(ROOT, p), 'utf8'));
 
@@ -37,7 +41,7 @@ function register(entry) {
 async function collectMedia(media, type = 'rss') {
   const feedName = type === 'tech' ? 'tech' : 'actus';
   const results = await pool(media.map((src) => async () => {
-    const feed = await fetchSourceFeed(src);
+    const feed = await fetchSourceFeed(src, { cache });
     const source = { ...src, avatar: src.avatar || faviconFor(src.site || feed.feedUrl) };
     register({
       id: src.id, name: src.name, avatar: source.avatar, kind: 'media', feed: feedName,
@@ -67,8 +71,11 @@ async function collectBluesky(cfg, settings) {
   }
 
   const accounts = await pool(cfg.accounts.map((acc) => async () => {
-    const resolved = await bsky.resolveAccount(client, acc);
-    const items = await bsky.authorPosts(client, resolved, settings.bskyPostsPerAccount);
+    // The profile (and the name → handle search) is remembered; a stale entry falls back
+    // to a fresh resolution.
+    const { resolved, result: items } = await cachedResolve(cache, `bsky:${acc.handle || acc.name}`,
+      () => bsky.resolveAccount(client, acc),
+      { ttlMs: 12 * HOUR, use: (r) => bsky.authorPosts(client, r, settings.bskyPostsPerAccount) });
     return { resolved, items };
   }), 4);
   accounts.forEach((r, i) => {
@@ -105,7 +112,16 @@ async function collectBluesky(cfg, settings) {
 async function collectYouTube(channels) {
   const seen = new Set();
   const results = await pool(channels.map((ch) => async () => {
-    const resolved = await yt.resolveChannel(ch);
+    // Channel id, avatar and description are remembered (no more channel page download).
+    let items;
+    const { resolved } = await cachedResolve(cache, `yt:${ch.channelId || ch.url}`, () => yt.resolveChannel(ch), {
+      ttlMs: 7 * DAY,
+      use: async (r) => {
+        if (seen.has(r.id)) { items = []; return r; }
+        items = await yt.channelVideos(ch, r);
+        return r;
+      },
+    });
     if (seen.has(resolved.id)) return { dup: true, items: [] };
     seen.add(resolved.id);
     register({
@@ -113,7 +129,7 @@ async function collectYouTube(channels) {
       url: `https://www.youtube.com/channel/${resolved.id}`, handle: 'YouTube',
       description: resolved.description, suggested: !!ch.suggested, category: ch.category || 'YouTube',
     });
-    return { items: await yt.channelVideos(ch, resolved) };
+    return { items };
   }), 4);
   const items = [];
   results.forEach((r, i) => {
@@ -128,7 +144,7 @@ async function collectYouTube(channels) {
 async function collectTikTok(accounts) {
   const results = await pool(accounts.map((acc) => async () => {
     const base = (process.env.RSSHUB_BASE || acc.rsshub || 'https://rsshub.app').replace(/\/$/, '');
-    const { text } = await fetchText(`${base}/tiktok/user/@${acc.user}`, { timeoutMs: 25000 });
+    const { text } = await fetchText(`${base}/tiktok/user/@${acc.user}`, { timeoutMs: 25000, retries: 1 });
     const feed = parseFeed(text);
     return feed.entries.map((e) => {
       const vid = /\/video\/(\d+)/.exec(e.link)?.[1];
@@ -175,6 +191,7 @@ function freshAndUnique(items, maxAgeHours) {
 }
 
 async function main() {
+  await cache.load();
   const sources = await readJson('config/sources.json');
   const topicsCfg = await readJson('config/topics.json');
   const settings = sources.settings;
@@ -192,6 +209,10 @@ async function main() {
   const actusItems = freshAndUnique([...articles, ...bluesky.posts], settings.actusMaxAgeHours).map((i) => annotate(i, matchers));
   const techItems = freshAndUnique([...techArticles, ...bluesky.tech], settings.techMaxAgeHours ?? 168).map((i) => annotate(i, techMatchers));
   const videoItems = freshAndUnique([...bluesky.videos, ...ytVideos, ...ttVideos], settings.videosMaxAgeHours).map((i) => annotate(i, matchers));
+
+  // Resolutions learned during this run are kept even if the run is then rejected.
+  await cache.save().catch((err) => console.warn(`Cache de résolutions non sauvegardé : ${err.message}`));
+  console.log(`Cache de résolutions : ${cache.stats.hits} utilisés, ${cache.stats.misses} résolus, ${cache.stats.fallbacks} périmés`);
 
   // Refuse to publish a mostly-failed run: exiting non-zero keeps the previous deployment.
   const health = checkRun(status, { actus: actusItems.length, tech: techItems.length, videos: videoItems.length }, settings);

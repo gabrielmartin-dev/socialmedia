@@ -46,6 +46,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      # Cache des résolutions (ID de chaînes YouTube, handles Bluesky, URLs de flux découvertes) :
+      # restauré depuis le dernier run, sauvegardé à la fin même si la collecte est rejetée.
+      - name: Restauration du cache de résolutions
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/collect
+          key: collect-resolutions-${{ github.run_id }}
+          restore-keys: collect-resolutions-
       # Si la collecte échoue massivement (panne réseau, API en rade), collect.mjs sort avec un
       # code non nul : l'étape échoue, rien n'est déployé et la version précédente reste en ligne.
       - name: Collecte des sources
@@ -56,6 +64,12 @@ jobs:
           BSKY_APP_PASSWORD: ${{ secrets.BSKY_APP_PASSWORD }}
           # Optionnel : instance RSSHub alternative pour TikTok.
           RSSHUB_BASE: ${{ vars.RSSHUB_BASE }}
+      - name: Sauvegarde du cache de résolutions
+        if: ${{ !cancelled() }}
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/collect
+          key: collect-resolutions-${{ github.run_id }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
