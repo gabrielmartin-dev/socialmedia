@@ -107,18 +107,52 @@ export function mergeIntoTail(ranked, rendered, entries, opts = {}, hidden = new
   return [...ranked.slice(0, rendered), ...tail];
 }
 
-/** Apply "moins de ça" to prefs (mutates and returns prefs). */
-export function applyLess(prefs, entry) {
+// Local preference weights. "Moins de ça" divides a weight, down to a floor; "Plus de ça" is its
+// exact mirror (the factor is inverted, the ceiling is 1 / floor), so that the two cancel out.
+export const MORE = {
+  sourceFactor: 1 / LESS.sourceFactor, sourceCeil: 1 / LESS.sourceFloor,
+  keywordFactor: 1 / LESS.keywordFactor, keywordCeil: 1 / LESS.keywordFloor,
+};
+
+/** Sets map[key]; a weight back at 1 is simply dropped. Returns the function that restores the previous value. */
+function setWeight(map, key, value) {
+  const prev = map[key];
+  if (Math.abs(value - 1) < 1e-6) delete map[key]; else map[key] = value;
+  return () => { if (prev === undefined) delete map[key]; else map[key] = prev; };
+}
+
+/** Distinct keywords found in an entry ({ k, t }: keyword and topic id). */
+export function keywordsOf(entry) {
   const items = entry.kind === 'group' ? entry.items : [entry];
-  if (entry.kind !== 'group') {
-    const id = entry.source.id;
-    prefs.sources[id] = Math.max(LESS.sourceFloor, (prefs.sources[id] ?? 1) * LESS.sourceFactor);
-  }
-  const kws = new Set(items.flatMap((i) => (i.keywords || []).map((k) => k.k)));
-  for (const k of kws) {
-    prefs.keywords[k] = Math.max(LESS.keywordFloor, (prefs.keywords[k] ?? 1) * LESS.keywordFactor);
-  }
-  return prefs;
+  const seen = new Map();
+  for (const i of items) for (const k of i.keywords || []) if (!seen.has(k.k)) seen.set(k.k, { k: k.k, t: k.t });
+  return [...seen.values()];
+}
+
+/** Each of these mutates `prefs` and returns an `undo()` that restores exactly what it changed. */
+export function lessSource(prefs, sourceId) {
+  return setWeight(prefs.sources, sourceId, Math.max(LESS.sourceFloor, (prefs.sources[sourceId] ?? 1) * LESS.sourceFactor));
+}
+export function moreSource(prefs, sourceId) {
+  return setWeight(prefs.sources, sourceId, Math.min(MORE.sourceCeil, (prefs.sources[sourceId] ?? 1) * MORE.sourceFactor));
+}
+export function lessKeywords(prefs, entry) {
+  const undos = keywordsOf(entry).map(({ k }) => setWeight(prefs.keywords, k, Math.max(LESS.keywordFloor, (prefs.keywords[k] ?? 1) * LESS.keywordFactor)));
+  return () => undos.reverse().forEach((u) => u());
+}
+export function moreKeywords(prefs, entry) {
+  const undos = keywordsOf(entry).map(({ k }) => setWeight(prefs.keywords, k, Math.min(MORE.keywordCeil, (prefs.keywords[k] ?? 1) * MORE.keywordFactor)));
+  return () => undos.reverse().forEach((u) => u());
+}
+
+/** Source (not for a group) and keywords at once. Returns the undo function. */
+export function applyLess(prefs, entry) {
+  const undos = [entry.kind !== 'group' ? lessSource(prefs, entry.source.id) : null, lessKeywords(prefs, entry)];
+  return () => undos.reverse().forEach((u) => u?.());
+}
+export function applyMore(prefs, entry) {
+  const undos = [entry.kind !== 'group' ? moreSource(prefs, entry.source.id) : null, moreKeywords(prefs, entry)];
+  return () => undos.reverse().forEach((u) => u?.());
 }
 
 export function topicsOf(entry) {

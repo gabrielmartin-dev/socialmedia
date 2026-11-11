@@ -7,7 +7,7 @@ import { compileTopics, matchKeywords } from '../topics.js';
 import { unpackFeed } from '../pack.js';
 import { pool } from '../pool.js';
 import { $ } from './dom.js';
-import { state, itemVisible, rankOpts } from './store.js';
+import { state, itemVisible, rankOpts, inTopicFilter } from './store.js';
 import { renderFeed, appendFeed } from './feed.js';
 
 const LIVE_TIMEOUT_MS = 8000;
@@ -16,12 +16,24 @@ const LIVE_CONCURRENCY = 4;
 const DEFAULT_MAX_AGE_HOURS = { actus: 72, tech: 168, videos: 168 };
 
 // 'no-cache' = conditional revalidation (ETag → 304 from GitHub Pages) instead of a full download.
-export async function loadData() {
+/** Fetches every data file. A file that cannot be fetched is null (never an error). */
+export async function fetchData() {
   const get = (name) => fetch(`data/${name}.json`, { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   const [actus, tech, videos, status, accounts, topics] = await Promise.all(
     ['actus', 'tech', 'videos', 'status', 'accounts', 'topics'].map(get));
-  state.data = { actus: unpackFeed(actus), tech: unpackFeed(tech), videos: unpackFeed(videos), status, accounts, topics };
-  state.accounts = new Map((accounts?.accounts || []).map((a) => [a.id, a]));
+  return { actus: unpackFeed(actus), tech: unpackFeed(tech), videos: unpackFeed(videos), status, accounts, topics };
+}
+
+/** Makes `data` the displayed data. A file missing from it (offline) keeps its previous value. */
+export function applyData(data) {
+  const next = {};
+  for (const k of Object.keys(state.data)) next[k] = data[k] ?? state.data[k];
+  state.data = next;
+  state.accounts = new Map((next.accounts?.accounts || []).map((a) => [a.id, a]));
+}
+
+export async function loadData() {
+  applyData(await fetchData());
 }
 
 /** Freshness window (ms) of a feed: the collector's setting, exported in topics.json. */
@@ -90,8 +102,9 @@ export async function loadLive() {
  * not-yet-rendered tail only.
  */
 function integrateLive(fresh) {
-  const mergeTail = (target, dataset, entries) => {
-    const merged = mergeIntoTail(target.ranked, target.rendered, entries.filter(itemVisible), rankOpts(dataset), state.hidden);
+  const mergeTail = (target, dataset, entries, key) => {
+    const wanted = entries.filter((e) => itemVisible(e) && (!key || inTopicFilter(key, e)));
+    const merged = mergeIntoTail(target.ranked, target.rendered, wanted, rankOpts(dataset), state.hidden);
     if (!merged) return false;
     target.ranked = merged;
     return true;
@@ -100,7 +113,7 @@ function integrateLive(fresh) {
     const feed = state.feeds[key];
     if (!fresh[key]?.length || feed.dirty || !state.data[key]) continue;
     if (!feed.ranked.length) renderFeed(key); // empty screen: nothing to disturb
-    else if (mergeTail(feed, state.data[key], fresh[key])) {
+    else if (mergeTail(feed, state.data[key], fresh[key], key)) {
       const sentinel = $(`#${key}-sentinel`);
       if (feed.rendered < feed.ranked.length && sentinel.getBoundingClientRect().top < window.innerHeight + 800) appendFeed(key);
     }

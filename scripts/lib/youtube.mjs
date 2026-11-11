@@ -47,7 +47,8 @@ export async function channelVideos(channel, resolved) {
         ...(channel.suggested ? { suggested: true } : {}),
       },
       title: truncate(e.title, 200),
-      text: truncate(e.text, 280),
+      // The channel feed carries the description (media:group/media:description): shown when the reel is expanded.
+      text: truncate(e.text, 500),
       url: `https://www.youtube.com/watch?v=${videoId}`,
       image: e.image || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
       video: { type: 'youtube', src: videoId, poster: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, aspect: isShort ? 9 / 16 : 16 / 9 },

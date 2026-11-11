@@ -2,13 +2,15 @@
 
 import { rank, relativeTime } from '../rank.js';
 import { safeUrl } from '../url.js';
-import { $, h, svg, ICONS, toast } from './dom.js';
+import { $, h, svg, ICONS, toast, scrollBehavior } from './dom.js';
 import { avatar } from './media.js';
 import { makeButton } from './focus.js';
+import { attachControls } from './reelcontrols.js';
 import { loadHls } from './hls.js';
 import { state, entriesFor, rankOpts, markSeen } from './store.js';
 import { actions } from './actions.js';
 import { PLATFORM_LABELS } from './util.js';
+import { linkify } from './cards.js';
 
 const REELS_CHUNK = 5;
 
@@ -24,11 +26,20 @@ function reelSlide(item) {
   const poster = v.poster || item.image;
   const landscape = (v.aspect ?? 9 / 16) > 1;
   const textContent = item.title || item.text;
+  // YouTube: the title is always shown; the channel's description opens with a tap.
+  const desc = item.platform === 'youtube' && item.title && item.text && item.text !== item.title ? item.text : '';
   let text = null;
   if (textContent) {
-    text = h('div', { class: 'reel-text', text: textContent, 'aria-expanded': 'false' });
-    makeButton(text, () => text.setAttribute('aria-expanded', String(text.classList.toggle('expanded'))));
+    text = h('div', { class: 'reel-text', 'aria-expanded': 'false' },
+      h('span', { text: textContent }),
+      desc ? h('span', { class: 'reel-more', text: ' … plus' }) : null,
+      desc ? h('div', { class: 'reel-desc' }, linkify(desc)) : null);
+    makeButton(text, (e) => {
+      if (e.target.closest('a')) return; // a link of the description just opens
+      text.setAttribute('aria-expanded', String(text.classList.toggle('expanded')));
+    });
   }
+  const kind = item.platform === 'youtube' ? ((v.aspect ?? 16 / 9) < 1 ? ' · Short' : ' · Vidéo longue') : '';
 
   const muteBtn = v.type === 'hls'
     ? h('button', { class: 'reel-btn mute', 'aria-label': 'Son', onclick: (e) => { e.stopPropagation(); toggleMute(); } }, svg(state.muted ? ICONS.muted : ICONS.sound, 24))
@@ -43,7 +54,7 @@ function reelSlide(item) {
         avatar(item.source.avatar, item.source.name),
         h('span', { class: 'reel-names' },
           h('span', { class: 'reel-name', text: item.source.name }),
-          h('span', { class: 'platform', text: `🎥 ${PLATFORM_LABELS[item.platform] || ''} · ${relativeTime(item.publishedAt)}` }),
+          h('span', { class: 'platform', text: `🎥 ${PLATFORM_LABELS[item.platform] || ''}${kind} · ${relativeTime(item.publishedAt)}` }),
         ),
       ),
       text,
@@ -67,15 +78,26 @@ export function buildReels() {
   state.reels.built = true;
   if (!state.reels.ranked.length) {
     list.append(h('div', { class: 'reel' }, h('div', { class: 'empty' },
-      h('strong', { text: 'Pas de vidéos pour le moment' }), 'Reviens après la prochaine mise à jour.')));
+      h('strong', { text: 'Pas de vidéos pour le moment' }), 'Reviens après la prochaine mise à jour.',
+      h('button', { class: 'empty-btn', type: 'button', text: 'Rafraîchir', onclick: () => actions.refresh() }))));
     return;
   }
   appendReels();
   list.scrollTop = 0;
 }
 
+/** Last slide of the list: nothing more to watch. */
+function endSlide() {
+  return h('div', { class: 'reel end' }, h('div', { class: 'empty' },
+    h('strong', { text: 'Tu as tout vu' }),
+    'Plus de vidéos pour le moment.',
+    h('button', { class: 'empty-btn', type: 'button', text: 'Rafraîchir', onclick: () => actions.refresh() }),
+    h('button', { class: 'empty-btn ghost', type: 'button', text: 'Revenir en haut', onclick: () => $('#videos-list').scrollTo({ top: 0, behavior: scrollBehavior() }) })));
+}
+
 function appendReels() {
   const list = $('#videos-list');
+  list.querySelector('.reel.end')?.remove();
   const end = Math.min(state.reels.ranked.length, state.reels.rendered + REELS_CHUNK);
   for (let i = state.reels.rendered; i < end; i++) {
     const slide = reelSlide(state.reels.ranked[i]);
@@ -83,6 +105,7 @@ function appendReels() {
     reelObserver().observe(slide);
   }
   state.reels.rendered = end;
+  if (end >= state.reels.ranked.length) list.append(endSlide());
 }
 
 export async function activateReel(slide, userGesture = false) {
@@ -95,7 +118,7 @@ export async function activateReel(slide, userGesture = false) {
 
   // Prefetch the next chunk.
   const idx = [...slide.parentNode.children].indexOf(slide);
-  if (idx >= state.reels.rendered - 2) appendReels();
+  if (idx >= state.reels.rendered - 2 && state.reels.rendered < state.reels.ranked.length) appendReels();
 
   const item = slide._item;
   const v = item.video;
@@ -109,9 +132,8 @@ export async function activateReel(slide, userGesture = false) {
     if (!hlsSrc) return;
     const video = h('video', { playsinline: true, 'webkit-playsinline': true, loop: true, preload: 'auto', poster: safeUrl(v.poster, location.href) || undefined });
     video.muted = state.muted;
-    makeButton(video, () => (video.paused ? video.play() : video.pause()));
-    video.setAttribute('aria-label', 'Lecture / pause');
     slide.insertBefore(video, slide.querySelector('.reel-play'));
+    attachControls(slide, video);
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = hlsSrc;
     } else {
@@ -158,23 +180,39 @@ export function deactivateReel() {
   slide.classList.remove('active', 'has-iframe');
   slide._hls?.destroy();
   slide._hls = null;
-  slide.querySelectorAll('video, iframe').forEach((el) => {
+  slide.querySelectorAll('video, iframe, .reel-progress, .reel-flash').forEach((el) => {
     if (el.tagName === 'VIDEO') { el.pause(); el.removeAttribute('src'); el.load(); }
     el.remove();
   });
   state.reels.active = null;
 }
 
+/** Takes a slide off the list. Returns { item, index } to give back to restoreReel, or null. */
 export function removeReel(id) {
   const slide = document.querySelector(`.reel[data-id="${CSS.escape(id)}"]`);
-  if (!slide) return;
+  if (!slide) return null;
   const next = slide.nextElementSibling;
+  const index = state.reels.ranked.findIndex((i) => i.id === id);
+  const item = slide._item;
   if (state.reels.active === slide) deactivateReel();
   reelObserver().unobserve(slide);
   slide.remove();
   state.reels.ranked = state.reels.ranked.filter((i) => i.id !== id);
   state.reels.rendered = Math.max(0, state.reels.rendered - 1);
-  if (next) activateReel(next);
+  if (next?._item) activateReel(next);
+  return item ? { item, index } : null;
+}
+
+/** Puts a removed slide back where it was and shows it again. */
+export function restoreReel({ item, index }) {
+  const list = $('#videos-list');
+  const at = Math.min(index, state.reels.ranked.length);
+  state.reels.ranked.splice(at, 0, item);
+  state.reels.rendered++;
+  const slide = reelSlide(item);
+  list.insertBefore(slide, list.children[at] || null);
+  reelObserver().observe(slide);
+  slide.scrollIntoView({ block: 'start' });
 }
 
 function toggleMute() {

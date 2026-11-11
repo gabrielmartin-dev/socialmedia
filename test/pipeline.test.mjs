@@ -199,3 +199,52 @@ test('posts published since the last visit get a boost', () => {
   assert.equal(rank([fresh, old], { now, halfLife: 10 })[0].id, 'old');
   assert.equal(rank([fresh, old], { now, halfLife: 10, lastVisit })[0].id, 'new');
 });
+
+// ---------- RSS author, categories, source flags ----------
+import { cleanAuthor, categoriesOf } from '../scripts/lib/rss.mjs';
+
+test('cleanAuthor: names are kept, bare e-mails dropped, « email (Name) » unwrapped', () => {
+  assert.equal(cleanAuthor('Jean Dupont'), 'Jean Dupont');
+  assert.equal(cleanAuthor('redac@journal.fr (Jean Dupont)'), 'Jean Dupont');
+  assert.equal(cleanAuthor('Jean Dupont <redac@journal.fr>'), 'Jean Dupont');
+  assert.equal(cleanAuthor('redac@journal.fr'), '');
+  assert.equal(cleanAuthor(''), '');
+  assert.equal(cleanAuthor(undefined), '');
+});
+
+test('parseFeed + entryToArticle keep the author and the categories (RSS and Atom)', () => {
+  const rss = `<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/"><channel><title>J</title>
+    <item><title>Titre</title><link>https://j.fr/a</link><dc:creator>Marie Curie</dc:creator>
+      <category>Politique</category><category><![CDATA[Société]]></category><category>Politique</category>
+      <pubDate>Mon, 09 Nov 2026 10:00:00 GMT</pubDate></item></channel></rss>`;
+  const [e] = parseFeed(rss).entries;
+  assert.deepEqual(e.categories, ['Politique', 'Société']);
+  const a = entryToArticle(e, { id: 'j', name: 'J' });
+  assert.equal(a.author, 'Marie Curie');
+  assert.deepEqual(a.categories, ['Politique', 'Société']);
+
+  const atom = `<feed xmlns="http://www.w3.org/2005/Atom"><title>A</title><entry><title>T</title><id>1</id>
+    <link rel="alternate" href="https://a.fr/1"/><author><name>Ada L.</name></author>
+    <category term="ia"/><category term="dev" label="Dev"/><updated>2026-11-09T10:00:00Z</updated></entry></feed>`;
+  const [e2] = parseFeed(atom).entries;
+  const a2 = entryToArticle(e2, { id: 'a', name: 'A' });
+  assert.equal(a2.author, 'Ada L.');
+  assert.deepEqual(a2.categories, ['ia', 'dev']);
+  assert.deepEqual(categoriesOf({}), []);
+});
+
+test('an article without author nor category has neither field; source flags are optional', () => {
+  const entry = { guid: 'x', link: 'https://a.fr/x', title: 'T', text: '', author: 'a@b.fr', categories: [], publishedAt: '2026-01-01T00:00:00.000Z' };
+  const plain = entryToArticle(entry, { id: 's', name: 'S' });
+  assert.ok(!('author' in plain) && !('categories' in plain));
+  assert.ok(!('paywall' in plain.source) && !('lang' in plain.source));
+  const flagged = entryToArticle(entry, { id: 's', name: 'S', paywall: true, lang: 'en' });
+  assert.equal(flagged.source.paywall, true);
+  assert.equal(flagged.source.lang, 'en');
+  assert.ok(!('lang' in entryToArticle(entry, { id: 's', name: 'S', lang: 'fr' }).source), 'French is the default: no flag');
+});
+
+test('YouTube feed: the description of media:group reaches the item text', async () => {
+  const feed = parseFeed(await fixture('youtube.xml'));
+  assert.equal(feed.entries[0].text, 'Description');
+});

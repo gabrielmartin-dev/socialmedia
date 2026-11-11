@@ -3,24 +3,39 @@
 import { actions } from './app/actions.js';
 import { state, initStore } from './app/store.js';
 import { initFeeds, renderAllFeeds } from './app/feed.js';
-import { loadData, loadLive } from './app/live.js';
+import { loadData, loadLive, applyData } from './app/live.js';
 import { initSheet, openSheet } from './app/sheet.js';
-import { initDiscover, renderDiscover } from './app/discover.js';
+import { initDiscover, renderDiscover, renderTabs, showDiscoverTab } from './app/discover.js';
+import { $ } from './app/dom.js';
 import { initProfile, openProfile, resumeProfile, renderProfileFollow } from './app/profile.js';
 import { initThread, openThread, resumeThread } from './app/thread.js';
 import { initReels } from './app/reels.js';
 import { initTabs } from './app/tabs.js';
-import { initRefresh } from './app/refresh.js';
+import { initRefresh, refresh, showLoaded } from './app/refresh.js';
+import { initFresh, checkForNew, renderStatusBar } from './app/fresh.js';
+import { initInfoSheet } from './app/infosheet.js';
+import { initInstall } from './app/install.js';
+import { switchView } from './app/tabs.js';
 
 actions.openProfile = openProfile;
 actions.openSheet = openSheet;
 actions.openThread = openThread;
 actions.resumeProfile = resumeProfile;
 actions.resumeThread = resumeThread;
+actions.afterSavedChange = () => { if (state.view === 'discover') renderTabs(); };
 actions.afterFollow = () => {
   if (state.view === 'discover') renderDiscover();
   if (state.view === 'profile') renderProfileFollow();
 };
+
+actions.switchView = switchView;
+actions.refresh = refresh;
+actions.afterLongAbsence = checkForNew;
+
+$('#saved-btn').addEventListener('click', () => {
+  showDiscoverTab('saved');
+  switchView('discover');
+});
 
 initStore();
 initFeeds();
@@ -31,6 +46,9 @@ initThread();
 initReels();
 initTabs();
 initRefresh();
+initInfoSheet();
+initInstall();
+initFresh({ apply: (data) => { applyData(data); showLoaded(); } });
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   // updateViaCache 'none': sw.js is always revalidated, so a new deployment is noticed
@@ -42,4 +60,5 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 
 await loadData();
 renderAllFeeds();
+renderStatusBar();
 loadLive(); // background: the collected data is already displayed

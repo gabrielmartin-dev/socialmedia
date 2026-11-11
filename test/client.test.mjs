@@ -221,3 +221,135 @@ test('threadFromView: parents oldest first, author follow-ups first, then most l
   assert.deepEqual(t.replies[0].replies.map((r) => r.item.text), ['self2']);
   assert.equal(threadFromView({ thread: { $type: 'app.bsky.feed.defs#notFoundPost' } }), null);
 });
+
+// ---------- "Moins de ça" / "Plus de ça" ----------
+import { LESS, MORE, emptyPrefs, lessSource, moreSource, lessKeywords, moreKeywords, applyLess, applyMore, keywordsOf } from '../public/rank.js';
+import { leadItem, addSaved, removeSaved, isSaved, sanitizeSaved, SAVED_MAX } from '../public/saved.js';
+
+const art = (id, kw = [], source = 's1') => ({ id, kind: 'article', source: { id: source }, keywords: kw, url: 'https://x/' + id, publishedAt: 'd', image: null });
+const K = [{ k: 'grev', w: 2, t: 'social' }, { k: 'budget', w: 1, t: 'politique' }];
+
+test('MORE mirrors LESS: inverted factors, ceiling = 1 / floor', () => {
+  assert.ok(Math.abs(MORE.sourceFactor * LESS.sourceFactor - 1) < 1e-12);
+  assert.ok(Math.abs(MORE.keywordFactor * LESS.keywordFactor - 1) < 1e-12);
+  assert.ok(Math.abs(MORE.sourceCeil * LESS.sourceFloor - 1) < 1e-12);
+  assert.ok(Math.abs(MORE.keywordCeil * LESS.keywordFloor - 1) < 1e-12);
+});
+
+test('moreSource raises the weight up to the ceiling, lessSource lowers it down to the floor', () => {
+  const p = emptyPrefs();
+  for (let i = 0; i < 20; i++) moreSource(p, 's1');
+  assert.ok(Math.abs(p.sources.s1 - MORE.sourceCeil) < 1e-9);
+  const q = emptyPrefs();
+  for (let i = 0; i < 20; i++) lessSource(q, 's1');
+  assert.ok(Math.abs(q.sources.s1 - LESS.sourceFloor) < 1e-9);
+});
+
+test('more then less (and the reverse) cancel out: the weight is dropped, not left at 1', () => {
+  const p = emptyPrefs();
+  moreSource(p, 's1'); lessSource(p, 's1');
+  assert.deepEqual(p.sources, {});
+  const e = art('a', K);
+  lessKeywords(p, e); moreKeywords(p, e);
+  assert.deepEqual(p.keywords, {});
+});
+
+test('undo restores exactly the previous weights (including "no weight")', () => {
+  const p = emptyPrefs();
+  p.sources.s1 = 0.5;
+  const undo = lessSource(p, 's1');
+  assert.equal(p.sources.s1, 0.25);
+  undo();
+  assert.equal(p.sources.s1, 0.5);
+  const e = art('a', K);
+  const undoKw = lessKeywords(p, e);
+  assert.ok(p.keywords.grev < 1 && p.keywords.budget < 1);
+  undoKw();
+  assert.deepEqual(p.keywords, {});
+  const undoAll = applyMore(p, e);
+  assert.equal(p.sources.s1, undefined, '0.5 × 2 is back to the default weight');
+  assert.ok(p.keywords.grev > 1);
+  undoAll();
+  assert.equal(p.sources.s1, 0.5);
+  assert.deepEqual(p.keywords, {});
+});
+
+test('a group has no single source: applyLess / applyMore only touch keywords', () => {
+  const group = { kind: 'group', id: 'g', items: [art('a', K, 's1'), art('b', [K[0]], 's2')] };
+  assert.deepEqual(keywordsOf(group).map((k) => k.k), ['grev', 'budget']);
+  const p = emptyPrefs();
+  applyLess(p, group);
+  assert.deepEqual(p.sources, {});
+  assert.ok(p.keywords.grev < 1);
+  applyMore(p, group); applyMore(p, group);
+  assert.ok(p.keywords.grev > 1);
+});
+
+test('"more" ranks a source or topic higher, "less" lower', () => {
+  const a = { ...art('a', K, 'fav'), publishedAt: new Date().toISOString() };
+  const b = { ...art('b', K, 'other'), publishedAt: a.publishedAt };
+  const p = emptyPrefs();
+  moreSource(p, 'fav');
+  const order = rank([b, a], { prefs: p, halfLife: 10 }).map((e) => e.id);
+  assert.deepEqual(order, ['a', 'b']);
+  const q = emptyPrefs();
+  lessSource(q, 'fav');
+  assert.deepEqual(rank([a, b], { prefs: q, halfLife: 10 }).map((e) => e.id), ['b', 'a']);
+});
+
+test('saved list: most recent first, no duplicate, capped, group saves its lead', () => {
+  let list = [];
+  list = addSaved(list, art('a'), 1);
+  list = addSaved(list, art('b'), 2);
+  list = addSaved(list, art('a'), 3);
+  assert.deepEqual(list.map((i) => i.id), ['a', 'b']);
+  assert.equal(list[0].savedAt, 3);
+  assert.ok(isSaved(list, 'b'));
+  assert.deepEqual(removeSaved(list, 'a').map((i) => i.id), ['b']);
+  let big = [];
+  for (let i = 0; i < SAVED_MAX + 20; i++) big = addSaved(big, art('x' + i), i);
+  assert.equal(big.length, SAVED_MAX);
+  assert.equal(big[0].id, 'x' + (SAVED_MAX + 19));
+  const withImage = { ...art('g2'), image: 'https://i/1.jpg' };
+  assert.equal(leadItem({ kind: 'group', id: 'g', items: [art('g1'), withImage] }).id, 'g2');
+  assert.equal(leadItem(art('p')).id, 'p');
+  assert.deepEqual(sanitizeSaved([art('ok'), null, { id: 1 }, { id: 'x', url: 'u' }]).map((i) => i.id), ['ok']);
+  assert.deepEqual(sanitizeSaved('garbage'), []);
+});
+
+// ---------- Search in the loaded content ----------
+import { searchItems, queryTerms } from '../public/find.js';
+
+test('searchItems: accent- and case-insensitive, every word must match, title matches first', () => {
+  const items = [
+    { id: '1', title: 'Grève à l’Hôpital', text: '', publishedAt: '2026-11-09T10:00:00Z', source: { name: 'A' } },
+    { id: '2', title: 'Autre sujet', text: 'Les soignants en GREVE à l’hopital', publishedAt: '2026-11-10T10:00:00Z', source: { name: 'B' } },
+    { id: '3', title: 'Budget', text: 'rien', publishedAt: '2026-11-10T10:00:00Z', source: { name: 'C' }, author: 'Hélène Grève' },
+    { id: '1', title: 'Grève à l’Hôpital (doublon)', text: '', publishedAt: '2026-11-09T10:00:00Z', source: { name: 'A' } },
+  ];
+  assert.deepEqual(queryTerms('  Grève  HÔPITAL '), ['greve', 'hopital']);
+  const { results, total } = searchItems(items, 'greve hopital');
+  assert.deepEqual(results.map((r) => r.id), ['1', '2'], 'title match first, duplicate id once');
+  assert.equal(total, 2);
+  assert.deepEqual(searchItems(items, 'helene').results.map((r) => r.id), ['3'], 'the author is searched too');
+  assert.deepEqual(searchItems(items, 'greve', { limit: 1 }).results.length, 1);
+  assert.equal(searchItems(items, 'greve', { limit: 1 }).total, 3);
+  assert.deepEqual(searchItems(items, '   ').results, []);
+});
+
+// ---------- Install invitation ----------
+import { installHint, isIosSafari } from '../public/install.js';
+
+test('installHint: prompt on Android Chrome, instructions on iOS Safari, nothing once installed', () => {
+  const iosSafari = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+  const iosChrome = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/120.0 Mobile/15E148 Safari/604.1';
+  const android = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36';
+  assert.equal(isIosSafari(iosSafari), true);
+  assert.equal(isIosSafari(iosChrome), false);
+  assert.equal(installHint({ userAgent: android, hasPrompt: true }), 'prompt');
+  assert.equal(installHint({ userAgent: android, hasPrompt: false }), null, 'no prompt event: nothing to offer');
+  assert.equal(installHint({ userAgent: iosSafari }), 'ios');
+  assert.equal(installHint({ userAgent: iosSafari, standalone: true }), null);
+  assert.equal(installHint({ userAgent: android, hasPrompt: true, standalone: true }), null);
+  assert.equal(installHint(), null);
+});

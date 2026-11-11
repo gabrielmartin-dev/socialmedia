@@ -1,9 +1,11 @@
 // Actus / Tech feeds: ranking, incremental rendering, footer.
 
-import { rank, emptyPrefs, relativeTime } from '../rank.js';
+import { rank, emptyPrefs } from '../rank.js';
 import { $, h, toast } from './dom.js';
 import { renderEntry } from './cards.js';
-import { state, FEED_KEYS, entriesFor, rankOpts, savePrefs, seenTracker, markSeen } from './store.js';
+import { actions } from './actions.js';
+import { maxAgeMs } from './live.js';
+import { state, FEED_KEYS, entriesFor, inTopicFilter, rankOpts, savePrefs, seenTracker, markSeen } from './store.js';
 
 const ACTUS_CHUNK = 15;
 
@@ -25,21 +27,67 @@ export function renderFeed(key) {
   const data = state.data[key];
   const list = $(`#${key}-list`);
   list.replaceChildren();
-  feed.ranked = data ? rank(entriesFor(key), rankOpts(data), state.hidden) : [];
+  feed.ranked = data ? rank(entriesFor(key).filter((e) => inTopicFilter(key, e)), rankOpts(data), state.hidden) : [];
+  renderChips(key);
   feed.rendered = 0;
   feed.dirty = false;
-  if (!feed.ranked.length) {
-    list.append(h('div', { class: 'empty' },
-      h('strong', { text: data ? 'Rien pour le moment' : 'Pas encore de données' }),
-      data ? 'Reviens un peu plus tard.' : 'La collecte n’a pas encore tourné. Attends la prochaine mise à jour automatique.',
-    ));
-  }
+  if (!feed.ranked.length) list.append(emptyState(key, data));
   appendFeed(key);
   renderFooter(key);
 }
 
+/** Empty feed: say why and offer the action that makes sense (refresh, or find accounts to follow). */
+/** Topic chips (Tout / Politique / Social, Tout / IA / Dev): labels come from topics.json. */
+export function renderChips(key) {
+  const el = $(`#${key}-chips`);
+  const topics = Object.entries(state.data.topics?.topics || {}).filter(([, t]) => (t.feed || 'actus') === key);
+  el.hidden = !topics.length;
+  const current = state.feeds[key].topic;
+  const chip = (id, label) => h('button', {
+    class: 'chip', type: 'button', text: label, 'aria-pressed': String(current === id),
+    onclick: () => {
+      if (state.feeds[key].topic === id) return;
+      state.feeds[key].topic = id;
+      state.feeds[key].scroll = 0;
+      renderFeed(key);
+      window.scrollTo({ top: 0 });
+    },
+  });
+  el.replaceChildren(chip(null, 'Tout'), ...topics.map(([id, t]) => chip(id, t.label)));
+}
+
+function emptyState(key, data) {
+  const topic = state.feeds[key].topic;
+  if (topic && data?.entries?.length) {
+    const label = state.data.topics?.topics?.[topic]?.label || topic;
+    return h('div', { class: 'empty' },
+      h('strong', { text: `Rien sur « ${label} »` }),
+      'Aucun post récent ne porte sur ce sujet.',
+      h('button', { class: 'empty-btn', type: 'button', text: 'Tout afficher', onclick: () => { state.feeds[key].topic = null; renderFeed(key); } }));
+  }
+  const noneFollowed = data?.entries?.length > 0; // there is content, but none from the accounts followed
+  if (noneFollowed) {
+    return h('div', { class: 'empty' },
+      h('strong', { text: 'Plus rien à afficher' }),
+      'Tu ne suis plus aucun compte de ce fil.',
+      h('button', { class: 'empty-btn', type: 'button', text: 'Découvrir des comptes', onclick: () => actions.switchView('discover') }));
+  }
+  return h('div', { class: 'empty' },
+    h('strong', { text: data ? 'Rien pour le moment' : 'Pas encore de données' }),
+    data ? 'Reviens un peu plus tard.' : 'La collecte n’a pas encore tourné. Attends la prochaine mise à jour automatique.',
+    h('button', { class: 'empty-btn', type: 'button', text: 'Rafraîchir', onclick: () => actions.refresh() }));
+}
+
 export function renderAllFeeds() {
   FEED_KEYS.forEach(renderFeed);
+}
+
+/** A feed card, watched to count it as seen. */
+export function makeCard(entry) {
+  const card = renderEntry(entry);
+  if (entry.kind === 'group') card._memberIds = entry.items.map((it) => it.id);
+  seenObserver().observe(card);
+  return card;
 }
 
 export function appendFeed(key) {
@@ -47,24 +95,24 @@ export function appendFeed(key) {
   const list = $(`#${key}-list`);
   const end = Math.min(feed.ranked.length, feed.rendered + ACTUS_CHUNK);
   const frag = document.createDocumentFragment();
-  for (let i = feed.rendered; i < end; i++) {
-    const entry = feed.ranked[i];
-    const card = renderEntry(entry);
-    if (entry.kind === 'group') card._memberIds = entry.items.map((it) => it.id);
-    seenObserver().observe(card);
-    frag.append(card);
-  }
+  for (let i = feed.rendered; i < end; i++) frag.append(makeCard(feed.ranked[i]));
   list.append(frag);
   feed.rendered = end;
+  renderFooter(key); // the end-of-feed marker appears with the last card
 }
 
 export function renderFooter(key) {
   const f = $(`#${key}-footer`);
-  const gen = state.data[key]?.generatedAt;
-  const failed = state.data.status?.sources?.filter((s) => !s.ok).length || 0;
+  const feed = state.feeds[key];
+  const atEnd = feed.ranked.length > 0 && feed.rendered >= feed.ranked.length;
+  const hours = Math.round(maxAgeMs(key) / 3600e3);
   const hasPrefs = Object.keys(state.prefs.sources).length || Object.keys(state.prefs.keywords).length || state.hidden.size;
-  f.replaceChildren(
-    gen ? h('div', { text: `Mis à jour il y a ${relativeTime(gen).replace("à l'instant", 'quelques secondes')}` + (failed ? ` · ${failed} source${failed > 1 ? 's' : ''} indisponible${failed > 1 ? 's' : ''}` : '') }) : null,
+  // (replaceChildren would write the text "null" for a null argument)
+  f.replaceChildren(...[
+    atEnd ? h('div', { class: 'end-marker' },
+      h('strong', { text: 'Tu es à jour' }),
+      h('span', { text: `Tu as parcouru tout ce qui est paru ces ${hours >= 48 ? Math.round(hours / 24) + ' derniers jours' : hours + ' dernières heures'}.` }),
+    ) : null,
     hasPrefs ? h('button', {
       text: 'Réinitialiser mes préférences « moins de ça »',
       onclick: () => {
@@ -77,7 +125,7 @@ export function renderFooter(key) {
         toast('Préférences réinitialisées');
       },
     }) : null,
-  );
+  ].filter(Boolean));
 }
 
 /** Infinite scroll: render the next chunk when the sentinel nears the viewport. */

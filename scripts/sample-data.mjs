@@ -14,6 +14,7 @@ import { topicsForClient } from './lib/client-config.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const topicsCfg = JSON.parse(await fs.readFile(path.join(ROOT, 'config/topics.json'), 'utf8'));
 const matchers = compileTopics(topicsCfg);
+const techMatchers = compileTopics(topicsCfg, 'tech');
 
 const ago = (min) => new Date(Date.now() - min * 60e3).toISOString();
 // Demo images are written as SVG files (the app only accepts http(s)/same-origin URLs, not data: URIs).
@@ -27,7 +28,7 @@ const tall = (hue, label = '') => svgFile(`tall-${hue}-${slug(label)}.svg`,
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 640"><rect width="360" height="640" fill="hsl(${hue},45%,22%)"/><text x="180" y="320" font-family="sans-serif" font-size="24" fill="rgba(255,255,255,.6)" text-anchor="middle">${label}</text></svg>`);
 
 const src = (id, name) => ({ id, name, avatar: null });
-const A = src('demo-a', 'Média A'), B = src('demo-b', 'Média B'), C = src('demo-c', 'Média C'), D = src('demo-d', 'Média D');
+const A = { ...src('demo-a', 'Média A'), paywall: true }, B = src('demo-b', 'Média B'), C = src('demo-c', 'Média C'), D = src('demo-d', 'Média D');
 const E = { ...src('demo-e', 'Média suggéré E'), suggested: true };
 
 const articles = [
@@ -44,6 +45,9 @@ const articles = [
   id: 'demo-a' + i, kind: 'article', platform: 'rss', source: s, title, text,
   url: 'https://example.org/article/' + i, image: i % 3 === 2 ? null : pic(hue, 'image article'), publishedAt: ago(min),
 }));
+// Author and categories, as the RSS parser now keeps them.
+articles[0].author = 'Marie Curie'; articles[0].categories = ['Retraites', 'Social'];
+articles[3].author = 'Jean Jaurès';
 
 const posts = [
   ['demo-p1', 'Député·e exemple', 'depute.example', 'Le gouvernement passe encore en force avec le 49.3. Nous déposerons une motion de censure dès ce soir à l’Assemblée.', 35, true],
@@ -71,14 +75,24 @@ const videos = [
   ['demo-v1', 'bluesky', 'Internaute exemple', 'Charge de CRS et gaz lacrymogène sur le cortège #manif', 20, 'hls', 9 / 16],
   ['demo-v2', 'youtube', 'Chaîne terrain exemple', 'Reportage : une journée sur un piquet de grève', 200, 'youtube', 16 / 9],
   ['demo-v3', 'bluesky', 'Autre internaute', 'Blocage du lycée ce matin #blocage #mobilisation', 60, 'hls', 9 / 16],
-  ['demo-v4', 'youtube', 'Collectif streamers exemple', 'Best-of du dernier live', 600, 'youtube', 16 / 9],
+  ['demo-v4', 'youtube', 'Collectif streamers exemple', 'Best-of du dernier live', 600, 'youtube', 9 / 16],
 ].map(([id, platform, name, text, min, type, aspect], i) => ({
   id, kind: 'video', platform,
   source: { id: 'demo-vs' + i, name, avatar: null, url: 'https://example.org' },
-  title: platform === 'youtube' ? text : '', text: platform === 'youtube' ? '' : text,
+  title: platform === 'youtube' ? text : '', text: platform === 'youtube' ? 'Description de la chaîne : le reportage complet, les sources et les liens utiles https://example.org/reportage. Abonne-toi pour ne rien rater.' : text,
   url: 'https://example.org/video/' + i, image: null,
   video: { type, src: type === 'youtube' ? 'aqz-KE-bpKQ' : 'https://example.org/none.m3u8', poster: aspect < 1 ? tall(i * 70, 'vidéo ' + (i + 1)) : pic(i * 70, 'vidéo ' + (i + 1)), aspect },
   publishedAt: ago(min),
+}));
+
+const T1 = { ...src('demo-t1', 'Média tech A'), lang: 'en' }, T2 = src('demo-t2', 'Média tech B');
+const techArticles = [
+  [T1, 'OpenAI présente un nouveau modèle d’intelligence artificielle pour la programmation', 'Le modèle agent code et déploie seul.', 35, 220],
+  [T2, 'GitHub ouvre son nouvel éditeur : Rust et TypeScript au programme', 'Une bêta pour les développeurs.', 95, 150],
+  [T1, 'Un laboratoire publie un benchmark sur les LLM et la sécurité', '', 240, 40],
+].map(([s, title, text, min, hue], i) => ({
+  id: 'demo-t' + i, kind: 'article', platform: 'rss', source: s, title, text,
+  url: 'https://example.org/tech/' + i, image: i === 0 ? pic(hue, 'image tech') : null, publishedAt: ago(min),
 }));
 
 const generatedAt = new Date().toISOString();
@@ -86,10 +100,11 @@ const out = path.join(ROOT, 'public', 'data');
 await fs.mkdir(out, { recursive: true });
 const actus = [...articles, ...posts].map((i) => annotate(i, matchers));
 await fs.writeFile(path.join(out, 'actus.json'), JSON.stringify(packFeed({ generatedAt, scoreCap: topicsCfg.scoreCap, halfLifeHours: topicsCfg.halfLifeHours.actus, entries: groupDuplicates(actus, topicsCfg.dedup) })));
+await fs.writeFile(path.join(out, 'tech.json'), JSON.stringify(packFeed({ generatedAt, scoreCap: topicsCfg.scoreCap, halfLifeHours: topicsCfg.halfLifeHours.tech ?? 24, entries: techArticles.map((i) => annotate(i, techMatchers)) })));
 await fs.writeFile(path.join(out, 'videos.json'), JSON.stringify(packFeed({ generatedAt, scoreCap: topicsCfg.scoreCap, halfLifeHours: topicsCfg.halfLifeHours.videos, entries: videos.map((i) => annotate(i, matchers)) })));
 const accounts = [A, B, C, D, E].map((x) => ({ id: x.id, name: x.name, avatar: null, kind: 'media', feed: 'actus', url: 'https://example.org', handle: 'example.org', description: 'Média fictif pour la démo.', suggested: !!x.suggested, category: 'Médias', lastTitle: 'Dernier article fictif', lastAt: ago(30) }));
 accounts.push({ id: 'bsky:suggere.example', name: 'Personnalité suggérée', avatar: null, kind: 'bluesky', feed: 'actus', url: 'https://bsky.app', handle: '@suggere.example', description: 'Compte Bluesky fictif suggéré.', suggested: true, category: 'Personnalités', lastTitle: '', lastAt: null });
 await fs.writeFile(path.join(out, 'accounts.json'), JSON.stringify({ generatedAt, accounts }));
 await fs.writeFile(path.join(out, 'topics.json'), JSON.stringify(topicsForClient(topicsCfg, {})));
-await fs.writeFile(path.join(out, 'status.json'), JSON.stringify({ generatedAt, sources: [{ type: 'demo', name: 'Données fictives', ok: true, count: actus.length + videos.length }] }, null, 1));
+await fs.writeFile(path.join(out, 'status.json'), JSON.stringify({ generatedAt, sources: [{ type: 'demo', name: 'Données fictives', ok: true, count: actus.length + videos.length }, { type: 'rss', name: 'Média fictif en panne', ok: false, error: 'HTTP 503' }, { type: 'youtube', name: 'Chaîne fictive en panne', ok: false, error: 'Flux vide' }] }, null, 1));
 console.log('Données de démo écrites dans public/data/');

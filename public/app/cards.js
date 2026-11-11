@@ -4,10 +4,11 @@ import { h, svg, ICONS, openUrl } from './dom.js';
 import { postUri } from '../bsky.js';
 import { avatar, image } from './media.js';
 import { loadHls } from './hls.js';
-import { state } from './store.js';
+import { state, isOpened, markOpened } from './store.js';
 import { actions } from './actions.js';
 import { clampAspect, truncateText, domainOf } from './util.js';
-import { relativeTime } from '../rank.js';
+import { relativeTime, topicsOf } from '../rank.js';
+import { exactTime } from '../freshness.js';
 import { safeUrl } from '../url.js';
 
 const TEXT_LIMIT = 280;
@@ -54,7 +55,7 @@ function tweetHead(entry, { name, handle, publishedAt, url }) {
   const toProfile = entry.kind !== 'group' && entry.source
     ? (e) => { e.stopPropagation(); actions.openProfile(entry.source); }
     : null;
-  const time = h('time', { class: 'time', datetime: publishedAt, text: relativeTime(publishedAt) });
+  const time = h('time', { class: 'time', datetime: publishedAt, text: relativeTime(publishedAt), title: exactTime(publishedAt) });
   return h('div', { class: 'tweet-head' },
     // A real button when it opens the profile (keyboard + screen readers), plain text otherwise.
     toProfile
@@ -171,16 +172,66 @@ function quoteCard(q) {
   );
 }
 
+/**
+ * Small labels under a card: the topics found in it (Politique, IA…), « Abonnés » and « EN »
+ * for sources flagged so in config/sources.json, « Short », the author and the feed's categories.
+ */
+function badgeRow(entry) {
+  const topics = topicsOf(entry).map((t) => state.data.topics?.topics?.[t]?.label).filter(Boolean);
+  const src = entry.kind === 'group' ? null : entry.source;
+  const tags = [
+    ...topics.map((t) => h('span', { class: 'tag topic', text: t })),
+    src?.paywall ? h('span', { class: 'tag paywall', text: 'Abonnés' }) : null,
+    src?.lang && src.lang !== 'fr' ? h('span', { class: 'tag lang', text: src.lang.toUpperCase(), title: 'Source en langue étrangère' }) : null,
+    entry.platform === 'youtube' && (entry.video?.aspect ?? 1) < 1 ? h('span', { class: 'tag', text: 'Short' }) : null,
+    ...(entry.categories || []).slice(0, 2).map((c) => h('span', { class: 'tag cat', text: c })),
+  ].filter(Boolean);
+  const byline = entry.author ? h('span', { class: 'byline', text: `Par ${entry.author}` }) : null;
+  return tags.length || byline ? h('div', { class: 'tags' }, byline, tags) : null;
+}
+
+/** Opens / closes the list of articles of a group, and keeps the toggle's label in step. */
+function setGroupOpen(card, open) {
+  card.classList.toggle('open', open);
+  const btn = card.querySelector('.group-toggle');
+  if (!btn) return;
+  btn.setAttribute('aria-expanded', String(open));
+  btn.textContent = open ? 'Masquer' : `Voir les ${btn.dataset.count} articles`;
+}
+
+/** « Mediapart · Politis · Blast +2 »: the outlets of a group, readable without opening it. */
+export function outletNames(items, max = 3) {
+  const names = [...new Set(items.map((i) => i.source.name))];
+  return names.slice(0, max).join(' · ') + (names.length > max ? ` +${names.length - max}` : '');
+}
+
+/** Remembers that an article was opened (its title is dimmed from now on). */
+function openedArticle(card, id) {
+  markOpened(id);
+  if (card.dataset.id === id) card.classList.add('opened'); // a group only dims the article that was opened
+  card.querySelector(`[data-open-id="${CSS.escape(id)}"]`)?.classList.add('opened');
+}
+
 function cardShell(entry, avatarNode, mainChildren, url) {
+  const opened = entry.kind === 'article' && isOpened(entry.id);
   return h('article', {
-    class: 'tweet' + (entry.kind === 'group' ? ' group' : ''),
+    class: 'tweet' + (entry.kind === 'group' ? ' group' : '') + (opened ? ' opened' : ''),
     dataset: { id: entry.id },
     onclick: (e) => {
-      if (e.target.closest('a, button')) return;
-      if (entry.kind === 'group') {
-        const open = e.currentTarget.classList.toggle('open');
-        e.currentTarget.querySelector('.group-toggle')?.setAttribute('aria-expanded', String(open));
-      } else if (entry.platform === 'bluesky' && postUri(entry.url)) actions.openThread(entry);
+      const link = e.target.closest('a');
+      if (link) {
+        // The permalink, the image card and the articles of a group count as "opened"
+        // (a hashtag or a @mention inside the text does not).
+        if (link.matches('.time-link, .link-card, .group-item')) {
+          const id = link.dataset.openId || (entry.kind === 'article' ? entry.id : null);
+          if (id) openedArticle(e.currentTarget, id);
+        }
+        return;
+      }
+      if (e.target.closest('button')) return;
+      if (entry.kind === 'article') openedArticle(e.currentTarget, entry.id);
+      if (entry.kind === 'group') setGroupOpen(e.currentTarget, !e.currentTarget.classList.contains('open'));
+      else if (entry.platform === 'bluesky' && postUri(entry.url)) actions.openThread(entry);
       else openUrl(url);
     },
   },
@@ -197,9 +248,10 @@ function articleCard(item) {
   const dom = domainOf(item.url);
   return cardShell(item, avatar(item.source.avatar, item.source.name, { square: true }), [
     tweetHead(item, { name: item.source.name, handle: dom, publishedAt: item.publishedAt, url: item.url }),
-    h('div', { class: 'tweet-text' }, item.title),
+    h('div', { class: 'tweet-text title' }, item.title),
     item.text ? h('div', { class: 'tweet-text dim' }, item.text) : null,
     item.image ? linkCard(item.url, { thumb: item.image, title: '' }) : null,
+    badgeRow(item),
   ], item.url);
 }
 
@@ -229,6 +281,7 @@ function postCard(item) {
     media,
     item.quote ? quoteCard(item.quote) : null,
     threadButton(item),
+    badgeRow(item),
   ], item.url);
 }
 
@@ -241,20 +294,20 @@ function groupCard(entry) {
     h('div', { class: 'tweet-text' }, lead.title),
     lead.text ? h('div', { class: 'tweet-text dim' }, lead.text) : null,
     lead.image ? h('div', { class: 'media', style: 'aspect-ratio:1.91' }, image(lead.image, lead.title, { url: lead.url })) : null,
+    badgeRow(entry),
+    h('div', { class: 'group-names', text: outletNames(items) }),
     h('div', { class: 'group-list' }, items.map((i) =>
-      h('a', { class: 'group-item', href: i.url, target: '_blank', rel: 'noopener' },
+      h('a', { class: 'group-item' + (isOpened(i.id) ? ' opened' : ''), href: i.url, target: '_blank', rel: 'noopener', dataset: { openId: i.id } },
         avatar(i.source.avatar, i.source.name, { square: true }),
         h('div', {},
           h('div', { class: 'gi-src', text: `${i.source.name} · ${relativeTime(i.publishedAt)}` }),
           h('div', { text: i.title }),
         ),
       ))),
-    h('button', { class: 'group-toggle', type: 'button', 'aria-expanded': 'false', text: `Voir les ${items.length} articles`, onclick: (e) => {
+    h('button', { class: 'group-toggle', type: 'button', 'aria-expanded': 'false', dataset: { count: items.length }, text: `Voir les ${items.length} articles`, onclick: (e) => {
       e.stopPropagation();
       const card = e.currentTarget.closest('.tweet');
-      card.classList.add('open');
-      e.currentTarget.setAttribute('aria-expanded', 'true');
-      card.querySelector('.group-item')?.focus(); // the toggle just disappeared: keep the focus in the card
+      setGroupOpen(card, !card.classList.contains('open'));
     } }),
   ]);
 }
