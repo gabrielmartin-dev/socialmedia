@@ -1,6 +1,6 @@
 // Service worker: app shell cache-first, data network-first (offline fallback).
-const VERSION = 'v10';
-const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'rank.js', 'bsky.js', 'topics.js', 'url.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
+const VERSION = 'v11';
+const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'rank.js', 'bsky.js', 'topics.js', 'url.js', 'pack.js', 'seen.js', 'pool.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 const offlineResponse = () => new Response('Hors ligne', { status: 503, statusText: 'Offline', headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
 

@@ -1,7 +1,10 @@
-import { rank, applyLess, emptyPrefs, relativeTime } from './rank.js';
+import { rank, applyLess, emptyPrefs, relativeTime, mergeIntoTail } from './rank.js';
 import { searchAccounts, authorPosts, getProfile } from './bsky.js';
 import { compileTopics, matchKeywords } from './topics.js';
 import { safeUrl } from './url.js';
+import { unpackFeed } from './pack.js';
+import { createSeenTracker } from './seen.js';
+import { pool } from './pool.js';
 
 const HLS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js';
 const HLS_SRI = 'sha384-w6Gb3fXHb5e1LUYa/hYA5Q41bEDglN5ZPCG7Jvnoo8/X90oGnlPqBlBJCe38mEMm';
@@ -29,8 +32,6 @@ const state = {
   live: { actus: [], videos: [] },
   prefs: Object.assign(emptyPrefs(), store.get('prefs', {})),
   hidden: new Set(store.get('hidden', [])),
-  // id -> [last display timestamp, number of sessions it was displayed in].
-  seen: pruneSeen(store.get('seen2', {})),
   // Timestamp of the previous visit: newer posts get a boost.
   lastVisit: store.get('lastVisit', 0),
   // Text feeds (same rendering): Actus and Tech.
@@ -77,39 +78,18 @@ function entriesFor(key) {
   return out;
 }
 
-function pruneSeen(map) {
-  const cutoff = Date.now() - 4 * 86400e3;
-  const out = {};
-  for (const [id, v] of Object.entries(map || {})) if (Array.isArray(v) && v[0] > cutoff) out[id] = v;
-  return out;
-}
-
-// Ids already counted during this session (one impression per session).
-const sessionSeen = new Set();
-let seenTimer = null;
-function markSeen(id) {
-  if (!id || sessionSeen.has(id)) return;
-  sessionSeen.add(id);
-  const prev = state.seen[id];
-  state.seen[id] = [Date.now(), (prev?.[1] || 0) + 1];
-  clearTimeout(seenTimer);
-  seenTimer = setTimeout(() => store.set('seen2', state.seen), 1000);
-}
-
-function seenMap() {
-  return new Map(Object.entries(state.seen).map(([id, v]) => [id, v[1]]));
-}
+// id -> [last display timestamp, number of sessions it was displayed in].
+const seenTracker = createSeenTracker({ load: () => store.get('seen2', {}), save: (v) => store.set('seen2', v) });
+const markSeen = seenTracker.mark;
+const seenMap = seenTracker.counts;
 
 // A new session starts when the app comes back after 10 minutes in the background.
-function newSession() {
-  sessionSeen.clear();
-}
 let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { hiddenAt = Date.now(); store.set('lastVisit', Date.now()); }
-  else if (hiddenAt && Date.now() - hiddenAt > 10 * 60e3) { state.lastVisit = hiddenAt; newSession(); }
+  if (document.hidden) { hiddenAt = Date.now(); store.set('lastVisit', Date.now()); seenTracker.flush(); }
+  else if (hiddenAt && Date.now() - hiddenAt > 10 * 60e3) { state.lastVisit = hiddenAt; seenTracker.newSession(); }
 });
-window.addEventListener('pagehide', () => store.set('lastVisit', Date.now()));
+window.addEventListener('pagehide', () => { store.set('lastVisit', Date.now()); seenTracker.flush(); });
 
 // A card counts as seen once at least half of it has been on screen.
 const seenObserver = new IntersectionObserver((entries) => {
@@ -260,26 +240,75 @@ function toast(msg) {
 }
 
 // ---------- Data ----------
+// 'no-cache' = conditional revalidation (ETag → 304 from GitHub Pages) instead of a full download.
 async function loadData() {
-  const get = (name) => fetch(`data/${name}.json`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  const get = (name) => fetch(`data/${name}.json`, { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   const [actus, tech, videos, status, accounts, topics] = await Promise.all(
     ['actus', 'tech', 'videos', 'status', 'accounts', 'topics'].map(get));
-  state.data = { actus, tech, videos, status, accounts, topics };
+  state.data = { actus: unpackFeed(actus), tech: unpackFeed(tech), videos: unpackFeed(videos), status, accounts, topics };
   state.accounts = new Map((accounts?.accounts || []).map((a) => [a.id, a]));
-  await loadLive();
 }
 
-/** Fetch posts of Bluesky accounts followed from search (not collected by GitHub). */
-async function loadLive() {
-  const ids = Object.keys(state.follows.live).filter((id) => state.follows.followed.has(id) && !state.accounts.has(id));
-  const matchers = compileTopics(state.data.topics, 'actus');
-  const results = await Promise.all(ids.map((id) => authorPosts(id.slice(5)).catch(() => [])));
-  const posts = results.flat().filter((p) => Date.now() - Date.parse(p.publishedAt) < 72 * 3600e3);
-  for (const p of posts) p.keywords = matchKeywords(p.text, matchers);
+const LIVE_TIMEOUT_MS = 8000;
+const LIVE_CONCURRENCY = 4;
+
+const liveByAccount = new Map(); // id -> posts (kept when a later request fails)
+let liveSeq = 0;
+
+function publishLive() {
+  const posts = [...liveByAccount.values()].flat();
   state.live = {
     actus: posts,
     videos: posts.filter((p) => p.video?.type === 'hls').map((p) => ({ ...p, kind: 'video' })),
   };
+}
+
+/**
+ * Fetch posts of Bluesky accounts followed from search (not collected by GitHub), in the
+ * background: the collected data is already on screen. Each account is merged as it
+ * arrives, without reshuffling what the user is looking at (see integrateLive).
+ */
+async function loadLive() {
+  const seq = ++liveSeq;
+  const ids = Object.keys(state.follows.live).filter((id) => state.follows.followed.has(id) && !state.accounts.has(id));
+  for (const id of [...liveByAccount.keys()]) if (!ids.includes(id)) liveByAccount.delete(id);
+  const matchers = compileTopics(state.data.topics, 'actus');
+  await pool(ids.map((id) => async () => {
+    const posts = (await authorPosts(id.slice(5), 25, { timeoutMs: LIVE_TIMEOUT_MS }))
+      .filter((p) => Date.now() - Date.parse(p.publishedAt) < 72 * 3600e3);
+    if (seq !== liveSeq) return; // a newer loadLive superseded this one
+    for (const p of posts) p.keywords = matchKeywords(p.text, matchers);
+    const known = new Set((liveByAccount.get(id) || []).map((p) => p.id));
+    liveByAccount.set(id, posts);
+    publishLive();
+    integrateLive(posts.filter((p) => !known.has(p.id)));
+  }), LIVE_CONCURRENCY);
+}
+
+/**
+ * Merge freshly arrived live posts into the feeds already on screen without moving
+ * anything the user can see: they are ranked together with the not-yet-rendered tail only.
+ */
+function integrateLive(posts) {
+  if (!posts.length) return;
+  const mergeTail = (target, dataset, entries) => {
+    const merged = mergeIntoTail(target.ranked, target.rendered, entries.filter(itemVisible), rankOpts(dataset), state.hidden);
+    if (!merged) return false;
+    target.ranked = merged;
+    return true;
+  };
+  const feed = state.feeds.actus;
+  if (!feed.dirty && state.data.actus) {
+    if (!feed.ranked.length) renderFeed('actus'); // empty screen: nothing to disturb
+    else if (mergeTail(feed, state.data.actus, posts)) {
+      const sentinel = $('#actus-sentinel');
+      if (feed.rendered < feed.ranked.length && sentinel.getBoundingClientRect().top < window.innerHeight + 800) appendFeed('actus');
+    }
+  }
+  if (state.reels.built && state.data.videos) {
+    const vids = posts.filter((p) => p.video?.type === 'hls').map((p) => ({ ...p, kind: 'video' }));
+    mergeTail(state.reels, state.data.videos, vids);
+  }
 }
 
 function rankOpts(dataset) {
@@ -577,9 +606,7 @@ function renderFooter(key) {
       onclick: () => {
         state.prefs = emptyPrefs();
         state.hidden.clear();
-        state.seen = {};
-        sessionSeen.clear();
-        store.set('seen2', {});
+        seenTracker.reset();
         savePrefs();
         renderAllFeeds();
         state.reels.built = false;
@@ -1144,6 +1171,7 @@ async function refresh() {
   renderAllFeeds();
   state.reels.built = false;
   if (state.view === 'videos') buildReels();
+  loadLive(); // background: live posts are merged as they arrive
   btn.classList.remove('spinning');
   ptr.classList.remove('loading');
   ptr.style.height = '0';
@@ -1196,3 +1224,4 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 
 await loadData();
 renderAllFeeds();
+loadLive(); // background: the collected data is already displayed

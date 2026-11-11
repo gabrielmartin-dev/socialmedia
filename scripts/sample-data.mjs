@@ -8,6 +8,7 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { compileTopics, annotate, groupDuplicates } from './lib/score.mjs';
+import { packFeed } from '../public/pack.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const topicsCfg = JSON.parse(await fs.readFile(path.join(ROOT, 'config/topics.json'), 'utf8'));
@@ -83,8 +84,8 @@ const generatedAt = new Date().toISOString();
 const out = path.join(ROOT, 'public', 'data');
 await fs.mkdir(out, { recursive: true });
 const actus = [...articles, ...posts].map((i) => annotate(i, matchers));
-await fs.writeFile(path.join(out, 'actus.json'), JSON.stringify({ generatedAt, scoreCap: topicsCfg.scoreCap, halfLifeHours: topicsCfg.halfLifeHours.actus, entries: groupDuplicates(actus, topicsCfg.dedup) }, null, 1));
-await fs.writeFile(path.join(out, 'videos.json'), JSON.stringify({ generatedAt, scoreCap: topicsCfg.scoreCap, halfLifeHours: topicsCfg.halfLifeHours.videos, entries: videos.map((i) => annotate(i, matchers)) }, null, 1));
+await fs.writeFile(path.join(out, 'actus.json'), JSON.stringify(packFeed({ generatedAt, scoreCap: topicsCfg.scoreCap, halfLifeHours: topicsCfg.halfLifeHours.actus, entries: groupDuplicates(actus, topicsCfg.dedup) })));
+await fs.writeFile(path.join(out, 'videos.json'), JSON.stringify(packFeed({ generatedAt, scoreCap: topicsCfg.scoreCap, halfLifeHours: topicsCfg.halfLifeHours.videos, entries: videos.map((i) => annotate(i, matchers)) })));
 const accounts = [A, B, C, D, E].map((x) => ({ id: x.id, name: x.name, avatar: null, kind: 'media', feed: 'actus', url: 'https://example.org', handle: 'example.org', description: 'Média fictif pour la démo.', suggested: !!x.suggested, category: 'Médias', lastTitle: 'Dernier article fictif', lastAt: ago(30) }));
 accounts.push({ id: 'bsky:suggere.example', name: 'Personnalité suggérée', avatar: null, kind: 'bluesky', feed: 'actus', url: 'https://bsky.app', handle: '@suggere.example', description: 'Compte Bluesky fictif suggéré.', suggested: true, category: 'Personnalités', lastTitle: '', lastAt: null });
 await fs.writeFile(path.join(out, 'accounts.json'), JSON.stringify({ generatedAt, accounts }));

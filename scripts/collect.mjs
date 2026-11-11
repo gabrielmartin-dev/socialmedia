@@ -14,6 +14,7 @@ import { truncate } from './lib/text.mjs';
 import { sanitizeItem } from './lib/sanitize.mjs';
 import { safeUrl } from '../public/url.js';
 import { checkRun } from './lib/health.mjs';
+import { packFeed } from '../public/pack.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'public', 'data');
@@ -207,21 +208,21 @@ async function main() {
   };
 
   await fs.mkdir(OUT, { recursive: true });
-  await fs.writeFile(path.join(OUT, 'actus.json'), JSON.stringify({
+  await fs.writeFile(path.join(OUT, 'actus.json'), JSON.stringify(packFeed({
     ...meta,
     halfLifeHours: topicsCfg.halfLifeHours.actus,
     entries: groupDuplicates(actusItems, topicsCfg.dedup),
-  }));
-  await fs.writeFile(path.join(OUT, 'tech.json'), JSON.stringify({
+  })));
+  await fs.writeFile(path.join(OUT, 'tech.json'), JSON.stringify(packFeed({
     ...meta,
     halfLifeHours: topicsCfg.halfLifeHours.tech ?? 24,
     entries: groupDuplicates(techItems, topicsCfg.dedup),
-  }));
-  await fs.writeFile(path.join(OUT, 'videos.json'), JSON.stringify({
+  })));
+  await fs.writeFile(path.join(OUT, 'videos.json'), JSON.stringify(packFeed({
     ...meta,
     halfLifeHours: topicsCfg.halfLifeHours.videos,
     entries: videoItems,
-  }));
+  })));
   // Last activity per account, for the Découvrir tab.
   const lastPost = new Map();
   for (const it of [...actusItems, ...techItems, ...videoItems]) {

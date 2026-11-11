@@ -94,6 +94,19 @@ export function rank(entries, opts = {}, hidden = new Set()) {
   return diversify(sampled);
 }
 
+/**
+ * Merge `entries` into an already displayed ranking without moving what is on screen:
+ * the first `rendered` entries are untouched; the not-yet-rendered tail is re-ranked
+ * together with the newcomers. Returns the new list, or null when nothing is new.
+ */
+export function mergeIntoTail(ranked, rendered, entries, opts = {}, hidden = new Set()) {
+  const present = new Set(ranked.flatMap((e) => (e.kind === 'group' ? e.items.map((i) => i.id) : [e.id])));
+  const fresh = entries.filter((e) => !present.has(e.id) && !hidden.has(e.id));
+  if (!fresh.length) return null;
+  const tail = rank([...ranked.slice(rendered), ...fresh], opts, hidden);
+  return [...ranked.slice(0, rendered), ...tail];
+}
+
 /** Apply "moins de ça" to prefs (mutates and returns prefs). */
 export function applyLess(prefs, entry) {
   const items = entry.kind === 'group' ? entry.items : [entry];

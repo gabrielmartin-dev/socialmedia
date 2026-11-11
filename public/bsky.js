@@ -5,10 +5,20 @@ import { safeUrl } from './url.js';
 
 const API = 'https://public.api.bsky.app/xrpc';
 
-async function call(method, params) {
-  const res = await fetch(`${API}/${method}?${new URLSearchParams(params)}`);
-  if (!res.ok) throw new Error(`Bluesky ${res.status}`);
-  return res.json();
+const TIMEOUT_MS = 8000;
+
+/** GET an XRPC method. Every request has a timeout (and can be aborted by `signal`). */
+async function call(method, params, { timeoutMs = TIMEOUT_MS, signal } = {}) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  signal?.addEventListener('abort', () => ctrl.abort(), { once: true });
+  try {
+    const res = await fetch(`${API}/${method}?${new URLSearchParams(params)}`, { signal: ctrl.signal });
+    if (!res.ok) throw new Error(`Bluesky ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function searchAccounts(q) {
@@ -81,8 +91,8 @@ function quote(rec) {
   };
 }
 
-export async function authorPosts(handle, limit = 25) {
-  const { feed = [] } = await call('app.bsky.feed.getAuthorFeed', { actor: handle, limit, filter: 'posts_no_replies' });
+export async function authorPosts(handle, limit = 25, opts) {
+  const { feed = [] } = await call('app.bsky.feed.getAuthorFeed', { actor: handle, limit, filter: 'posts_no_replies' }, opts);
   return feed.filter((f) => !f.reason).map(({ post }) => {
     const a = post.author || {};
     const m = media(post.embed);
