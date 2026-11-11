@@ -1,6 +1,6 @@
 // Application state, persisted preferences, follows and "seen" tracking.
 
-import { emptyPrefs } from '../rank.js';
+import { emptyPrefs, topicsOf } from '../rank.js';
 import { createSeenTracker, pruneOpened } from '../seen.js';
 import { addSaved, removeSaved, isSaved, sanitizeSaved } from '../saved.js';
 import { actions } from './actions.js';
@@ -37,8 +37,9 @@ export const state = {
   lastVisit: store.get('lastVisit', 0),
   // Text feeds (same rendering): Actus and Tech.
   feeds: {
-    actus: { ranked: [], rendered: 0, dirty: false, scroll: 0 },
-    tech: { ranked: [], rendered: 0, dirty: false, scroll: 0 },
+    // `topic`: id of the topic chip selected (null = Tout)
+    actus: { ranked: [], rendered: 0, dirty: false, scroll: 0, topic: null },
+    tech: { ranked: [], rendered: 0, dirty: false, scroll: 0, topic: null },
   },
   reels: { ranked: [], rendered: 0, active: null, built: false },
   muted: true,
@@ -85,6 +86,12 @@ export function isFollowed(source, { strict = false } = {}) {
   return !suggested;
 }
 export const itemVisible = (item) => item.tag || isFollowed(item.source);
+
+/** True when an entry belongs to the topic chip selected in `key` (always true without a filter). */
+export function inTopicFilter(key, entry) {
+  const topic = state.feeds[key]?.topic;
+  return !topic || topicsOf(entry).includes(topic);
+}
 
 /** Entries of a feed (collected + live), restricted to followed accounts (groups are rebuilt). */
 export function entriesFor(key) {

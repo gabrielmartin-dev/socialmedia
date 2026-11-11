@@ -282,3 +282,23 @@ test('saved list: most recent first, no duplicate, capped, group saves its lead'
   assert.deepEqual(sanitizeSaved([art('ok'), null, { id: 1 }, { id: 'x', url: 'u' }]).map((i) => i.id), ['ok']);
   assert.deepEqual(sanitizeSaved('garbage'), []);
 });
+
+// ---------- Search in the loaded content ----------
+import { searchItems, queryTerms } from '../public/find.js';
+
+test('searchItems: accent- and case-insensitive, every word must match, title matches first', () => {
+  const items = [
+    { id: '1', title: 'Grève à l’Hôpital', text: '', publishedAt: '2026-11-09T10:00:00Z', source: { name: 'A' } },
+    { id: '2', title: 'Autre sujet', text: 'Les soignants en GREVE à l’hopital', publishedAt: '2026-11-10T10:00:00Z', source: { name: 'B' } },
+    { id: '3', title: 'Budget', text: 'rien', publishedAt: '2026-11-10T10:00:00Z', source: { name: 'C' }, author: 'Hélène Grève' },
+    { id: '1', title: 'Grève à l’Hôpital (doublon)', text: '', publishedAt: '2026-11-09T10:00:00Z', source: { name: 'A' } },
+  ];
+  assert.deepEqual(queryTerms('  Grève  HÔPITAL '), ['greve', 'hopital']);
+  const { results, total } = searchItems(items, 'greve hopital');
+  assert.deepEqual(results.map((r) => r.id), ['1', '2'], 'title match first, duplicate id once');
+  assert.equal(total, 2);
+  assert.deepEqual(searchItems(items, 'helene').results.map((r) => r.id), ['3'], 'the author is searched too');
+  assert.deepEqual(searchItems(items, 'greve', { limit: 1 }).results.length, 1);
+  assert.equal(searchItems(items, 'greve', { limit: 1 }).total, 3);
+  assert.deepEqual(searchItems(items, '   ').results, []);
+});

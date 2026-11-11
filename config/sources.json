@@ -11,6 +11,7 @@
     {
       "id": "mediapart",
       "name": "Mediapart",
+      "paywall": true,
       "site": "https://www.mediapart.fr",
       "feed": "https://www.mediapart.fr/articles/feed"
     },
@@ -75,6 +76,7 @@
     {
       "id": "asi",
       "name": "Arrêt sur images",
+      "paywall": true,
       "site": "https://www.arretsurimages.net"
     },
     {
@@ -235,6 +237,7 @@
     {
       "id": "anthropic",
       "name": "Anthropic",
+      "lang": "en",
       "site": "https://www.anthropic.com",
       "feed": "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_news.xml",
       "_comment": "Anthropic ne publie pas de RSS officiel : flux généré par le projet open source Olshansk/rss-feeds."
@@ -242,66 +245,77 @@
     {
       "id": "claude",
       "name": "Claude",
+      "lang": "en",
       "site": "https://claude.com",
       "feed": "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_claude.xml"
     },
     {
       "id": "anthropic-research",
       "name": "Anthropic Research",
+      "lang": "en",
       "site": "https://www.anthropic.com",
       "feed": "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_research.xml"
     },
     {
       "id": "anthropic-eng",
       "name": "Anthropic Engineering",
+      "lang": "en",
       "site": "https://www.anthropic.com",
       "feed": "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_engineering.xml"
     },
     {
       "id": "openai",
       "name": "OpenAI",
+      "lang": "en",
       "site": "https://openai.com",
       "feed": "https://openai.com/news/rss.xml"
     },
     {
       "id": "deepmind",
       "name": "Google DeepMind",
+      "lang": "en",
       "site": "https://deepmind.google",
       "feed": "https://deepmind.google/blog/rss.xml"
     },
     {
       "id": "huggingface",
       "name": "Hugging Face",
+      "lang": "en",
       "site": "https://huggingface.co",
       "feed": "https://huggingface.co/blog/feed.xml"
     },
     {
       "id": "github-blog",
       "name": "GitHub Blog",
+      "lang": "en",
       "site": "https://github.blog",
       "feed": "https://github.blog/feed/"
     },
     {
       "id": "simonw",
       "name": "Simon Willison",
+      "lang": "en",
       "site": "https://simonwillison.net",
       "feed": "https://simonwillison.net/atom/entries/"
     },
     {
       "id": "verge-ai",
       "name": "The Verge",
+      "lang": "en",
       "site": "https://www.theverge.com",
       "feed": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml"
     },
     {
       "id": "ars",
       "name": "Ars Technica",
+      "lang": "en",
       "site": "https://arstechnica.com",
       "feed": "https://feeds.arstechnica.com/arstechnica/technology-lab"
     },
     {
       "id": "mittr",
       "name": "MIT Technology Review",
+      "lang": "en",
       "site": "https://www.technologyreview.com",
       "feed": "https://www.technologyreview.com/topic/artificial-intelligence/feed"
     },
@@ -314,6 +328,7 @@
     {
       "id": "hn",
       "name": "Hacker News",
+      "lang": "en",
       "site": "https://news.ycombinator.com",
       "feed": "https://hnrss.org/best",
       "_comment": "Seulement les articles les mieux notés par la communauté."
@@ -321,6 +336,7 @@
     {
       "id": "techcrunch-ai",
       "name": "TechCrunch",
+      "lang": "en",
       "site": "https://techcrunch.com",
       "feed": "https://techcrunch.com/category/artificial-intelligence/feed/",
       "suggested": true
@@ -328,6 +344,7 @@
     {
       "id": "wired-ai",
       "name": "Wired",
+      "lang": "en",
       "site": "https://www.wired.com",
       "feed": "https://www.wired.com/feed/tag/ai/latest/rss",
       "suggested": true
@@ -335,6 +352,7 @@
     {
       "id": "404media",
       "name": "404 Media",
+      "lang": "en",
       "site": "https://www.404media.co",
       "feed": "https://www.404media.co/rss/",
       "suggested": true
@@ -342,6 +360,7 @@
     {
       "id": "theregister",
       "name": "The Register",
+      "lang": "en",
       "site": "https://www.theregister.com",
       "feed": "https://www.theregister.com/headlines.atom",
       "suggested": true
@@ -349,6 +368,7 @@
     {
       "id": "google-ai",
       "name": "Google AI",
+      "lang": "en",
       "site": "https://blog.google",
       "feed": "https://blog.google/technology/ai/rss/",
       "suggested": true
@@ -356,6 +376,7 @@
     {
       "id": "latentspace",
       "name": "Latent Space",
+      "lang": "en",
       "site": "https://www.latent.space",
       "feed": "https://www.latent.space/feed",
       "suggested": true
@@ -363,6 +384,7 @@
     {
       "id": "stackoverflow",
       "name": "Stack Overflow Blog",
+      "lang": "en",
       "site": "https://stackoverflow.blog",
       "feed": "https://stackoverflow.blog/feed/",
       "suggested": true
@@ -396,48 +418,56 @@
     {
       "id": "eff",
       "name": "EFF",
+      "lang": "en",
       "site": "https://www.eff.org",
       "feed": "https://www.eff.org/rss/updates.xml"
     },
     {
       "id": "lwn",
       "name": "LWN.net",
+      "lang": "en",
       "site": "https://lwn.net",
       "feed": "https://lwn.net/headlines/newrss"
     },
     {
       "id": "thedecoder",
       "name": "The Decoder",
+      "lang": "en",
       "site": "https://the-decoder.com",
       "feed": "https://the-decoder.com/feed/"
     },
     {
       "id": "importai",
       "name": "Import AI",
+      "lang": "en",
       "site": "https://jack-clark.net",
       "feed": "https://jack-clark.net/feed/"
     },
     {
       "id": "interconnects",
       "name": "Interconnects",
+      "lang": "en",
       "site": "https://www.interconnects.ai",
       "feed": "https://www.interconnects.ai/feed"
     },
     {
       "id": "pragmatic",
       "name": "The Pragmatic Engineer",
+      "lang": "en",
       "site": "https://newsletter.pragmaticengineer.com",
       "feed": "https://newsletter.pragmaticengineer.com/feed"
     },
     {
       "id": "cloudflare",
       "name": "Cloudflare Blog",
+      "lang": "en",
       "site": "https://blog.cloudflare.com",
       "feed": "https://blog.cloudflare.com/rss/"
     },
     {
       "id": "lobsters",
       "name": "Lobsters",
+      "lang": "en",
       "site": "https://lobste.rs",
       "feed": "https://lobste.rs/rss"
     }

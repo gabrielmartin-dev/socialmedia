@@ -7,7 +7,7 @@ import { compileTopics, matchKeywords } from '../topics.js';
 import { unpackFeed } from '../pack.js';
 import { pool } from '../pool.js';
 import { $ } from './dom.js';
-import { state, itemVisible, rankOpts } from './store.js';
+import { state, itemVisible, rankOpts, inTopicFilter } from './store.js';
 import { renderFeed, appendFeed } from './feed.js';
 
 const LIVE_TIMEOUT_MS = 8000;
@@ -102,8 +102,9 @@ export async function loadLive() {
  * not-yet-rendered tail only.
  */
 function integrateLive(fresh) {
-  const mergeTail = (target, dataset, entries) => {
-    const merged = mergeIntoTail(target.ranked, target.rendered, entries.filter(itemVisible), rankOpts(dataset), state.hidden);
+  const mergeTail = (target, dataset, entries, key) => {
+    const wanted = entries.filter((e) => itemVisible(e) && (!key || inTopicFilter(key, e)));
+    const merged = mergeIntoTail(target.ranked, target.rendered, wanted, rankOpts(dataset), state.hidden);
     if (!merged) return false;
     target.ranked = merged;
     return true;
@@ -112,7 +113,7 @@ function integrateLive(fresh) {
     const feed = state.feeds[key];
     if (!fresh[key]?.length || feed.dirty || !state.data[key]) continue;
     if (!feed.ranked.length) renderFeed(key); // empty screen: nothing to disturb
-    else if (mergeTail(feed, state.data[key], fresh[key])) {
+    else if (mergeTail(feed, state.data[key], fresh[key], key)) {
       const sentinel = $(`#${key}-sentinel`);
       if (feed.rendered < feed.ranked.length && sentinel.getBoundingClientRect().top < window.innerHeight + 800) appendFeed(key);
     }

@@ -10,6 +10,7 @@ import { loadHls } from './hls.js';
 import { state, entriesFor, rankOpts, markSeen } from './store.js';
 import { actions } from './actions.js';
 import { PLATFORM_LABELS } from './util.js';
+import { linkify } from './cards.js';
 
 const REELS_CHUNK = 5;
 
@@ -25,11 +26,20 @@ function reelSlide(item) {
   const poster = v.poster || item.image;
   const landscape = (v.aspect ?? 9 / 16) > 1;
   const textContent = item.title || item.text;
+  // YouTube: the title is always shown; the channel's description opens with a tap.
+  const desc = item.platform === 'youtube' && item.title && item.text && item.text !== item.title ? item.text : '';
   let text = null;
   if (textContent) {
-    text = h('div', { class: 'reel-text', text: textContent, 'aria-expanded': 'false' });
-    makeButton(text, () => text.setAttribute('aria-expanded', String(text.classList.toggle('expanded'))));
+    text = h('div', { class: 'reel-text', 'aria-expanded': 'false' },
+      h('span', { text: textContent }),
+      desc ? h('span', { class: 'reel-more', text: ' … plus' }) : null,
+      desc ? h('div', { class: 'reel-desc' }, linkify(desc)) : null);
+    makeButton(text, (e) => {
+      if (e.target.closest('a')) return; // a link of the description just opens
+      text.setAttribute('aria-expanded', String(text.classList.toggle('expanded')));
+    });
   }
+  const kind = item.platform === 'youtube' ? ((v.aspect ?? 16 / 9) < 1 ? ' · Short' : ' · Vidéo longue') : '';
 
   const muteBtn = v.type === 'hls'
     ? h('button', { class: 'reel-btn mute', 'aria-label': 'Son', onclick: (e) => { e.stopPropagation(); toggleMute(); } }, svg(state.muted ? ICONS.muted : ICONS.sound, 24))
@@ -44,7 +54,7 @@ function reelSlide(item) {
         avatar(item.source.avatar, item.source.name),
         h('span', { class: 'reel-names' },
           h('span', { class: 'reel-name', text: item.source.name }),
-          h('span', { class: 'platform', text: `🎥 ${PLATFORM_LABELS[item.platform] || ''} · ${relativeTime(item.publishedAt)}` }),
+          h('span', { class: 'platform', text: `🎥 ${PLATFORM_LABELS[item.platform] || ''}${kind} · ${relativeTime(item.publishedAt)}` }),
         ),
       ),
       text,

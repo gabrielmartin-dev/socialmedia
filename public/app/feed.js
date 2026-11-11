@@ -5,7 +5,7 @@ import { $, h, toast } from './dom.js';
 import { renderEntry } from './cards.js';
 import { actions } from './actions.js';
 import { maxAgeMs } from './live.js';
-import { state, FEED_KEYS, entriesFor, rankOpts, savePrefs, seenTracker, markSeen } from './store.js';
+import { state, FEED_KEYS, entriesFor, inTopicFilter, rankOpts, savePrefs, seenTracker, markSeen } from './store.js';
 
 const ACTUS_CHUNK = 15;
 
@@ -27,7 +27,8 @@ export function renderFeed(key) {
   const data = state.data[key];
   const list = $(`#${key}-list`);
   list.replaceChildren();
-  feed.ranked = data ? rank(entriesFor(key), rankOpts(data), state.hidden) : [];
+  feed.ranked = data ? rank(entriesFor(key).filter((e) => inTopicFilter(key, e)), rankOpts(data), state.hidden) : [];
+  renderChips(key);
   feed.rendered = 0;
   feed.dirty = false;
   if (!feed.ranked.length) list.append(emptyState(key, data));
@@ -36,7 +37,34 @@ export function renderFeed(key) {
 }
 
 /** Empty feed: say why and offer the action that makes sense (refresh, or find accounts to follow). */
+/** Topic chips (Tout / Politique / Social, Tout / IA / Dev): labels come from topics.json. */
+export function renderChips(key) {
+  const el = $(`#${key}-chips`);
+  const topics = Object.entries(state.data.topics?.topics || {}).filter(([, t]) => (t.feed || 'actus') === key);
+  el.hidden = !topics.length;
+  const current = state.feeds[key].topic;
+  const chip = (id, label) => h('button', {
+    class: 'chip', type: 'button', text: label, 'aria-pressed': String(current === id),
+    onclick: () => {
+      if (state.feeds[key].topic === id) return;
+      state.feeds[key].topic = id;
+      state.feeds[key].scroll = 0;
+      renderFeed(key);
+      window.scrollTo({ top: 0 });
+    },
+  });
+  el.replaceChildren(chip(null, 'Tout'), ...topics.map(([id, t]) => chip(id, t.label)));
+}
+
 function emptyState(key, data) {
+  const topic = state.feeds[key].topic;
+  if (topic && data?.entries?.length) {
+    const label = state.data.topics?.topics?.[topic]?.label || topic;
+    return h('div', { class: 'empty' },
+      h('strong', { text: `Rien sur « ${label} »` }),
+      'Aucun post récent ne porte sur ce sujet.',
+      h('button', { class: 'empty-btn', type: 'button', text: 'Tout afficher', onclick: () => { state.feeds[key].topic = null; renderFeed(key); } }));
+  }
   const noneFollowed = data?.entries?.length > 0; // there is content, but none from the accounts followed
   if (noneFollowed) {
     return h('div', { class: 'empty' },

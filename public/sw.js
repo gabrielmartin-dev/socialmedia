@@ -13,7 +13,7 @@ const SHELL = [
   'app/actions.js', 'app/cards.js', 'app/discover.js', 'app/dom.js', 'app/feed.js', 'app/focus.js', 'app/follow.js', 'app/fresh.js', 'app/hls.js',
   'app/infosheet.js', 'app/live.js', 'app/media.js', 'app/profile.js', 'app/reelcontrols.js', 'app/reels.js', 'app/refresh.js', 'app/remove.js', 'app/sheet.js', 'app/store.js',
   'app/tabs.js', 'app/util.js', 'app/viewer.js',
-  'bsky.js', 'bskypost.js', 'freshness.js', 'norm.js', 'pack.js', 'pool.js', 'rank.js', 'saved.js', 'seen.js', 'topics.js', 'url.js',
+  'bsky.js', 'bskypost.js', 'find.js', 'freshness.js', 'norm.js', 'pack.js', 'pool.js', 'rank.js', 'saved.js', 'seen.js', 'topics.js', 'url.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
 ];
 

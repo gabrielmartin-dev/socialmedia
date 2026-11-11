@@ -33,6 +33,9 @@ Barre d'onglets en bas, deux onglets :
 - **Carte article** : avatar et nom du média, temps relatif (« il y a 12 min »), titre, 1 à 2 lignes de chapô, image si disponible. Un tap ouvre l'article sur le site d'origine.
 - **Carte post Bluesky** : avatar, nom, @handle, temps relatif, texte, images, lien vers le post. Un tap ouvre le post sur bsky.app.
 - **Carte groupée (doublons)** : « 📰 N médias en parlent ». Titre principal + logos des médias. Un tap déplie la liste des articles.
+- **Étiquettes sous la carte :** le ou les sujets détectés (Politique, Social, IA, Dev, d'après les libellés de `topics.json`), « Abonnés » pour une source marquée `paywall: true`, « EN » pour une source marquée `lang: "en"`, « Short » pour un Short YouTube, et pour un article l'auteur (« Par … ») et jusqu'à 2 catégories du flux.
+- **Filtres par sujet :** puces en haut d'Actus (Tout / Politique / Social) et de Tech (Tout / IA / Dev). Le filtre s'applique au fil et aux posts qui arrivent ensuite ; il n'est pas mémorisé après un rechargement.
+- **Heure exacte :** le temps relatif reste affiché, la date et l'heure exactes (« mercredi 11 novembre 2026 à 14:32 ») sont dans le menu ⋯ et au survol de l'heure.
 - **Carte groupée :** le bouton passe de « Voir les N articles » à « Masquer » une fois dépliée ; les noms des médias sont visibles sans déplier (« Mediapart · Politis · Blast +2 »).
 - **Menu ⋯ de chaque carte :** « Enregistrer », « Plus de ça », « Masquer ce post », « Moins de [source] », « Moins de [sujet] » (avec les mots-clés concernés), « Suivre / Ne plus suivre », « Ouvrir l'original », et la date et l'heure exactes de publication. Voir §4.4.
 - **Annuler :** chacune de ces actions affiche un toast avec « Annuler » (pendant 6 s), « Ne plus suivre » compris.
@@ -49,6 +52,7 @@ Barre d'onglets en bas, deux onglets :
 - **Menu ⋯ d'un post :** « Suivre » ou « Ne plus suivre » le compte. Les cartes de ce compte disparaissent aussitôt du feed.
 - **Onglet 🔍 Découvrir :**
   - recherche de comptes, dans les sources et dans tout Bluesky via l'API publique ;
+  - recherche de contenus : titres, textes, auteurs et catégories des posts et articles déjà chargés (fils, comptes suivis depuis l'app, enregistrés), côté client, insensible à la casse et aux accents, tous les mots devant correspondre (30 résultats au plus) ;
   - suggestions par catégorie, venant des sources `suggested` de la config, que la collecte récupère sans les afficher tant qu'elles ne sont pas suivies ;
   - trois sections : **Abonnements** (par défaut, avec un bouton pour ne plus suivre), **Suggestions** et **Enregistrés** ;
   - **Enregistrés** : marque-pages locaux, pour lire plus tard (≠ un like : rien n'est envoyé nulle part). L'item complet est conservé, donc lisible même après sa sortie de la fenêtre de 72 h. 300 au plus, les plus récents d'abord. Accessible aussi par l'icône marque-page de la barre du haut.
@@ -83,6 +87,10 @@ Mediapart, La France insoumise (site officiel), Le Média, Blast, Politis, Regar
 
 Mediapart est payant : le flux ne fournit que le titre et le chapô. Le clic ouvre le site, où l'abonnement éventuel s'applique.
 
+Champs facultatifs d'une source dans `config/sources.json` : `paywall: true` (étiquette « Abonnés » sur ses cartes ; posé sur Mediapart et Arrêt sur images) et `lang` (« EN » sur ses cartes quand ce n'est pas `fr` ; posé sur les sources anglophones de Tech).
+
+Pour chaque article, la collecte conserve l'auteur (`<dc:creator>`, `<author>`, nettoyé : un simple e-mail est écarté) et les catégories du flux (`<category>`, 4 au plus) lorsqu'ils existent.
+
 ### 3.2 Bluesky — personnalités → Actus
 - **LFI** : Jean-Luc Mélenchon, Mathilde Panot, Manuel Bompard, Clémence Guetté, Éric Coquerel, Manon Aubry, Louis Boyard, Rima Hassan, Antoine Léaument, Thomas Portes.
 - **Journalistes** : David Dufresne, Rémy Buisine, Clément Lanot.
@@ -92,6 +100,8 @@ Mediapart est payant : le flux ne fournit que le titre et le chapô. Le clic ouv
 Recherche des posts contenant une vidéo pour les hashtags : `#manif` `#manifestation` `#greve` `#grève` `#violencespolicieres` `#blocage` `#retraites` `#mobilisation`. La liste est extensible dans la config.
 
 ### 3.4 YouTube (RSS des chaînes) → Vidéos
+La description de chaque vidéo (`media:group`, 500 caractères) est récupérée : elle s'affiche sous le titre quand on touche le texte du reel. Les Shorts (format vertical) sont distingués des vidéos longues par une étiquette (« Short » / « Vidéo longue »). Le nombre de vues n'est ni récupéré ni affiché.
+
 - **Terrain et médias** : Taranis News, Line Press, Le Média, Blast, Mediapart.
 - **Zawa Prod et ses membres** : Zawa Prod, Zawa Prod - Replay & Live, DANYetRAZ, Wissam Xelka, Ilies (iliesomg), Mouffette (MouffetteVOD).
 

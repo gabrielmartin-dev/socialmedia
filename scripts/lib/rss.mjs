@@ -25,6 +25,22 @@ const txt = (x) => {
   return '';
 };
 
+/** « email@x.fr (Jean Dupont) » and « Jean Dupont <email@x.fr> » give the name; a bare e-mail gives nothing. */
+export function cleanAuthor(raw) {
+  let a = stripHtml(String(raw ?? '')).trim();
+  const paren = /^[^\s()]+@[^\s()]+\s*\(([^)]+)\)$/.exec(a);
+  if (paren) a = paren[1].trim();
+  a = a.replace(/\s*<[^>]*@[^>]*>\s*$/, '').trim();
+  if (/^[^\s@]+@[^\s@]+$/.test(a)) return '';
+  return truncate(a, 80);
+}
+
+/** Categories / tags of an entry (RSS <category>, Atom <category term="…">), at most 4 short ones. */
+export function categoriesOf(entry) {
+  const names = arr(entry.category).map((c) => (typeof c === 'object' && c ? c['@term'] || c['@label'] || txt(c) : String(c)));
+  return [...new Set(names.map((n) => stripHtml(n)).filter((n) => n && n.length <= 40))].slice(0, 4);
+}
+
 export function hashId(...parts) {
   return crypto.createHash('sha1').update(parts.join('|')).digest('hex').slice(0, 16);
 }
@@ -97,6 +113,7 @@ export function parseFeed(xml) {
         image: pickImage(e, html),
         publishedAt: date && !Number.isNaN(Date.parse(date)) ? new Date(date).toISOString() : null,
         author: txt(e['dc:creator']) || txt(e.author?.name) || txt(e.author),
+        categories: categoriesOf(e),
       };
     }),
   };
@@ -170,15 +187,21 @@ export async function fetchSourceFeed(source, { cache } = {}) {
 export function entryToArticle(entry, source) {
   const url = safeUrl(entry.link);
   if (!url) return null;
+  const author = cleanAuthor(entry.author);
+  const categories = (entry.categories || []).slice(0, 4);
   return {
     id: 'a-' + hashId(source.id, entry.guid || entry.link || entry.title),
     kind: 'article',
     platform: 'rss',
-    source: { id: source.id, name: source.name, avatar: safeUrl(source.avatar), url: safeUrl(source.site), ...(source.suggested ? { suggested: true } : {}) },
+    source: { id: source.id, name: source.name, avatar: safeUrl(source.avatar), url: safeUrl(source.site), ...(source.suggested ? { suggested: true } : {}),
+      // Optional flags of config/sources.json: « Abonnés » label, and « EN » for a source that is not in French.
+      ...(source.paywall ? { paywall: true } : {}), ...(source.lang && source.lang !== 'fr' ? { lang: source.lang } : {}) },
     title: truncate(entry.title, 220),
     text: truncate(entry.text && entry.text !== entry.title ? entry.text : '', 280),
     url,
     image: safeUrl(entry.image, url),
     publishedAt: entry.publishedAt,
+    ...(author ? { author } : {}),
+    ...(categories.length ? { categories } : {}),
   };
 }

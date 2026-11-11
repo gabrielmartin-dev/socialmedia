@@ -28,7 +28,7 @@ const tall = (hue, label = '') => svgFile(`tall-${hue}-${slug(label)}.svg`,
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 640"><rect width="360" height="640" fill="hsl(${hue},45%,22%)"/><text x="180" y="320" font-family="sans-serif" font-size="24" fill="rgba(255,255,255,.6)" text-anchor="middle">${label}</text></svg>`);
 
 const src = (id, name) => ({ id, name, avatar: null });
-const A = src('demo-a', 'Média A'), B = src('demo-b', 'Média B'), C = src('demo-c', 'Média C'), D = src('demo-d', 'Média D');
+const A = { ...src('demo-a', 'Média A'), paywall: true }, B = src('demo-b', 'Média B'), C = src('demo-c', 'Média C'), D = src('demo-d', 'Média D');
 const E = { ...src('demo-e', 'Média suggéré E'), suggested: true };
 
 const articles = [
@@ -45,6 +45,9 @@ const articles = [
   id: 'demo-a' + i, kind: 'article', platform: 'rss', source: s, title, text,
   url: 'https://example.org/article/' + i, image: i % 3 === 2 ? null : pic(hue, 'image article'), publishedAt: ago(min),
 }));
+// Author and categories, as the RSS parser now keeps them.
+articles[0].author = 'Marie Curie'; articles[0].categories = ['Retraites', 'Social'];
+articles[3].author = 'Jean Jaurès';
 
 const posts = [
   ['demo-p1', 'Député·e exemple', 'depute.example', 'Le gouvernement passe encore en force avec le 49.3. Nous déposerons une motion de censure dès ce soir à l’Assemblée.', 35, true],
@@ -72,17 +75,17 @@ const videos = [
   ['demo-v1', 'bluesky', 'Internaute exemple', 'Charge de CRS et gaz lacrymogène sur le cortège #manif', 20, 'hls', 9 / 16],
   ['demo-v2', 'youtube', 'Chaîne terrain exemple', 'Reportage : une journée sur un piquet de grève', 200, 'youtube', 16 / 9],
   ['demo-v3', 'bluesky', 'Autre internaute', 'Blocage du lycée ce matin #blocage #mobilisation', 60, 'hls', 9 / 16],
-  ['demo-v4', 'youtube', 'Collectif streamers exemple', 'Best-of du dernier live', 600, 'youtube', 16 / 9],
+  ['demo-v4', 'youtube', 'Collectif streamers exemple', 'Best-of du dernier live', 600, 'youtube', 9 / 16],
 ].map(([id, platform, name, text, min, type, aspect], i) => ({
   id, kind: 'video', platform,
   source: { id: 'demo-vs' + i, name, avatar: null, url: 'https://example.org' },
-  title: platform === 'youtube' ? text : '', text: platform === 'youtube' ? '' : text,
+  title: platform === 'youtube' ? text : '', text: platform === 'youtube' ? 'Description de la chaîne : le reportage complet, les sources et les liens utiles https://example.org/reportage. Abonne-toi pour ne rien rater.' : text,
   url: 'https://example.org/video/' + i, image: null,
   video: { type, src: type === 'youtube' ? 'aqz-KE-bpKQ' : 'https://example.org/none.m3u8', poster: aspect < 1 ? tall(i * 70, 'vidéo ' + (i + 1)) : pic(i * 70, 'vidéo ' + (i + 1)), aspect },
   publishedAt: ago(min),
 }));
 
-const T1 = src('demo-t1', 'Média tech A'), T2 = src('demo-t2', 'Média tech B');
+const T1 = { ...src('demo-t1', 'Média tech A'), lang: 'en' }, T2 = src('demo-t2', 'Média tech B');
 const techArticles = [
   [T1, 'OpenAI présente un nouveau modèle d’intelligence artificielle pour la programmation', 'Le modèle agent code et déploie seul.', 35, 220],
   [T2, 'GitHub ouvre son nouvel éditeur : Rust et TypeScript au programme', 'Une bêta pour les développeurs.', 95, 150],

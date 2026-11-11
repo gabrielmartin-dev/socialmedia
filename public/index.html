@@ -37,6 +37,7 @@
   <main>
     <section id="view-actus" class="view feed-view active" aria-label="Actus">
       <div class="ptr"><span class="spinner"></span></div>
+      <div class="chips" id="actus-chips" role="group" aria-label="Filtrer par sujet" hidden></div>
       <div id="actus-list" class="feed"></div>
       <div id="actus-sentinel" class="sentinel"></div>
       <footer class="feed-footer" id="actus-footer"></footer>
@@ -44,6 +45,7 @@
 
     <section id="view-tech" class="view feed-view" aria-label="Tech">
       <div class="ptr"><span class="spinner"></span></div>
+      <div class="chips" id="tech-chips" role="group" aria-label="Filtrer par sujet" hidden></div>
       <div id="tech-list" class="feed"></div>
       <div id="tech-sentinel" class="sentinel"></div>
       <footer class="feed-footer" id="tech-footer"></footer>
@@ -51,7 +53,7 @@
 
     <section id="view-discover" class="view feed-view" aria-label="Découvrir">
       <div class="search-wrap">
-        <input id="discover-search" type="search" aria-label="Rechercher un compte" placeholder="Rechercher un compte" autocomplete="off" enterkeyhint="search">
+        <input id="discover-search" type="search" aria-label="Rechercher un compte ou un contenu" placeholder="Rechercher un compte ou un post" autocomplete="off" enterkeyhint="search">
         <div class="subtabs" id="discover-tabs" role="tablist" aria-label="Sections">
           <button role="tab" data-tab="follows" id="dtab-follows">Abonnements</button>
           <button role="tab" data-tab="suggestions" id="dtab-suggestions">Suggestions</button>

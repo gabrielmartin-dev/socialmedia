@@ -215,6 +215,22 @@ div.avatar.square { background: var(--bg-elev); }
 .end-marker strong { display: block; color: var(--text); font-size: 17px; margin-bottom: 4px; }
 .end-marker strong::before { content: "✓ "; color: var(--accent); }
 
+/* Labels under a card */
+.tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; line-height: 16px; }
+.byline { color: var(--muted); margin-right: 2px; }
+.tag { padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+.tag.topic { color: var(--accent); border-color: rgba(29, 155, 240, .45); }
+.tag.paywall { color: #e8a33d; border-color: rgba(232, 163, 61, .5); }
+.tag.lang { color: var(--text); border-color: #536471; font-weight: 700; }
+
+/* Topic filter chips (Actus, Tech) */
+.chips { display: flex; gap: 8px; padding: 8px 14px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--border);
+  position: sticky; top: calc(var(--topbar-h) + var(--safe-top)); z-index: 6; background: rgba(0,0,0,.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.chips::-webkit-scrollbar { display: none; }
+.chips[hidden] { display: none; }
+.chip { flex: none; height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid #536471; font-size: 14px; font-weight: 600; }
+.chip[aria-pressed="true"] { background: var(--text); color: #000; border-color: var(--text); }
+
 /* Articles already opened: dimmed title */
 .tweet.opened .title, .group-item.opened > div > div:last-child { color: var(--muted); }
 
@@ -324,7 +340,7 @@ button.reel-author { text-align: left; }
   background: linear-gradient(transparent, rgba(0,0,0,.75));
   pointer-events: none;
 }
-.reel-overlay a, .reel-overlay button { pointer-events: auto; }
+.reel-overlay a, .reel-overlay button, .reel-text { pointer-events: auto; } /* .reel-text: the overlay is click-through, so the tap-to-expand never worked by touch */
 .reel.has-iframe .reel-overlay { padding-top: 16px; background: linear-gradient(transparent, rgba(0,0,0,.6) 40%); }
 .reel.landscape.has-iframe .reel-overlay { background: none; }
 .reel-author { display: flex; align-items: center; gap: 8px; font-weight: 700; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
@@ -336,7 +352,12 @@ button.reel-author { text-align: left; }
   margin-top: 8px; color: #f2f2f2; text-shadow: 0 1px 4px rgba(0,0,0,.7);
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
-.reel-text.expanded { -webkit-line-clamp: unset; }
+.reel-text.expanded { -webkit-line-clamp: unset; display: block; max-height: 45vh; overflow-y: auto; }
+.reel-more { color: #bbb; }
+.reel-text.expanded .reel-more { display: none; }
+.reel-desc { display: none; margin-top: 8px; font-size: 14px; line-height: 19px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.reel-text.expanded .reel-desc { display: block; }
+.reel-desc .link { color: #7cc4f8; }
 .reel-side {
   position: absolute; right: 8px; bottom: 20px; z-index: 4;
   display: flex; flex-direction: column; gap: 14px; align-items: center;

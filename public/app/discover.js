@@ -4,7 +4,9 @@ import { searchAccounts } from '../bsky.js';
 import { relativeTime } from '../rank.js';
 import { $, h } from './dom.js';
 import { avatar } from './media.js';
-import { state, isFollowed } from './store.js';
+import { state, isFollowed, entriesFor } from './store.js';
+import { normalize } from '../norm.js';
+import { searchItems } from '../find.js';
 import { renderEntry } from './cards.js';
 import { actions } from './actions.js';
 import { setFollow } from './follow.js';
@@ -78,6 +80,22 @@ function followedAccounts() {
 const emptyBlock = (text, button) => h('div', { class: 'disc-empty' }, text, button);
 const goTo = (label, target) => h('button', { class: 'empty-btn', type: 'button', text: label, onclick: () => showDiscoverTab(target) });
 
+/** Posts and articles already loaded (feeds, live accounts, saved) that match the query. */
+function contentSection(q) {
+  const loaded = ['actus', 'tech', 'videos'].flatMap((k) => entriesFor(k))
+    .flatMap((e) => (e.kind === 'group' ? e.items : [e]))
+    .concat(state.saved)
+    .filter((i) => !state.hidden.has(i.id));
+  const { results, total } = searchItems(loaded, q, { limit: 30 });
+  if (!results.length) return '';
+  const more = total > results.length ? h('div', { class: 'disc-empty', text: `${total} résultats : affine la recherche pour voir les autres.` }) : null;
+  return h('section', { class: 'disc-section' },
+    h('h2', { text: `Posts et articles (${total})` }),
+    results.map((i) => renderEntry(i)),
+    more,
+  );
+}
+
 let searchTimer = null;
 let searchSeq = 0;
 export function renderDiscover() {
@@ -120,19 +138,22 @@ export function initDiscover() {
   $('#discover-search').addEventListener('input', () => {
     clearTimeout(searchTimer);
     const q = $('#discover-search').value.trim();
+    $('#discover-tabs').hidden = q.length >= 2;
     if (q.length < 2) { renderDiscover(); return; }
     searchTimer = setTimeout(async () => {
       const seq = ++searchSeq;
       const results = $('#discover-results');
-      const ql = q.toLowerCase();
-      const local = [...state.accounts.values()].filter((a) => `${a.name} ${a.handle}`.toLowerCase().includes(ql));
-      results.replaceChildren(section('Recherche…', local.map(accountRow), ''));
+      const ql = normalize(q);
+      const local = [...state.accounts.values()].filter((a) => normalize(`${a.name} ${a.handle}`).includes(ql));
+      const content = contentSection(q);
+      results.replaceChildren(section('Recherche…', local.map(accountRow), ''), content);
       let remote = [];
       try { remote = await searchAccounts(q); } catch { /* offline */ }
       if (seq !== searchSeq) return;
       remote = remote.filter((r) => !local.some((l) => l.id === r.id));
       results.replaceChildren(
         local.length ? section('Dans tes sources', local.map(accountRow), '') : '',
+        content,
         section('Comptes Bluesky', remote.map(accountRow), 'Aucun compte trouvé.'),
       );
     }, 350);

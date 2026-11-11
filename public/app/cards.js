@@ -6,7 +6,8 @@ import { loadHls } from './hls.js';
 import { state, isOpened, markOpened } from './store.js';
 import { actions } from './actions.js';
 import { clampAspect, truncateText, domainOf } from './util.js';
-import { relativeTime } from '../rank.js';
+import { relativeTime, topicsOf } from '../rank.js';
+import { exactTime } from '../freshness.js';
 import { safeUrl } from '../url.js';
 
 const TEXT_LIMIT = 280;
@@ -53,7 +54,7 @@ function tweetHead(entry, { name, handle, publishedAt, url }) {
   const toProfile = entry.kind !== 'group' && entry.source
     ? (e) => { e.stopPropagation(); actions.openProfile(entry.source); }
     : null;
-  const time = h('time', { class: 'time', datetime: publishedAt, text: relativeTime(publishedAt) });
+  const time = h('time', { class: 'time', datetime: publishedAt, text: relativeTime(publishedAt), title: exactTime(publishedAt) });
   return h('div', { class: 'tweet-head' },
     // A real button when it opens the profile (keyboard + screen readers), plain text otherwise.
     toProfile
@@ -170,6 +171,24 @@ function quoteCard(q) {
   );
 }
 
+/**
+ * Small labels under a card: the topics found in it (Politique, IA…), « Abonnés » and « EN »
+ * for sources flagged so in config/sources.json, « Short », the author and the feed's categories.
+ */
+function badgeRow(entry) {
+  const topics = topicsOf(entry).map((t) => state.data.topics?.topics?.[t]?.label).filter(Boolean);
+  const src = entry.kind === 'group' ? null : entry.source;
+  const tags = [
+    ...topics.map((t) => h('span', { class: 'tag topic', text: t })),
+    src?.paywall ? h('span', { class: 'tag paywall', text: 'Abonnés' }) : null,
+    src?.lang && src.lang !== 'fr' ? h('span', { class: 'tag lang', text: src.lang.toUpperCase(), title: 'Source en langue étrangère' }) : null,
+    entry.platform === 'youtube' && (entry.video?.aspect ?? 1) < 1 ? h('span', { class: 'tag', text: 'Short' }) : null,
+    ...(entry.categories || []).slice(0, 2).map((c) => h('span', { class: 'tag cat', text: c })),
+  ].filter(Boolean);
+  const byline = entry.author ? h('span', { class: 'byline', text: `Par ${entry.author}` }) : null;
+  return tags.length || byline ? h('div', { class: 'tags' }, byline, tags) : null;
+}
+
 /** Opens / closes the list of articles of a group, and keeps the toggle's label in step. */
 function setGroupOpen(card, open) {
   card.classList.toggle('open', open);
@@ -230,6 +249,7 @@ function articleCard(item) {
     h('div', { class: 'tweet-text title' }, item.title),
     item.text ? h('div', { class: 'tweet-text dim' }, item.text) : null,
     item.image ? linkCard(item.url, { thumb: item.image, title: '' }) : null,
+    badgeRow(item),
   ], item.url);
 }
 
@@ -247,6 +267,7 @@ function postCard(item) {
     tweetText(item),
     media,
     item.quote ? quoteCard(item.quote) : null,
+    badgeRow(item),
   ], item.url);
 }
 
@@ -259,6 +280,7 @@ function groupCard(entry) {
     h('div', { class: 'tweet-text' }, lead.title),
     lead.text ? h('div', { class: 'tweet-text dim' }, lead.text) : null,
     lead.image ? h('div', { class: 'media', style: 'aspect-ratio:1.91' }, image(lead.image, lead.title, { url: lead.url })) : null,
+    badgeRow(entry),
     h('div', { class: 'group-names', text: outletNames(items) }),
     h('div', { class: 'group-list' }, items.map((i) =>
       h('a', { class: 'group-item' + (isOpened(i.id) ? ' opened' : ''), href: i.url, target: '_blank', rel: 'noopener', dataset: { openId: i.id } },
