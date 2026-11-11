@@ -5,6 +5,7 @@ import { safeUrl } from '../url.js';
 import { $, h, svg, ICONS, toast, scrollBehavior } from './dom.js';
 import { avatar } from './media.js';
 import { makeButton } from './focus.js';
+import { attachControls } from './reelcontrols.js';
 import { loadHls } from './hls.js';
 import { state, entriesFor, rankOpts, markSeen } from './store.js';
 import { actions } from './actions.js';
@@ -121,9 +122,8 @@ export async function activateReel(slide, userGesture = false) {
     if (!hlsSrc) return;
     const video = h('video', { playsinline: true, 'webkit-playsinline': true, loop: true, preload: 'auto', poster: safeUrl(v.poster, location.href) || undefined });
     video.muted = state.muted;
-    makeButton(video, () => (video.paused ? video.play() : video.pause()));
-    video.setAttribute('aria-label', 'Lecture / pause');
     slide.insertBefore(video, slide.querySelector('.reel-play'));
+    attachControls(slide, video);
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = hlsSrc;
     } else {
@@ -170,23 +170,39 @@ export function deactivateReel() {
   slide.classList.remove('active', 'has-iframe');
   slide._hls?.destroy();
   slide._hls = null;
-  slide.querySelectorAll('video, iframe').forEach((el) => {
+  slide.querySelectorAll('video, iframe, .reel-progress, .reel-flash').forEach((el) => {
     if (el.tagName === 'VIDEO') { el.pause(); el.removeAttribute('src'); el.load(); }
     el.remove();
   });
   state.reels.active = null;
 }
 
+/** Takes a slide off the list. Returns { item, index } to give back to restoreReel, or null. */
 export function removeReel(id) {
   const slide = document.querySelector(`.reel[data-id="${CSS.escape(id)}"]`);
-  if (!slide) return;
+  if (!slide) return null;
   const next = slide.nextElementSibling;
+  const index = state.reels.ranked.findIndex((i) => i.id === id);
+  const item = slide._item;
   if (state.reels.active === slide) deactivateReel();
   reelObserver().unobserve(slide);
   slide.remove();
   state.reels.ranked = state.reels.ranked.filter((i) => i.id !== id);
   state.reels.rendered = Math.max(0, state.reels.rendered - 1);
   if (next?._item) activateReel(next);
+  return item ? { item, index } : null;
+}
+
+/** Puts a removed slide back where it was and shows it again. */
+export function restoreReel({ item, index }) {
+  const list = $('#videos-list');
+  const at = Math.min(index, state.reels.ranked.length);
+  state.reels.ranked.splice(at, 0, item);
+  state.reels.rendered++;
+  const slide = reelSlide(item);
+  list.insertBefore(slide, list.children[at] || null);
+  reelObserver().observe(slide);
+  slide.scrollIntoView({ block: 'start' });
 }
 
 function toggleMute() {

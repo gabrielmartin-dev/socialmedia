@@ -54,18 +54,20 @@ export function renderAllFeeds() {
   FEED_KEYS.forEach(renderFeed);
 }
 
+/** A feed card, watched to count it as seen. */
+export function makeCard(entry) {
+  const card = renderEntry(entry);
+  if (entry.kind === 'group') card._memberIds = entry.items.map((it) => it.id);
+  seenObserver().observe(card);
+  return card;
+}
+
 export function appendFeed(key) {
   const feed = state.feeds[key];
   const list = $(`#${key}-list`);
   const end = Math.min(feed.ranked.length, feed.rendered + ACTUS_CHUNK);
   const frag = document.createDocumentFragment();
-  for (let i = feed.rendered; i < end; i++) {
-    const entry = feed.ranked[i];
-    const card = renderEntry(entry);
-    if (entry.kind === 'group') card._memberIds = entry.items.map((it) => it.id);
-    seenObserver().observe(card);
-    frag.append(card);
-  }
+  for (let i = feed.rendered; i < end; i++) frag.append(makeCard(feed.ranked[i]));
   list.append(frag);
   feed.rendered = end;
   renderFooter(key); // the end-of-feed marker appears with the last card

@@ -12,6 +12,8 @@ export const actions = {
   /** Switch tab / refresh the feeds (used by the empty-state buttons). */
   switchView: unset('switchView'),
   refresh: unset('refresh'),
+  /** Called after a bookmark is added / removed, to refresh the screens that show the count or the list. */
+  afterSavedChange: () => {},
   /** Called when the app comes back after a long absence. */
   afterLongAbsence: () => {},
 };

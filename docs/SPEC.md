@@ -33,21 +33,25 @@ Barre d'onglets en bas, deux onglets :
 - **Carte article** : avatar et nom du média, temps relatif (« il y a 12 min »), titre, 1 à 2 lignes de chapô, image si disponible. Un tap ouvre l'article sur le site d'origine.
 - **Carte post Bluesky** : avatar, nom, @handle, temps relatif, texte, images, lien vers le post. Un tap ouvre le post sur bsky.app.
 - **Carte groupée (doublons)** : « 📰 N médias en parlent ». Titre principal + logos des médias. Un tap déplie la liste des articles.
-- **Bouton « moins de ça »** (menu ⋯ sur chaque carte) : voir §4.4.
+- **Carte groupée :** le bouton passe de « Voir les N articles » à « Masquer » une fois dépliée ; les noms des médias sont visibles sans déplier (« Mediapart · Politis · Blast +2 »).
+- **Menu ⋯ de chaque carte :** « Enregistrer », « Plus de ça », « Masquer ce post », « Moins de [source] », « Moins de [sujet] » (avec les mots-clés concernés), « Suivre / Ne plus suivre », « Ouvrir l'original », et la date et l'heure exactes de publication. Voir §4.4.
+- **Annuler :** chacune de ces actions affiche un toast avec « Annuler » (pendant 6 s), « Ne plus suivre » compris.
 
 ### 2.4 Feed Vidéos
 - Plein écran, défilement vertical une vidéo à la fois (façon Reels/TikTok).
 - Lecture automatique, muette par défaut, tap pour activer le son.
 - Superposition : avatar, nom du compte, icône 🎥 de la plateforme d'origine, texte du post ou titre, temps relatif.
 - Vidéos Bluesky : lues directement (flux HLS). Vidéos YouTube : lecteur YouTube intégré (embed).
-- Bouton « moins de ça » également disponible.
+- **Contrôles des vidéos HLS :** un tap met en pause ou relance avec une icône brève (❚❚ / ▶) ; un double-tap sur la moitié gauche ou droite recule ou avance de 10 s ; une fine barre de progression en bas ; flèches ← → au clavier. YouTube et TikTok gardent leur lecteur intégré tel quel.
+- Menu ⋯ également disponible (mêmes actions que sur une carte).
 
 ### 2.5 Suivre et découvrir
 - **Menu ⋯ d'un post :** « Suivre » ou « Ne plus suivre » le compte. Les cartes de ce compte disparaissent aussitôt du feed.
 - **Onglet 🔍 Découvrir :**
   - recherche de comptes, dans les sources et dans tout Bluesky via l'API publique ;
   - suggestions par catégorie, venant des sources `suggested` de la config, que la collecte récupère sans les afficher tant qu'elles ne sont pas suivies ;
-  - liste des abonnements, avec un bouton pour ne plus suivre.
+  - trois sections : **Abonnements** (par défaut, avec un bouton pour ne plus suivre), **Suggestions** et **Enregistrés** ;
+  - **Enregistrés** : marque-pages locaux, pour lire plus tard (≠ un like : rien n'est envoyé nulle part). L'item complet est conservé, donc lisible même après sa sortie de la fenêtre de 72 h. 300 au plus, les plus récents d'abord. Accessible aussi par l'icône marque-page de la barre du haut.
 - **Stockage :** les abonnements sont enregistrés sur le téléphone. Un compte Bluesky trouvé par la recherche est récupéré directement par l'app, sans passer par GitHub.
 - **Exception :** les vidéos d'internautes trouvées par hashtag restent toujours visibles.
 
@@ -55,9 +59,11 @@ Barre d'onglets en bas, deux onglets :
 - **Ouverture :** on touche l'avatar ou le nom d'un post, l'auteur d'une vidéo, ou un compte dans Découvrir.
 - **Contenu :**
   - bannière (Bluesky), avatar, nom, handle, bio et lien du site ;
+  - bouton visible **Ouvrir le site** / **Ouvrir sur Bluesky** (YouTube, TikTok) ;
   - bouton **Suivre / Abonné** ;
   - posts dans l'ordre **chronologique**, sans compteurs ni éléments sociaux.
-- **Source des posts :** les données collectées, et pour Bluesky la timeline complète récupérée en direct par l'API publique.
+- **Source des posts :** les données collectées, et pour Bluesky la timeline complète récupérée en direct par l'API publique, **paginée avec le `cursor`** de l'API (30 posts par page, chargés au défilement, 300 au plus, « Fin des posts » à la fin).
+- Le menu ⋯ des posts d'un profil agit sur la page (« Masquer ce post » retire la carte, avec « Annuler »).
 - **Retour :** bouton ← ou geste retour du téléphone, qui ramène au feed à la même position.
 
 ### 2.7 Fraîcheur et repères
@@ -137,9 +143,14 @@ Deux articles de médias différents sont regroupés quand :
 
 Le groupe prend le meilleur score de ses membres.
 
-### 4.4 « Moins de ça »
-- Il divise le poids local de la source de la carte et des mots-clés qu'elle contient. Les poids ont un plancher, pour ne jamais faire disparaître complètement un contenu.
-- Les réglages sont enregistrés dans le stockage local du téléphone.
+### 4.4 « Moins de ça » et « Plus de ça »
+Ce sont des réglages locaux, enregistrés dans le stockage du téléphone. Chacun est annulable depuis le toast qui suit.
+- **Masquer ce post** : ne retire que ce post.
+- **Moins de [source]** : divise le poids local de la source (× 0,5, plancher 0,1).
+- **Moins de [sujet]** : divise le poids local des mots-clés du post (× 0,7, plancher 0,2). Le menu nomme les sujets (Politique, Social…) et les mots-clés concernés.
+- **Plus de ça** : le signal inverse, sur la source et sur les mots-clés. C'est le miroir exact des précédents : facteurs inversés (× 2 et × 1/0,7), plafonds à 1 / plancher (10 pour une source, 5 pour un mot-clé). Un « plus » suivi d'un « moins » s'annule, et le poids revient à sa valeur par défaut.
+- Un groupe n'a pas de source unique : seuls les mots-clés comptent pour lui.
+- Les réglages s'appliquent au prochain rafraîchissement : le fil affiché n'est pas réordonné sous le doigt.
 - Un lien en bas du feed permet de tout réinitialiser.
 
 ## 5. Architecture technique
@@ -163,7 +174,7 @@ GitHub Pages
 
 ## 6. Hors scope
 
-Likes, commentaires, publication, multi-utilisateur, notifications, écran de réglages, LLM, garde-fous de contenu, X, Instagram, Twitch, syndicats et associations.
+Likes, commentaires, compteurs d'engagement, bouton de partage, badge vérifié, publication, multi-utilisateur, notifications, écran de réglages, LLM, garde-fous de contenu, X, Instagram, Twitch, syndicats et associations.
 
 ## 7. Critères d'acceptation
 

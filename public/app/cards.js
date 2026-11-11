@@ -170,6 +170,21 @@ function quoteCard(q) {
   );
 }
 
+/** Opens / closes the list of articles of a group, and keeps the toggle's label in step. */
+function setGroupOpen(card, open) {
+  card.classList.toggle('open', open);
+  const btn = card.querySelector('.group-toggle');
+  if (!btn) return;
+  btn.setAttribute('aria-expanded', String(open));
+  btn.textContent = open ? 'Masquer' : `Voir les ${btn.dataset.count} articles`;
+}
+
+/** « Mediapart · Politis · Blast +2 »: the outlets of a group, readable without opening it. */
+export function outletNames(items, max = 3) {
+  const names = [...new Set(items.map((i) => i.source.name))];
+  return names.slice(0, max).join(' · ') + (names.length > max ? ` +${names.length - max}` : '');
+}
+
 /** Remembers that an article was opened (its title is dimmed from now on). */
 function openedArticle(card, id) {
   markOpened(id);
@@ -195,10 +210,8 @@ function cardShell(entry, avatarNode, mainChildren, url) {
       }
       if (e.target.closest('button')) return;
       if (entry.kind === 'article') openedArticle(e.currentTarget, entry.id);
-      if (entry.kind === 'group') {
-        const open = e.currentTarget.classList.toggle('open');
-        e.currentTarget.querySelector('.group-toggle')?.setAttribute('aria-expanded', String(open));
-      } else openUrl(url);
+      if (entry.kind === 'group') setGroupOpen(e.currentTarget, !e.currentTarget.classList.contains('open'));
+      else openUrl(url);
     },
   },
   entry.kind !== 'group'
@@ -246,6 +259,7 @@ function groupCard(entry) {
     h('div', { class: 'tweet-text' }, lead.title),
     lead.text ? h('div', { class: 'tweet-text dim' }, lead.text) : null,
     lead.image ? h('div', { class: 'media', style: 'aspect-ratio:1.91' }, image(lead.image, lead.title, { url: lead.url })) : null,
+    h('div', { class: 'group-names', text: outletNames(items) }),
     h('div', { class: 'group-list' }, items.map((i) =>
       h('a', { class: 'group-item' + (isOpened(i.id) ? ' opened' : ''), href: i.url, target: '_blank', rel: 'noopener', dataset: { openId: i.id } },
         avatar(i.source.avatar, i.source.name, { square: true }),
@@ -254,12 +268,10 @@ function groupCard(entry) {
           h('div', { text: i.title }),
         ),
       ))),
-    h('button', { class: 'group-toggle', type: 'button', 'aria-expanded': 'false', text: `Voir les ${items.length} articles`, onclick: (e) => {
+    h('button', { class: 'group-toggle', type: 'button', 'aria-expanded': 'false', dataset: { count: items.length }, text: `Voir les ${items.length} articles`, onclick: (e) => {
       e.stopPropagation();
       const card = e.currentTarget.closest('.tweet');
-      card.classList.add('open');
-      e.currentTarget.setAttribute('aria-expanded', 'true');
-      card.querySelector('.group-item')?.focus(); // the toggle just disappeared: keep the focus in the card
+      setGroupOpen(card, !card.classList.contains('open'));
     } }),
   ]);
 }

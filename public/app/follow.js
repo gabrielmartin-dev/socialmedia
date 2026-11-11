@@ -5,7 +5,11 @@ import { toast } from './dom.js';
 import { actions } from './actions.js';
 import { loadLive } from './live.js';
 
-export async function setFollow(account, follow) {
+/**
+ * Follow / unfollow. Unfollowing offers « Annuler » in the toast; `onUndo` lets the caller put
+ * back what it took off the screen. `silent` skips the toast (the caller shows its own).
+ */
+export async function setFollow(account, follow, { onUndo, silent = false } = {}) {
   const f = state.follows;
   if (follow) {
     f.unfollowed.delete(account.id);
@@ -22,7 +26,11 @@ export async function setFollow(account, follow) {
     if (!account.suggested) f.unfollowed.add(account.id);
   }
   saveFollows();
-  toast(follow ? `Tu suis ${account.name}` : `Tu ne suis plus ${account.name}`);
+  if (!silent) {
+    toast(follow ? `Tu suis ${account.name}` : `Tu ne suis plus ${account.name}`, follow ? {} : {
+      action: { label: 'Annuler', run: async () => { await setFollow(account, true, { silent: true }); toast(`Tu suis ${account.name}`); onUndo?.(); } },
+    });
+  }
   if (follow && f.live[account.id]) await loadLive();
   FEED_KEYS.forEach((k) => { state.feeds[k].dirty = true; });
   state.reels.built = false;

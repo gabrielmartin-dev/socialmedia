@@ -44,9 +44,19 @@ export function postToLiveItem(post) {
   return item;
 }
 
+/**
+ * One page of an author's posts (no replies, no reposts). `cursor` is the API's pagination
+ * token: pass the one returned by the previous page to get the older posts.
+ */
+export async function authorPage(handle, { limit = 25, cursor, ...opts } = {}) {
+  const params = { actor: handle, limit, filter: 'posts_no_replies' };
+  if (cursor) params.cursor = cursor;
+  const { feed = [], cursor: next } = await call('app.bsky.feed.getAuthorFeed', params, opts);
+  return { items: feed.filter((f) => !f.reason).map(({ post }) => postToLiveItem(post)), cursor: next || null };
+}
+
 export async function authorPosts(handle, limit = 25, opts) {
-  const { feed = [] } = await call('app.bsky.feed.getAuthorFeed', { actor: handle, limit, filter: 'posts_no_replies' }, opts);
-  return feed.filter((f) => !f.reason).map(({ post }) => postToLiveItem(post));
+  return (await authorPage(handle, { limit, ...opts })).items;
 }
 
 export async function getProfile(handle) {

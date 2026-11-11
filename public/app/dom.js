@@ -56,10 +56,21 @@ export const openUrl = (url) => {
 /** Smooth scrolling unless the user asked for reduced motion. */
 export const scrollBehavior = () => (matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
 
-export function toast(msg) {
+/**
+ * Brief message. With `action` ({ label, run }) it shows a button (e.g. « Annuler ») and stays
+ * longer, so that a destructive action can always be reverted.
+ */
+export function toast(msg, { action, ms } = {}) {
   const t = $('#toast');
-  t.textContent = msg;
+  t.replaceChildren(msg);
+  if (action) {
+    t.append(h('button', {
+      class: 'toast-action', type: 'button', text: action.label,
+      onclick: () => { t.classList.remove('show'); clearTimeout(toast.timer); action.run(); },
+    }));
+  }
+  t.classList.toggle('has-action', !!action);
   t.classList.add('show');
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => t.classList.remove('show'), 2200);
+  toast.timer = setTimeout(() => t.classList.remove('show'), ms ?? (action ? 6000 : 2200));
 }

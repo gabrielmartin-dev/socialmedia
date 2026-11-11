@@ -5,6 +5,7 @@ import { relativeTime } from '../rank.js';
 import { $, h } from './dom.js';
 import { avatar } from './media.js';
 import { state, isFollowed } from './store.js';
+import { renderEntry } from './cards.js';
 import { actions } from './actions.js';
 import { setFollow } from './follow.js';
 import { KIND_LABEL } from './util.js';
@@ -48,29 +49,74 @@ function section(title, rows, empty) {
   );
 }
 
+// Sections of the tab: Abonnements (default), Suggestions, Enregistrés.
+let tab = 'follows';
+
+export function showDiscoverTab(next) {
+  tab = next;
+  if (state.view === 'discover') renderDiscover();
+}
+
+export function renderTabs() {
+  const counts = { follows: followedAccounts().length, saved: state.saved.length };
+  for (const btn of document.querySelectorAll('#discover-tabs [role=tab]')) {
+    const on = btn.dataset.tab === tab;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-selected', String(on));
+    const base = { follows: 'Abonnements', suggestions: 'Suggestions', saved: 'Enregistrés' }[btn.dataset.tab];
+    btn.textContent = counts[btn.dataset.tab] ? `${base} (${counts[btn.dataset.tab]})` : base;
+  }
+}
+
+function followedAccounts() {
+  const all = [...state.accounts.values()];
+  const liveFollows = Object.entries(state.follows.live).map(([id, p]) => ({ id, kind: 'bluesky', ...p }));
+  return [...all.filter((a) => isFollowed(a)), ...liveFollows.filter((a) => !state.accounts.has(a.id))]
+    .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+}
+
+const emptyBlock = (text, button) => h('div', { class: 'disc-empty' }, text, button);
+const goTo = (label, target) => h('button', { class: 'empty-btn', type: 'button', text: label, onclick: () => showDiscoverTab(target) });
+
 let searchTimer = null;
 let searchSeq = 0;
 export function renderDiscover() {
   const results = $('#discover-results');
   const q = $('#discover-search').value.trim();
+  $('#discover-tabs').hidden = q.length >= 2;
   if (q.length >= 2) return; // search results are rendered by the search handler
+  renderTabs();
 
-  const all = [...state.accounts.values()];
-  const liveFollows = Object.entries(state.follows.live).map(([id, p]) => ({ id, kind: 'bluesky', ...p }));
-  const followed = [...all.filter((a) => isFollowed(a)), ...liveFollows.filter((a) => !state.accounts.has(a.id))]
-    .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
-  const suggestions = all.filter((a) => !isFollowed(a));
-  const order = ['Médias', 'Personnalités', 'Tech', 'YouTube', 'TikTok'];
-  const cats = [...new Set(suggestions.map((a) => a.category || 'Autres'))].sort((a, b) => (order.indexOf(a) + 99) % 99 - (order.indexOf(b) + 99) % 99);
+  if (tab === 'saved') {
+    results.replaceChildren(...(state.saved.length
+      ? state.saved.map((item) => renderEntry(item))
+      : [emptyBlock('Rien d’enregistré pour le moment. Dans le menu ⋯ d’un post, « Enregistrer » le garde ici pour le lire plus tard, même quand il a disparu du fil.', goTo('Voir les abonnements', 'follows'))]));
+    return;
+  }
 
-  results.replaceChildren(
-    ...(state.data.accounts ? [] : [h('div', { class: 'disc-empty', text: 'Les suggestions apparaîtront après la prochaine mise à jour automatique.' })]),
-    ...cats.map((c) => section(`Suggestions · ${c}`, suggestions.filter((a) => (a.category || 'Autres') === c).map(accountRow), '')),
-    section(`Tes abonnements (${followed.length})`, followed.map(accountRow), 'Tu ne suis personne pour le moment.'),
-  );
+  if (tab === 'suggestions') {
+    const suggestions = [...state.accounts.values()].filter((a) => !isFollowed(a));
+    const order = ['Médias', 'Personnalités', 'Tech', 'YouTube', 'TikTok'];
+    const cats = [...new Set(suggestions.map((a) => a.category || 'Autres'))].sort((a, b) => (order.indexOf(a) + 99) % 99 - (order.indexOf(b) + 99) % 99);
+    results.replaceChildren(
+      ...(state.data.accounts ? [] : [emptyBlock('Les suggestions apparaîtront après la prochaine mise à jour automatique.')]),
+      ...cats.map((c) => section(`Suggestions · ${c}`, suggestions.filter((a) => (a.category || 'Autres') === c).map(accountRow), '')),
+      ...(state.data.accounts && !cats.length ? [emptyBlock('Plus aucune suggestion : tu suis déjà tout ce que la collecte connaît.')] : []),
+    );
+    return;
+  }
+
+  const followed = followedAccounts();
+  results.replaceChildren(followed.length
+    ? section(`Tes abonnements (${followed.length})`, followed.map(accountRow), '')
+    : emptyBlock('Tu ne suis personne pour le moment.', goTo('Voir les suggestions', 'suggestions')));
 }
 
 export function initDiscover() {
+  $('#discover-tabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('[role=tab]');
+    if (btn) showDiscoverTab(btn.dataset.tab);
+  });
   $('#discover-search').addEventListener('input', () => {
     clearTimeout(searchTimer);
     const q = $('#discover-search').value.trim();

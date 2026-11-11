@@ -5,7 +5,8 @@ import { state, initStore } from './app/store.js';
 import { initFeeds, renderAllFeeds } from './app/feed.js';
 import { loadData, loadLive, applyData } from './app/live.js';
 import { initSheet, openSheet } from './app/sheet.js';
-import { initDiscover, renderDiscover } from './app/discover.js';
+import { initDiscover, renderDiscover, renderTabs, showDiscoverTab } from './app/discover.js';
+import { $ } from './app/dom.js';
 import { initProfile, openProfile, renderProfileFollow } from './app/profile.js';
 import { initReels } from './app/reels.js';
 import { initTabs } from './app/tabs.js';
@@ -16,6 +17,7 @@ import { switchView } from './app/tabs.js';
 
 actions.openProfile = openProfile;
 actions.openSheet = openSheet;
+actions.afterSavedChange = () => { if (state.view === 'discover') renderTabs(); };
 actions.afterFollow = () => {
   if (state.view === 'discover') renderDiscover();
   if (state.view === 'profile') renderProfileFollow();
@@ -24,6 +26,11 @@ actions.afterFollow = () => {
 actions.switchView = switchView;
 actions.refresh = refresh;
 actions.afterLongAbsence = checkForNew;
+
+$('#saved-btn').addEventListener('click', () => {
+  showDiscoverTab('saved');
+  switchView('discover');
+});
 
 initStore();
 initFeeds();

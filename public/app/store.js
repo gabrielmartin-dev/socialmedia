@@ -2,6 +2,7 @@
 
 import { emptyPrefs } from '../rank.js';
 import { createSeenTracker, pruneOpened } from '../seen.js';
+import { addSaved, removeSaved, isSaved, sanitizeSaved } from '../saved.js';
 import { actions } from './actions.js';
 
 // ---------- Storage (never throws) ----------
@@ -41,9 +42,18 @@ export const state = {
   },
   reels: { ranked: [], rendered: 0, active: null, built: false },
   muted: true,
+  // Bookmarks (« Enregistrés »): full items, most recent first.
+  saved: sanitizeSaved(store.get('saved', [])),
   // Articles opened in this browser (id → timestamp): their title is dimmed.
   opened: pruneOpened(store.get('opened', {})),
 };
+
+export const isSavedItem = (id) => isSaved(state.saved, id);
+/** Adds / removes a bookmark. Returns false when the browser refused to store it. */
+export function setSaved(item, on) {
+  state.saved = on ? addSaved(state.saved, item) : removeSaved(state.saved, item.id);
+  try { localStorage.setItem('saved', JSON.stringify(state.saved)); return true; } catch { return false; }
+}
 
 export const isOpened = (id) => id in state.opened;
 export function markOpened(id) {

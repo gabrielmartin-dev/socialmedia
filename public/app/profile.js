@@ -1,6 +1,6 @@
 // Profile pages (collected posts first, then the live Bluesky timeline).
 
-import { authorPosts, getProfile } from '../bsky.js';
+import { authorPage, getProfile } from '../bsky.js';
 import { safeUrl } from '../url.js';
 import { $, h, svg, ICONS } from './dom.js';
 import { avatar } from './media.js';
@@ -13,6 +13,17 @@ import { state, isFeed, accountFromSource } from './store.js';
 import { KIND_LABEL, domainOf } from './util.js';
 
 const profile = { account: null, prev: 'actus', prevScroll: 0, seq: 0 };
+
+const PAGE_SIZE = 30;
+const MAX_POSTS = 300; // the page is a plain list: stop before it gets too heavy
+const OPEN_LABEL = { media: 'Ouvrir le site', bluesky: 'Ouvrir sur Bluesky', youtube: 'Ouvrir sur YouTube', tiktok: 'Ouvrir sur TikTok' };
+
+/** Visible button to the account's own page (site, Bluesky profile, channel…). */
+function openButton(a) {
+  const href = safeUrl(a.url, location.href);
+  if (!href) return null;
+  return h('a', { class: 'open-site-btn', href, target: '_blank', rel: 'noopener' }, svg(ICONS.open, 16), OPEN_LABEL[a.kind] || 'Ouvrir le site');
+}
 
 function allCollectedItems() {
   const out = [];
@@ -98,6 +109,7 @@ async function renderProfile() {
       h('div', { class: 'profile-handle', text: isBsky ? '@' + handle : (a.handle && !a.handle.startsWith('@') ? a.handle : a.handle || '') }),
       bio,
       meta,
+      openButton(a),
     ),
     h('div', { class: 'profile-tabs' }, h('span', { class: 'active', text: 'Posts' })),
     list,
@@ -105,25 +117,74 @@ async function renderProfile() {
   renderProfileFollow();
 
   // Posts: collected data first (instant), then Bluesky live for a full, fresh timeline.
+  const tail = h('div', { class: 'profile-tail' });
+  const known = new Set(); // ids shown, to never repeat a post when the pages overlap
   const showPosts = (items) => {
+    known.clear();
+    items.forEach((i) => known.add(i.id));
     list.replaceChildren(...(items.length
       ? items.slice(0, 80).map((i) => renderEntry(i))
-      : [h('div', { class: 'empty' }, h('strong', { text: 'Aucun post récent' }), 'Rien de publié ces derniers jours.')]));
+      : [h('div', { class: 'empty' }, h('strong', { text: 'Aucun post récent' }), 'Rien de publié ces derniers jours.', openButton(a))]));
   };
+  list.after(tail);
   showPosts(profilePostsFromData(a.id));
 
   if (isBsky) {
     try {
-      const [p, posts] = await Promise.all([getProfile(handle), authorPosts(handle, 50)]);
+      const [p, first] = await Promise.all([getProfile(handle), authorPage(handle, { limit: PAGE_SIZE })]);
       if (seq !== profile.seq) return;
+      const posts = first.items;
       const bannerUrl = safeUrl(p.banner, location.href);
       if (bannerUrl) banner.style.backgroundImage = `url("${bannerUrl.replace(/"/g, '%22')}")`;
       if (p.avatar && !a.avatar) avatarBox.replaceChildren(avatar(p.avatar, a.name));
       if (p.description && !a.description) bio.replaceChildren(...linkify(p.description));
-      const known = state.accounts.get(a.id);
-      showPosts(posts.map((i) => ({ ...i, source: { ...i.source, suggested: known?.suggested } })));
+      const suggested = state.accounts.get(a.id)?.suggested;
+      const withSource = (i) => ({ ...i, source: { ...i.source, suggested } });
+      showPosts(posts.map(withSource));
+      paginate({ handle, seq, list, tail, cursor: first.cursor, known, withSource });
     } catch { /* keep collected posts */ }
   }
+}
+
+/**
+ * Older posts, page after page, with the API's `cursor`: the next page loads when the end of
+ * the list nears the screen. Stops at the end of the timeline (or MAX_POSTS).
+ */
+function paginate({ handle, seq, list, tail, cursor, known, withSource }) {
+  let loading = false;
+  let observer = null;
+  const finish = (text) => { observer?.disconnect(); tail.replaceChildren(h('div', { class: 'profile-end', text })); };
+  if (!cursor) { finish('Fin des posts'); return; }
+
+  const more = async () => {
+    if (loading || seq !== profile.seq) return;
+    loading = true;
+    tail.replaceChildren(h('span', { class: 'spinner small' }));
+    try {
+      // Replies and reposts are left out, so a page can be empty: keep going until something shows up.
+      for (let tries = 0; tries < 5 && cursor; tries++) {
+        const page = await authorPage(handle, { limit: PAGE_SIZE, cursor });
+        if (seq !== profile.seq) return;
+        cursor = page.cursor;
+        const fresh = page.items.filter((i) => !known.has(i.id));
+        fresh.forEach((i) => known.add(i.id));
+        list.append(...fresh.map((i) => renderEntry(withSource(i))));
+        if (fresh.length) break;
+      }
+      if (!cursor || known.size >= MAX_POSTS) { finish('Fin des posts'); return; }
+      tail.replaceChildren();
+      // Still near the screen (short page)? Observing again reports the current state, which loads the next page.
+      observer.unobserve(tail);
+      observer.observe(tail);
+    } catch {
+      observer?.disconnect();
+      tail.replaceChildren(h('button', { class: 'empty-btn ghost', type: 'button', text: 'Réessayer', onclick: () => { observer?.observe(tail); more(); } }));
+    } finally {
+      loading = false;
+    }
+  };
+  observer = new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting)) more(); }, { rootMargin: '600px' });
+  observer.observe(tail);
 }
 
 /** Back gesture: closes the image viewer first, then the profile. */
