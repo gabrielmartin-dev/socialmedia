@@ -187,3 +187,37 @@ test('custom buttons answer to Enter and Space only', () => {
   assert.ok(isActivationKey('Enter') && isActivationKey(' '));
   assert.ok(!isActivationKey('a') && !isActivationKey('Tab') && !isActivationKey('Escape'));
 });
+
+// ---------- threads ----------
+import { postUri, threadFromView } from '../public/bsky.js';
+
+test('postUri turns a bsky.app permalink into an AT-URI, and refuses anything else', () => {
+  assert.equal(postUri('https://bsky.app/profile/paulvannier.bsky.social/post/3kabc'), 'at://paulvannier.bsky.social/app.bsky.feed.post/3kabc');
+  assert.equal(postUri('https://example.com/profile/x/post/1'), null);
+  assert.equal(postUri(undefined), null);
+});
+
+test('threadFromView: parents oldest first, author follow-ups first, then most liked, blocked posts skipped', () => {
+  const T = 'app.bsky.feed.defs#threadViewPost';
+  const post = (id, did, likes = 0) => ({
+    uri: `at://${did}/app.bsky.feed.post/${id}`, author: { did, handle: `${did}.test` }, likeCount: likes,
+    record: { text: id, createdAt: '2026-01-01T00:00:00Z' }, indexedAt: '2026-01-01T00:00:00Z',
+  });
+  const node = (id, did, likes, replies = [], parent) => ({ $type: T, post: post(id, did, likes), replies, parent });
+  const view = {
+    thread: node('main', 'did:a', 0, [
+      node('popular', 'did:b', 50),
+      node('self', 'did:a', 1, [node('self2', 'did:a', 0)]),
+      { $type: 'app.bsky.feed.defs#blockedPost', uri: 'x' },
+      node('meh', 'did:c', 2),
+    ], node('mid', 'did:b', 0, [], node('root', 'did:c', 0))),
+  };
+  const t = threadFromView(view);
+  assert.deepEqual(t.parents.map((p) => p.text), ['root', 'mid']);
+  assert.equal(t.item.text, 'main');
+  assert.deepEqual(t.replies.map((r) => r.item.text), ['self', 'popular', 'meh']);
+  assert.equal(t.replies[0].own, true);
+  assert.equal(t.replies[1].own, false);
+  assert.deepEqual(t.replies[0].replies.map((r) => r.item.text), ['self2']);
+  assert.equal(threadFromView({ thread: { $type: 'app.bsky.feed.defs#notFoundPost' } }), null);
+});

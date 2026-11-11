@@ -244,6 +244,29 @@ body.profile-mode .topbar { transform: translateY(-110%); }
 }
 button.reel-author { text-align: left; }
 
+/* ---------- Thread ---------- */
+#view-thread { padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom)); max-width: 600px; margin: 0 auto; }
+.thread-bar {
+  position: sticky; top: 0; z-index: 15; display: flex; align-items: center; gap: 12px;
+  height: calc(var(--topbar-h) + var(--safe-top)); padding: var(--safe-top) 8px 0 8px;
+  background: rgba(0,0,0,.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.thread-title { font-size: 20px; font-weight: 800; }
+.thread-section { padding: 14px 16px 10px; font-size: 15px; font-weight: 700; color: var(--muted); border-bottom: 1px solid var(--border); }
+.thread-status { padding: 18px 16px; color: var(--muted); text-align: center; }
+.tweet-actions { margin-top: 10px; }
+.thread-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; margin-left: -6px; padding: 0 8px; border-radius: 16px; color: var(--muted); font-size: 14px; }
+.thread-btn:active { background: rgba(29, 155, 240, .15); color: var(--accent); }
+.thread-focus { background: var(--bg-hover); }
+.thread-focus .tweet-text { font-size: 18px; line-height: 24px; }
+.thread-parent { border-bottom: 0; }
+.thread-parent { position: relative; }
+.thread-parent::after { content: ""; position: absolute; left: 35px; top: 60px; bottom: 0; width: 2px; background: var(--border); }
+.thread-reply.depth-2 { padding-left: 34px; }
+.thread-reply.depth-3 { padding-left: 54px; }
+.thread-reply.own { border-left: 3px solid var(--accent); }
+
 /* ---------- Reels ---------- */
 #view-videos { position: fixed; inset: 0; bottom: calc(var(--tabbar-h) + var(--safe-bottom)); background: #000; }
 .reels {

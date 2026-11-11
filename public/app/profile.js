@@ -8,7 +8,8 @@ import { renderEntry, linkify, stopAllInline } from './cards.js';
 import { followButton } from './discover.js';
 import { deactivateReel } from './reels.js';
 import { switchView } from './tabs.js';
-import { viewer, closeViewer } from './viewer.js';
+import { viewerPop } from './viewer.js';
+import { actions } from './actions.js';
 import { state, isFeed, accountFromSource } from './store.js';
 import { KIND_LABEL, domainOf } from './util.js';
 
@@ -56,11 +57,19 @@ export function openProfile(src) {
   window.scrollTo({ top: 0 });
 }
 
+/** Show the profile again, as it was (back from a thread opened on top of it). */
+export function resumeProfile() {
+  state.view = 'profile';
+  document.body.classList.add('profile-mode');
+  document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === 'view-profile'));
+}
+
 function closeProfile() {
   if (state.view !== 'profile') return;
   document.body.classList.remove('profile-mode');
   const prev = profile.prev;
   state.view = null;
+  if (prev === 'thread') { actions.resumeThread(); window.scrollTo({ top: profile.prevScroll || 0 }); return; }
   switchView(prev);
   window.scrollTo({ top: profile.prevScroll || 0 });
 }
@@ -128,8 +137,8 @@ async function renderProfile() {
 
 /** Back gesture: closes the image viewer first, then the profile. */
 export function initProfile() {
-  window.addEventListener('popstate', () => {
-    if (viewer.open) { closeViewer(false); return; }
+  window.addEventListener('popstate', (e) => {
+    if (viewerPop(e)) return;
     if (state.view === 'profile') closeProfile();
   });
 }

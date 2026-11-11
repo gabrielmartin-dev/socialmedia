@@ -1,6 +1,7 @@
 // Feed cards: articles, Bluesky posts, "N médias en parlent" groups.
 
 import { h, svg, ICONS, openUrl } from './dom.js';
+import { postUri } from '../bsky.js';
 import { avatar, image } from './media.js';
 import { loadHls } from './hls.js';
 import { state } from './store.js';
@@ -179,7 +180,8 @@ function cardShell(entry, avatarNode, mainChildren, url) {
       if (entry.kind === 'group') {
         const open = e.currentTarget.classList.toggle('open');
         e.currentTarget.querySelector('.group-toggle')?.setAttribute('aria-expanded', String(open));
-      } else openUrl(url);
+      } else if (entry.platform === 'bluesky' && postUri(entry.url)) actions.openThread(entry);
+      else openUrl(url);
     },
   },
   entry.kind !== 'group'
@@ -201,6 +203,17 @@ function articleCard(item) {
   ], item.url);
 }
 
+/** "💬 N" under a Bluesky post: opens its thread (the whole card does too, this is the keyboard path). */
+function threadButton(item) {
+  if (item.platform !== 'bluesky' || !postUri(item.url)) return null;
+  const n = item.stats?.replies || 0;
+  return h('div', { class: 'tweet-actions' },
+    h('button', {
+      class: 'thread-btn', type: 'button', 'aria-label': n ? `Voir le fil, ${n} réponse${n > 1 ? 's' : ''}` : 'Voir le fil',
+      onclick: (e) => { e.stopPropagation(); actions.openThread(item); },
+    }, svg(ICONS.reply, 18), n ? h('span', { text: String(n) }) : null));
+}
+
 function postCard(item) {
   let media = null;
   if (item.video && item.video.type !== 'hls') {
@@ -215,6 +228,7 @@ function postCard(item) {
     tweetText(item),
     media,
     item.quote ? quoteCard(item.quote) : null,
+    threadButton(item),
   ], item.url);
 }
 
