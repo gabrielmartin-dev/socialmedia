@@ -103,3 +103,8 @@ export async function authorPosts(handle, limit = 25) {
     };
   });
 }
+
+export async function getProfile(handle) {
+  const p = await call('app.bsky.actor.getProfile', { actor: handle });
+  return { avatar: p.avatar || null, banner: p.banner || null, name: p.displayName || p.handle, description: p.description || '' };
+}

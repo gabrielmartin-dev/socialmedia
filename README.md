@@ -18,6 +18,8 @@ Le projet est gratuit : pas de serveur, pas de LLM, pas d'API payante. Le détai
 
 Tes abonnements sont enregistrés sur ton téléphone.
 
+**Pages de profil :** touche l'avatar ou le nom d'un post, d'une vidéo ou d'un compte dans Découvrir. La page affiche la bannière, la bio, le lien du site, un bouton Suivre / Abonné et les posts dans l'ordre chronologique, sans compteurs. Pour un compte Bluesky, les posts sont récupérés en direct. Le geste retour du téléphone ramène où tu étais.
+
 - **Suggestions :** ce sont les sources marquées `"suggested": true` dans `config/sources.json`. Elles sont collectées, mais n'apparaissent dans tes feeds qu'une fois suivies.
 - **Comptes Bluesky trouvés par la recherche :** l'app récupère leurs posts directement à chaque ouverture ou refresh.
 

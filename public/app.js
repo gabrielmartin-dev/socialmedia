@@ -1,5 +1,5 @@
 import { rank, applyLess, emptyPrefs, relativeTime } from './rank.js';
-import { searchAccounts, authorPosts } from './bsky.js';
+import { searchAccounts, authorPosts, getProfile } from './bsky.js';
 import { compileTopics, matchKeywords } from './topics.js';
 
 const HLS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js';
@@ -242,8 +242,11 @@ function tweetText(item) {
 }
 
 function tweetHead(entry, { name, handle, publishedAt }) {
+  const toProfile = entry.kind !== 'group' && entry.source
+    ? (e) => { e.stopPropagation(); openProfile(entry.source); }
+    : null;
   return h('div', { class: 'tweet-head' },
-    h('span', { class: 'name', text: name }),
+    h('span', { class: 'name' + (toProfile ? ' clickable' : ''), text: name, onclick: toProfile }),
     handle ? h('span', { class: 'handle', text: handle }) : null,
     h('span', { class: 'dot', text: '·' }),
     h('time', { class: 'time', datetime: publishedAt, text: relativeTime(publishedAt) }),
@@ -363,7 +366,10 @@ function cardShell(entry, avatarNode, mainChildren, url) {
       else openUrl(url);
     },
   },
-  h('div', { class: 'tweet-avatar' }, avatarNode),
+  h('div', {
+    class: 'tweet-avatar' + (entry.kind !== 'group' ? ' clickable' : ''),
+    onclick: entry.kind !== 'group' ? (e) => { e.stopPropagation(); openProfile(entry.source); } : null,
+  }, avatarNode),
   h('div', { class: 'tweet-main' }, ...mainChildren));
 }
 
@@ -379,7 +385,11 @@ function articleCard(item) {
 
 function postCard(item) {
   let media = null;
-  if (item.video?.type === 'hls') media = inlineVideo(item.video);
+  if (item.video && item.video.type !== 'hls') {
+    media = h('a', { class: 'media ext-video', href: item.url, target: '_blank', rel: 'noopener', style: `aspect-ratio:${Math.min(Math.max(item.video.aspect || 16 / 9, 0.8), 2.2)}` },
+      item.video.poster ? image(item.video.poster) : null);
+    item = { ...item, text: item.title || item.text, segments: undefined };
+  } else if (item.video?.type === 'hls') media = inlineVideo(item.video);
   else if (item.images?.length) media = photoGrid(item.images);
   else if (item.external?.url) media = linkCard(item.external.url, item.external);
   return cardShell(item, avatar(item.source.avatar, item.source.name), [
@@ -587,6 +597,7 @@ async function setFollow(account, follow) {
   FEED_KEYS.forEach((k) => { state.feeds[k].dirty = true; });
   state.reels.built = false;
   if (state.view === 'discover') renderDiscover();
+  if (state.view === 'profile') renderProfileFollow();
 }
 
 // ---------- Découvrir ----------
@@ -603,11 +614,11 @@ const KIND_LABEL = { media: 'Site', bluesky: 'Bluesky', youtube: 'YouTube', tikt
 
 function accountRow(a) {
   return h('div', { class: 'account' },
-    h('a', { href: a.url, target: '_blank', rel: 'noopener' }, avatar(a.avatar, a.name, { square: a.kind === 'media' })),
+    h('button', { class: 'clickable', onclick: () => openProfile(a) }, avatar(a.avatar, a.name, { square: a.kind === 'media' })),
     h('div', { class: 'account-main' },
       h('div', { class: 'account-head' },
         h('div', { class: 'account-names' },
-          h('span', { class: 'name', text: a.name }),
+          h('span', { class: 'name clickable', text: a.name, onclick: () => openProfile(a) }),
           h('span', { class: 'handle', text: [a.handle, KIND_LABEL[a.kind]].filter(Boolean).join(' · ') }),
         ),
         followButton(a),
@@ -668,6 +679,123 @@ $('#discover-search').addEventListener('input', () => {
   }, 350);
 });
 
+// ---------- Profile pages ----------
+const profile = { account: null, prev: 'actus', prevScroll: 0, seq: 0 };
+
+function allCollectedItems() {
+  const out = [];
+  for (const key of ['actus', 'tech', 'videos']) {
+    for (const e of state.data[key]?.entries || []) {
+      if (e.kind === 'group') out.push(...e.items);
+      else out.push(e);
+    }
+  }
+  out.push(...state.live.actus);
+  return out;
+}
+
+function profilePostsFromData(id) {
+  const seen = new Set();
+  return allCollectedItems()
+    .filter((i) => i.source?.id === id && !seen.has(i.url) && seen.add(i.url))
+    .map((i) => ({ ...i, kind: i.kind === 'video' && i.platform === 'bluesky' ? 'post' : i.kind }))
+    .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+}
+
+function openProfile(src) {
+  if (!src?.id) return;
+  const account = { ...accountFromSource(src), ...(state.accounts.get(src.id) || {}) };
+  if (state.view !== 'profile') {
+    profile.prev = state.view;
+    profile.prevScroll = window.scrollY;
+    if (isFeed(state.view)) state.feeds[state.view].scroll = window.scrollY;
+    history.pushState({ profile: src.id }, '');
+  } else {
+    history.replaceState({ profile: src.id }, '');
+  }
+  profile.account = account;
+  deactivateReel();
+  stopAllInline();
+  state.view = 'profile';
+  document.body.classList.remove('videos-mode');
+  document.body.classList.add('profile-mode');
+  document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === 'view-profile'));
+  renderProfile();
+  window.scrollTo({ top: 0 });
+}
+
+function closeProfile() {
+  if (state.view !== 'profile') return;
+  document.body.classList.remove('profile-mode');
+  const prev = profile.prev;
+  state.view = null;
+  switchView(prev);
+  window.scrollTo({ top: profile.prevScroll || 0 });
+}
+
+window.addEventListener('popstate', () => { if (state.view === 'profile') closeProfile(); });
+
+function renderProfileFollow() {
+  const slot = $('#profile-follow');
+  if (slot && profile.account) slot.replaceChildren(followButton(profile.account));
+}
+
+async function renderProfile() {
+  const a = profile.account;
+  const seq = ++profile.seq;
+  const isBsky = a.id.startsWith('bsky:');
+  const handle = isBsky ? a.id.slice(5) : '';
+  const site = a.url ? domainOf(a.url) : '';
+  const kindLabel = { media: 'Site', bluesky: 'Bluesky', youtube: 'YouTube', tiktok: 'TikTok' }[a.kind] || '';
+
+  const banner = h('div', { class: 'profile-banner' });
+  const avatarBox = h('div', { class: 'profile-avatar' }, avatar(a.avatar, a.name, { square: a.kind === 'media' }));
+  const bio = h('div', { class: 'profile-bio' }, a.description ? linkify(a.description) : null);
+  const meta = h('div', { class: 'profile-meta' },
+    kindLabel ? h('span', { text: kindLabel }) : null,
+    a.url ? h('a', { class: 'link', href: a.url, target: '_blank', rel: 'noopener', text: site || a.url }) : null,
+  );
+  const list = h('div', { class: 'profile-posts' });
+  $('#profile-root').replaceChildren(
+    h('div', { class: 'profile-top' },
+      h('button', { class: 'profile-back', 'aria-label': 'Retour', onclick: () => history.back() },
+        svg('M7.41 13H20v-2H7.41l5.3-5.29-1.42-1.42L3.59 12l7.7 7.71 1.42-1.42L7.41 13Z', 22)),
+    ),
+    banner,
+    h('div', { class: 'profile-head' },
+      avatarBox,
+      h('div', { id: 'profile-follow' }),
+      h('div', { class: 'profile-name', text: a.name }),
+      h('div', { class: 'profile-handle', text: isBsky ? '@' + handle : (a.handle && !a.handle.startsWith('@') ? a.handle : a.handle || '') }),
+      bio,
+      meta,
+    ),
+    h('div', { class: 'profile-tabs' }, h('span', { class: 'active', text: 'Posts' })),
+    list,
+  );
+  renderProfileFollow();
+
+  // Posts: collected data first (instant), then Bluesky live for a full, fresh timeline.
+  const showPosts = (items) => {
+    list.replaceChildren(...(items.length
+      ? items.slice(0, 80).map((i) => renderEntry(i))
+      : [h('div', { class: 'empty' }, h('strong', { text: 'Aucun post récent' }), 'Rien de publié ces derniers jours.')]));
+  };
+  showPosts(profilePostsFromData(a.id));
+
+  if (isBsky) {
+    try {
+      const [p, posts] = await Promise.all([getProfile(handle), authorPosts(handle, 50)]);
+      if (seq !== profile.seq) return;
+      if (p.banner) banner.style.backgroundImage = `url("${p.banner.replace(/"/g, '%22')}")`;
+      if (p.avatar && !a.avatar) avatarBox.replaceChildren(avatar(p.avatar, a.name));
+      if (p.description && !a.description) bio.replaceChildren(...linkify(p.description));
+      const known = state.accounts.get(a.id);
+      showPosts(posts.map((i) => ({ ...i, source: { ...i.source, suggested: known?.suggested } })));
+    } catch { /* keep collected posts */ }
+  }
+}
+
 // ---------- Reels (Vidéos) ----------
 let hlsPromise = null;
 function loadHls() {
@@ -705,7 +833,7 @@ function reelSlide(item) {
     poster ? h('img', { class: 'reel-poster', src: poster, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }) : null,
     h('div', { class: 'reel-play auto', onclick: () => activateReel(slide, true) }, h('span', { text: '▶' })),
     h('div', { class: 'reel-overlay' },
-      h('a', { class: 'reel-author', href: item.source.url || item.url, target: '_blank', rel: 'noopener' },
+      h('button', { class: 'reel-author', onclick: (e) => { e.stopPropagation(); openProfile(item.source); } },
         avatar(item.source.avatar, item.source.name),
         h('span', { class: 'reel-names' },
           h('span', { class: 'reel-name', text: item.source.name }),
@@ -857,6 +985,7 @@ function switchView(view) {
   }
   if (isFeed(state.view)) state.feeds[state.view].scroll = window.scrollY;
   if (view !== 'discover') $('#discover-search').blur();
+  document.body.classList.remove('profile-mode');
   state.view = view;
   document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.view === view));
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${view}`));
