@@ -2,9 +2,9 @@
 
 import { searchAccounts } from '../bsky.js';
 import { relativeTime } from '../rank.js';
-import { $, h } from './dom.js';
+import { $, h, toast } from './dom.js';
 import { avatar } from './media.js';
-import { state, isFollowed, entriesFor } from './store.js';
+import { state, isFollowed, entriesFor, savePrefs, FEED_KEYS } from './store.js';
 import { normalize } from '../norm.js';
 import { searchItems } from '../find.js';
 import { renderEntry } from './cards.js';
@@ -27,6 +27,26 @@ export function followButton(account) {
   return btn;
 }
 
+/** Local weight of an account (« Moins de ça » / « Plus de ça »), with a button to reset it. */
+function weightNote(a) {
+  const w = state.prefs.sources[a.id];
+  if (!w || w === 1) return null;
+  return h('div', { class: 'account-weight' },
+    h('span', { text: w < 1 ? 'Réduit par « Moins de ça »' : 'Augmenté par « Plus de ça »' }),
+    h('button', {
+      type: 'button', text: 'Rétablir',
+      onclick: () => {
+        const previous = w;
+        delete state.prefs.sources[a.id];
+        savePrefs();
+        FEED_KEYS.forEach((k) => { state.feeds[k].dirty = true; });
+        state.reels.built = false;
+        renderDiscover();
+        toast(`${a.name} : poids rétabli`, { action: { label: 'Annuler', run: () => { state.prefs.sources[a.id] = previous; savePrefs(); renderDiscover(); } } });
+      },
+    }));
+}
+
 function accountRow(a) {
   return h('div', { class: 'account' },
     h('button', { class: 'clickable', type: 'button', 'aria-label': `Voir le profil de ${a.name}`, onclick: () => actions.openProfile(a) }, avatar(a.avatar, a.name, { square: a.kind === 'media' })),
@@ -38,6 +58,7 @@ function accountRow(a) {
         ),
         followButton(a),
       ),
+      weightNote(a),
       a.description ? h('div', { class: 'account-desc', text: a.description }) : null,
       a.lastTitle ? h('div', { class: 'account-last', text: `${relativeTime(a.lastAt)} · ${a.lastTitle}` }) : null,
     ),

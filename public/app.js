@@ -13,6 +13,7 @@ import { initTabs } from './app/tabs.js';
 import { initRefresh, refresh, showLoaded } from './app/refresh.js';
 import { initFresh, checkForNew, renderStatusBar } from './app/fresh.js';
 import { initInfoSheet } from './app/infosheet.js';
+import { initInstall } from './app/install.js';
 import { switchView } from './app/tabs.js';
 
 actions.openProfile = openProfile;
@@ -41,6 +42,7 @@ initReels();
 initTabs();
 initRefresh();
 initInfoSheet();
+initInstall();
 initFresh({ apply: (data) => { applyData(data); showLoaded(); } });
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {

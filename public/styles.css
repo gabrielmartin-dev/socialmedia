@@ -252,6 +252,7 @@ div.avatar.square { background: var(--bg-elev); }
 .disc-section h2 { font-size: 19px; font-weight: 800; margin: 0; padding: 14px 14px 6px; }
 .disc-empty { color: var(--muted); padding: 8px 14px 16px; font-size: 15px; }
 .account { display: grid; grid-template-columns: 44px 1fr; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.account > .clickable { align-self: start; justify-self: start; }
 .account-main { min-width: 0; }
 .account-head { display: flex; align-items: center; gap: 8px; }
 .account-names { display: flex; flex-direction: column; min-width: 0; flex: 1; }
@@ -267,7 +268,7 @@ div.avatar.square { background: var(--bg-elev); }
 /* Découvrir: sections */
 .subtabs { display: flex; margin: 6px -14px -8px; border-top: 1px solid var(--border); }
 .subtabs[hidden] { display: none; }
-.subtabs button { flex: 1; padding: 12px 4px 10px; color: var(--muted); font-weight: 600; font-size: 14px; position: relative; white-space: nowrap; }
+.subtabs button { flex: 1; padding: 12px 2px 10px; color: var(--muted); font-weight: 600; font-size: 14px; position: relative; white-space: nowrap; }
 .subtabs button.active { color: var(--text); font-weight: 800; }
 .subtabs button.active::after { content: ""; position: absolute; left: 20%; right: 20%; bottom: 0; height: 4px; border-radius: 4px; background: var(--accent); }
 .disc-empty .empty-btn { margin-top: 12px; }
@@ -400,6 +401,25 @@ button.reel-author { text-align: left; }
 }
 .tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--muted); font-size: 11px; }
 .tab.active { color: var(--text); font-weight: 700; }
+
+/* ---------- Install banner ---------- */
+.install-banner {
+  position: fixed; left: 12px; right: 12px; bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 10px); z-index: 35;
+  max-width: 576px; margin: 0 auto; display: flex; align-items: center; gap: 10px;
+  padding: 10px 6px 10px 14px; border-radius: 14px; background: var(--bg-elev); border: 1px solid var(--border);
+  box-shadow: 0 6px 24px rgba(0,0,0,.6);
+}
+.install-banner[hidden], body.videos-mode .install-banner, body.profile-mode .install-banner { display: none; }
+.install-text { display: flex; flex-direction: column; flex: 1; min-width: 0; font-size: 14px; line-height: 18px; }
+.install-text span { color: var(--muted); font-size: 13px; }
+.install-go { flex: none; height: 34px; padding: 0 14px; border-radius: 999px; background: var(--text); color: #000; font-weight: 700; font-size: 14px; }
+.install-close { flex: none; width: 36px; height: 36px; color: var(--muted); font-size: 16px; }
+.info-steps { margin: 0 0 8px; padding-left: 22px; line-height: 1.45; }
+.info-steps li { padding: 4px 0; }
+
+/* ---------- Subscription weight (Découvrir) ---------- */
+.account-weight { display: flex; align-items: center; gap: 10px; margin-top: 6px; font-size: 13px; color: #e8a33d; }
+.account-weight button { color: var(--accent); font-size: 13px; font-weight: 700; padding: 6px 2px; margin: -6px 0; }
 
 /* ---------- Bottom sheet ---------- */
 .sheet-backdrop { position: fixed; inset: 0; z-index: 40; background: rgba(91, 112, 131, .4); }

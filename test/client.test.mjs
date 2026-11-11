@@ -302,3 +302,20 @@ test('searchItems: accent- and case-insensitive, every word must match, title ma
   assert.equal(searchItems(items, 'greve', { limit: 1 }).total, 3);
   assert.deepEqual(searchItems(items, '   ').results, []);
 });
+
+// ---------- Install invitation ----------
+import { installHint, isIosSafari } from '../public/install.js';
+
+test('installHint: prompt on Android Chrome, instructions on iOS Safari, nothing once installed', () => {
+  const iosSafari = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+  const iosChrome = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/120.0 Mobile/15E148 Safari/604.1';
+  const android = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36';
+  assert.equal(isIosSafari(iosSafari), true);
+  assert.equal(isIosSafari(iosChrome), false);
+  assert.equal(installHint({ userAgent: android, hasPrompt: true }), 'prompt');
+  assert.equal(installHint({ userAgent: android, hasPrompt: false }), null, 'no prompt event: nothing to offer');
+  assert.equal(installHint({ userAgent: iosSafari }), 'ios');
+  assert.equal(installHint({ userAgent: iosSafari, standalone: true }), null);
+  assert.equal(installHint({ userAgent: android, hasPrompt: true, standalone: true }), null);
+  assert.equal(installHint(), null);
+});

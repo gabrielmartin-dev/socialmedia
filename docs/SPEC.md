@@ -56,6 +56,7 @@ Barre d'onglets en bas, deux onglets :
   - suggestions par catégorie, venant des sources `suggested` de la config, que la collecte récupère sans les afficher tant qu'elles ne sont pas suivies ;
   - trois sections : **Abonnements** (par défaut, avec un bouton pour ne plus suivre), **Suggestions** et **Enregistrés** ;
   - **Enregistrés** : marque-pages locaux, pour lire plus tard (≠ un like : rien n'est envoyé nulle part). L'item complet est conservé, donc lisible même après sa sortie de la fenêtre de 72 h. 300 au plus, les plus récents d'abord. Accessible aussi par l'icône marque-page de la barre du haut.
+- **Poids local :** un abonnement dont le poids a été modifié par « Moins de ça » (ou « Plus de ça ») l'indique (« Réduit par « Moins de ça » »), avec un bouton **Rétablir** (annulable).
 - **Stockage :** les abonnements sont enregistrés sur le téléphone. Un compte Bluesky trouvé par la recherche est récupéré directement par l'app, sans passer par GitHub.
 - **Exception :** les vidéos d'internautes trouvées par hashtag restent toujours visibles.
 
@@ -77,6 +78,9 @@ Barre d'onglets en bas, deux onglets :
 - **Articles ouverts :** le titre d'un article déjà ouvert est atténué (mémorisé sur le téléphone 30 jours, 500 articles au plus).
 - **États vides :** chacun propose une action : « Rafraîchir », ou « Découvrir des comptes » quand plus aucun compte n'est suivi.
 - **Rafraîchir Vidéos :** retoucher l'onglet actif quand on est déjà en haut rafraîchit (comme le tirer-pour-rafraîchir d'Actus et Tech, qui ne s'applique pas au défilement plein écran).
+
+### 2.8 Invitation à installer
+Bannière discrète « Ajouter à l'écran d'accueil », affichée **une seule fois** (4 s après l'ouverture, jamais si l'app est déjà installée) et refermable. Sur Android / Chrome (`beforeinstallprompt`), « Installer » lance l'installation ; sur iOS Safari, qui n'offre aucune API, « Comment ? » explique les trois gestes (Partager → Sur l'écran d'accueil → Ajouter). Ailleurs, rien n'est affiché.
 
 ## 3. Sources
 
