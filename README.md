@@ -45,7 +45,7 @@ Il arrive que l'API publique de Bluesky refuse la recherche sans connexion. Dans
 
 ### Optionnel : TikTok
 
-TikTok passe par [RSSHub](https://docs.rsshub.app/). L'instance publique bloque souvent. Si c'est le cas, tu peux déclarer une autre instance dans la variable d'Actions `RSSHUB_BASE` (ex. `https://rsshub.mon-instance.fr`). Si TikTok échoue, le reste de l'app continue de fonctionner.
+TikTok passe par [RSSHub](https://docs.rsshub.app/). L'instance publique `rsshub.app` refuse désormais les collecteurs : il faut une instance [auto-hébergée](https://docs.rsshub.app/deploy/), déclarée dans la variable d'Actions `RSSHUB_BASE` (ex. `https://rsshub.mon-instance.fr`). Sans cette variable, les comptes TikTok ne sont pas collectés ; le reste de l'app fonctionne normalement.
 
 ## Modifier les sources et l'algorithme
 

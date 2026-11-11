@@ -143,8 +143,15 @@ async function collectYouTube(channels) {
 }
 
 async function collectTikTok(accounts) {
+  // TikTok needs a self-hosted RSSHub: the public rsshub.app refuses collectors (HTTP 403).
+  // Without an instance the accounts are simply not collected, rather than failing on every run.
+  const instance = process.env.RSSHUB_BASE || accounts.find((a) => a.rsshub)?.rsshub;
+  if (!instance) {
+    if (accounts.length) console.log(`– tiktok   ${accounts.length} compte(s) ignoré(s) : aucune instance RSSHub (variable RSSHUB_BASE)`);
+    return [];
+  }
   const results = await pool(accounts.map((acc) => async () => {
-    const base = (process.env.RSSHUB_BASE || acc.rsshub || 'https://rsshub.app').replace(/\/$/, '');
+    const base = (process.env.RSSHUB_BASE || acc.rsshub || instance).replace(/\/$/, '');
     const { text } = await fetchText(`${base}/tiktok/user/@${acc.user}`, { timeoutMs: 25000, retries: 1 });
     const feed = parseFeed(text);
     return feed.entries.map((e) => {

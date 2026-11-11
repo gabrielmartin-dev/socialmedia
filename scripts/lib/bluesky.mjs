@@ -10,6 +10,9 @@ import { postToItem } from '../../public/bskypost.js';
 export { postToItem, textSegments, rkey } from '../../public/bskypost.js';
 
 const PUBLIC = 'https://public.api.bsky.app/xrpc';
+// The public alias answers 403 to post search; the AppView itself serves it without a session.
+const APPVIEW = 'https://api.bsky.app/xrpc';
+const APPVIEW_ONLY = new Set(['app.bsky.feed.searchPosts']);
 
 export async function createClient(env = process.env) {
   let base = PUBLIC;
@@ -34,7 +37,8 @@ export async function createClient(env = process.env) {
     for (const [k, v] of Object.entries(params)) {
       for (const val of [].concat(v)) if (val != null) qs.append(k, String(val));
     }
-    return fetchJson(`${base}/${method}?${qs}`, { headers });
+    const host = !authenticated && APPVIEW_ONLY.has(method) ? APPVIEW : base;
+    return fetchJson(`${host}/${method}?${qs}`, { headers });
   };
 
   return { call, authenticated };
@@ -74,7 +78,8 @@ export async function authorPosts(client, account, limit = 30) {
 
 /** Search recent posts for a hashtag/term and keep only the ones with a video. */
 export async function searchVideos(client, query, { limit = 100, sinceHours = 72 } = {}) {
-  const since = new Date(Date.now() - sinceHours * 3600e3).toISOString();
+  // Without a session the AppView rejects `since` (HTTP 400): the collector drops old posts anyway.
+  const since = client.authenticated ? new Date(Date.now() - sinceHours * 3600e3).toISOString() : undefined;
   const { posts = [] } = await client.call('app.bsky.feed.searchPosts', { q: query, sort: 'latest', limit, since });
   return posts.map((p) => postToItem(p)).filter((i) => i.kind === 'video');
 }
