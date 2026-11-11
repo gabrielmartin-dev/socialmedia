@@ -69,3 +69,13 @@ npm run dev         # http://localhost:8080
 ```
 
 `public/data/status.json` liste l'état de chaque source (ok ou erreur, nombre d'éléments).
+
+### Ce qu'il faut savoir en développant
+
+- **Garde-fou de collecte** : `npm run collect` sort en code 2 (et n'écrit rien) si plus de la moitié des sources échouent ou si moins de 30 éléments sont collectés (`settings.health` dans `config/sources.json`). Le workflow ne déploie alors pas : la version précédente reste en ligne.
+- **Cache des résolutions** : IDs de chaînes YouTube, handles Bluesky et URLs de flux découvertes sont gardés dans `.cache/collect/resolutions.json` (restauré / sauvé par `actions/cache` dans le workflow, expiration 12 h à 14 jours, repli automatique sur la résolution normale).
+- **Données compactes** : `public/data/{actus,tech,videos}.json` sont écrits par `public/pack.js` et relus par l'app (`unpackFeed`). `node scripts/measure-data.mjs` donne leur taille (brute et gzip).
+- **Code partagé** navigateur / collecteur : `public/topics.js`, `public/bskypost.js`, `public/norm.js`, `public/url.js`, `public/pack.js`, `public/pool.js`. Pas d'API Node dedans (le test de parité et le test d'import le vérifient).
+- **Service worker** : `VERSION` est un hash du contenu du shell, injecté au déploiement par `scripts/stamp-sw.mjs` (et à la volée par `npm run dev`). Tout fichier ajouté dans `public/` doit figurer dans `SHELL` de `public/sw.js` : un test échoue sinon.
+- **Liens** : seuls les liens `http(s)` passent (`public/url.js`), côté collecteur comme côté client. La CSP est dans `public/index.html` ; le SRI de hls.js dans `public/app/hls.js` (à recalculer si la version change).
+- Les images de `npm run sample` sont écrites dans `public/data/sample/` (ignoré par git).
