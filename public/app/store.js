@@ -114,7 +114,10 @@ export function entriesFor(key) {
     if (items.length > 1) out.push({ ...e, items });
     else if (items.length === 1) out.push(items[0]);
   }
-  return out;
+  // A media outlet's Bluesky post that only relays one of its own articles (`relayOf`, set by
+  // the collector) is hidden when that article is shown; kept when only the Bluesky account is followed.
+  const shown = new Set(out.flatMap((e) => (e.kind === 'group' ? e.items.map((i) => i.id) : [e.id])));
+  return out.filter((e) => !(e.relayOf && shown.has(e.relayOf)));
 }
 
 export function accountFromSource(src) {

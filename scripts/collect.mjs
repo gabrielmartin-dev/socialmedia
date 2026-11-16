@@ -9,10 +9,11 @@ import { pool, faviconFor, fetchText } from './lib/http.mjs';
 import { fetchSourceFeed, entryToArticle, parseFeed, hashId } from './lib/rss.mjs';
 import * as bsky from './lib/bluesky.mjs';
 import * as yt from './lib/youtube.mjs';
-import { compileTopics, annotate, groupDuplicates } from './lib/score.mjs';
+import { compileTopics, annotate, groupDuplicates, markRelays } from './lib/score.mjs';
+import { ItemArchive, publicItem } from './lib/archive.mjs';
 import { truncate } from './lib/text.mjs';
 import { sanitizeItem } from './lib/sanitize.mjs';
-import { safeUrl } from '../public/url.js';
+import { safeUrl, canonicalUrl } from '../public/url.js';
 import { checkRun } from './lib/health.mjs';
 import { packFeed } from '../public/pack.js';
 import { topicsForClient } from './lib/client-config.mjs';
@@ -23,6 +24,8 @@ const OUT = path.join(ROOT, 'public', 'data');
 // Persistent resolutions (restored / saved by actions/cache between runs).
 const CACHE_DIR = process.env.COLLECT_CACHE_DIR || path.join(ROOT, '.cache', 'collect');
 const cache = new ResolutionCache(path.join(CACHE_DIR, 'resolutions.json'));
+// Items published by the previous runs (see lib/archive.mjs).
+const archive = new ItemArchive(path.join(CACHE_DIR, 'items.json'));
 
 const readJson = async (p) => JSON.parse(await fs.readFile(path.join(ROOT, p), 'utf8'));
 
@@ -49,7 +52,8 @@ async function collectMedia(media, type = 'rss') {
       url: src.site || feed.feedUrl, handle: (src.site || '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''),
       description: feed.description, suggested: !!src.suggested, category: src.category || (type === 'tech' ? 'Tech' : 'Médias'),
     });
-    return feed.entries.filter((e) => e.link && e.title).map((e) => entryToArticle(e, source)).filter(Boolean);
+    return feed.entries.filter((e) => e.link && e.title).map((e) => entryToArticle(e, source)).filter(Boolean)
+      .map((it) => ({ ...it, _origin: `${type === 'tech' ? 'tech' : 'media'}:${src.id}` }));
   }));
   const items = [];
   results.forEach((r, i) => {
@@ -86,7 +90,11 @@ async function collectBluesky(cfg, settings) {
     const acc = cfg.accounts[i];
     const feedName = acc.feed === 'tech' ? 'tech' : 'actus';
     const target = feedName === 'tech' ? tech : posts;
-    if (acc.suggested) for (const it of items) it.source.suggested = true;
+    for (const it of items) {
+      if (acc.suggested) it.source.suggested = true;
+      it._origin = blueskyOrigin(acc);
+      if (acc.sameAs) it._sameAs = acc.sameAs;
+    }
     register({
       id: 'bsky:' + resolved.handle, name: resolved.displayName || acc.name, avatar: resolved.avatar, kind: 'bluesky',
       feed: feedName, url: `https://bsky.app/profile/${resolved.handle}`, handle: '@' + resolved.handle,
@@ -103,7 +111,7 @@ async function collectBluesky(cfg, settings) {
   searches.forEach((r, i) => {
     const tag = cfg.videoHashtags[i];
     if (!r.ok) return report('bsky-tag', tag, false, r.error);
-    for (const it of r.value) it.tag = tag;
+    for (const it of r.value) { it.tag = tag; it._origin = `tag:${tag}`; }
     videos.push(...r.value);
     report('bsky-tag', tag, true, r.value.length);
   });
@@ -136,6 +144,7 @@ async function collectYouTube(channels) {
   results.forEach((r, i) => {
     if (!r.ok) return report('youtube', channels[i].name, false, r.error);
     if (r.value.dup) return report('youtube', `${channels[i].name} (doublon de chaîne, ignoré)`, true, 0);
+    for (const it of r.value.items) it._origin = `yt:${channels[i].id}`;
     items.push(...r.value.items);
     report('youtube', channels[i].name, true, r.value.items.length);
   });
@@ -175,10 +184,25 @@ async function collectTikTok(accounts) {
     if (!r.ok) return report('tiktok', accounts[i].name, false, r.error);
     const acc = accounts[i];
     register({ id: acc.id, name: acc.name, avatar: null, kind: 'tiktok', feed: 'videos', url: `https://www.tiktok.com/@${acc.user}`, handle: '@' + acc.user, suggested: !!acc.suggested, category: acc.category || 'TikTok' });
+    for (const it of r.value) it._origin = `tiktok:${acc.id}`;
     items.push(...r.value);
     report('tiktok', accounts[i].name, true, r.value.length);
   });
   return items;
+}
+
+const blueskyOrigin = (acc) => `bsky:${acc.handle || acc.name}`;
+
+/** Every config entry that may have produced an archived item (see ItemArchive.merge). */
+function configuredOrigins(sources) {
+  return new Set([
+    ...sources.media.map((s) => `media:${s.id}`),
+    ...(sources.tech || []).map((s) => `tech:${s.id}`),
+    ...sources.bluesky.accounts.map(blueskyOrigin),
+    ...sources.bluesky.videoHashtags.map((t) => `tag:${t}`),
+    ...sources.youtube.map((c) => `yt:${c.id}`),
+    ...(sources.tiktok || []).map((a) => `tiktok:${a.id}`),
+  ]);
 }
 
 function freshAndUnique(items, maxAgeHours) {
@@ -191,15 +215,18 @@ function freshAndUnique(items, maxAgeHours) {
     if (!it) continue;
     const t = Date.parse(it.publishedAt);
     if (!Number.isFinite(t) || t < cutoff || t > future) continue;
-    if (map.has(it.id) || (it.url && urls.has(it.url))) continue;
+    // Same page with or without tracking parameters / `www.` / trailing slash = duplicate.
+    const key = canonicalUrl(it.url);
+    if (map.has(it.id) || (key && urls.has(key))) continue;
     map.set(it.id, it);
-    if (it.url) urls.add(it.url);
+    if (key) urls.add(key);
   }
   return [...map.values()].sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
 }
 
 async function main() {
   await cache.load();
+  await archive.load();
   const sources = await readJson('config/sources.json');
   const topicsCfg = await readJson('config/topics.json');
   const settings = sources.settings;
@@ -214,16 +241,30 @@ async function main() {
     collectTikTok(sources.tiktok || []),
   ]);
 
-  const actusItems = freshAndUnique([...articles, ...bluesky.posts], settings.actusMaxAgeHours).map((i) => annotate(i, matchers));
-  const techItems = freshAndUnique([...techArticles, ...bluesky.tech], settings.techMaxAgeHours ?? 168).map((i) => annotate(i, techMatchers));
-  const videoItems = freshAndUnique([...bluesky.videos, ...ytVideos, ...ttVideos], settings.videosMaxAgeHours).map((i) => annotate(i, matchers));
+  // This run's items, plus the previous runs' ones still in the window; then duplicates out.
+  const origins = configuredOrigins(sources);
+  const build = (feed, fresh, maxAgeHours, topicMatchers, { relays = false } = {}) => {
+    const items = freshAndUnique(archive.merge(feed, fresh, { maxAgeHours, origins }), maxAgeHours);
+    if (relays) markRelays(items);
+    archive.set(feed, items);
+    return items.map((i) => annotate(publicItem(i), topicMatchers));
+  };
+  const actusItems = build('actus', [...articles, ...bluesky.posts], settings.actusMaxAgeHours, matchers, { relays: true });
+  const techItems = build('tech', [...techArticles, ...bluesky.tech], settings.techMaxAgeHours ?? 168, techMatchers, { relays: true });
+  const videoItems = build('videos', [...bluesky.videos, ...ytVideos, ...ttVideos], settings.videosMaxAgeHours, matchers);
+  const relayed = [...actusItems, ...techItems].filter((i) => i.relayOf).length;
+  console.log(`Archive : ${archive.loaded ? 'reprise du run précédent' : 'première collecte (aucune archive)'} · ${relayed} post(s) Bluesky relayant un article du même média`);
 
+  const health = checkRun(status, { actus: actusItems.length, tech: techItems.length, videos: videoItems.length }, settings);
+  // A rejected run (network outage, API down) says nothing about a site having no feed:
+  // its « discovery failed » marks are dropped so that every source is searched again next run.
+  if (!health.ok) cache.deletePrefix('feedfail:');
   // Resolutions learned during this run are kept even if the run is then rejected.
   await cache.save().catch((err) => console.warn(`Cache de résolutions non sauvegardé : ${err.message}`));
+  await archive.save().catch((err) => console.warn(`Archive des éléments non sauvegardée : ${err.message}`));
   console.log(`Cache de résolutions : ${cache.stats.hits} utilisés, ${cache.stats.misses} résolus, ${cache.stats.fallbacks} périmés`);
 
   // Refuse to publish a mostly-failed run: exiting non-zero keeps the previous deployment.
-  const health = checkRun(status, { actus: actusItems.length, tech: techItems.length, videos: videoItems.length }, settings);
   if (!health.ok) {
     const failedN = status.filter((s) => !s.ok).length;
     console.error(`\nCollecte jugée défaillante (${failedN}/${status.length} sources en échec) : ${health.reasons.join(' ; ')}.`);

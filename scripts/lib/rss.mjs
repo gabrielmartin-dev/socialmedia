@@ -138,7 +138,11 @@ export function discoverFeeds(html, baseUrl) {
 }
 
 const FEED_URL_TTL = 14 * 24 * 3600e3;
-const COMMON_PATHS = ['/feed', '/feed/', '/rss', '/rss.xml', '/feed.xml', '/atom.xml', '/spip.php?page=backend', '/index.xml'];
+// After a failed discovery, the site is not searched again before this delay: a dead site
+// would otherwise cost the site page plus every guessed path, on every run.
+export const DISCOVERY_RETRY_MS = 24 * 3600e3;
+const GUESS_TIMEOUT_MS = 6000;
+const COMMON_PATHS = ['/feed', '/feed/', '/rss', '/rss.xml', '/feed.xml', '/atom.xml', '/spip.php?page=backend', '/index.xml', '/?format=feed&type=rss'];
 
 /**
  * Fetch a source's feed: configured URL first, then the feed URL remembered in `cache`
@@ -164,6 +168,10 @@ export async function fetchSourceFeed(source, { cache } = {}) {
     try { const feed = await attempt(remembered); cache.stats.hits++; return feed; }
     catch { cache.delete(cacheKey); cache.stats.fallbacks++; }
   } else if (!source.feed && cache) cache.stats.misses++;
+  const failKey = `feedfail:${source.id}`;
+  if (cache?.get(failKey)) {
+    throw new Error(`Aucun flux valide lors de la dernière recherche ; nouvel essai sous 24 h${source.feed ? ` (flux configuré en échec : ${source.feed})` : ''}`);
+  }
   const found = async (url, opts) => {
     const feed = await attempt(url, opts);
     if (!source.feed) cache?.set(cacheKey, feed.feedUrl, FEED_URL_TTL);
@@ -176,11 +184,15 @@ export async function fetchSourceFeed(source, { cache } = {}) {
         try { return await found(f); } catch { /* next */ }
       }
     } catch { /* site unreachable, try common paths anyway */ }
-    // These paths are guesses: no retries, so that a dead site stays cheap.
+    // These paths are guesses: no retries and a short timeout, so that a dead site stays cheap.
     for (const p of COMMON_PATHS) {
-      try { return await found(new URL(p, source.site).href, { retries: 0 }); } catch { /* next */ }
+      try { return await found(new URL(p, source.site).href, { retries: 0, timeoutMs: GUESS_TIMEOUT_MS }); } catch { /* next */ }
     }
   }
+  cache?.set(failKey, true, DISCOVERY_RETRY_MS);
+  // The remembered URL failed too, but nothing better was found: keep it for the next run
+  // (a network outage must not make a working source forget its feed).
+  if (remembered) cache.set(cacheKey, remembered, FEED_URL_TTL);
   throw new Error(`Aucun flux valide trouvé (essayés : ${[...new Set(tried)].join(', ') || 'aucun'})`);
 }
 

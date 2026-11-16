@@ -41,6 +41,10 @@ export class ResolutionCache {
 
   delete(key) { this.entries.delete(key); }
 
+  deletePrefix(prefix) {
+    for (const k of [...this.entries.keys()]) if (k.startsWith(prefix)) this.entries.delete(k);
+  }
+
   async save() {
     const entries = {};
     for (const [k, e] of this.entries) if (e.exp > this.now()) entries[k] = e;
