@@ -95,7 +95,13 @@ async function collectBluesky(cfg, settings) {
     const acc = cfg.accounts[i];
     const feedName = acc.feed === 'tech' ? 'tech' : 'actus';
     const target = feedName === 'tech' ? tech : posts;
+    // The author's usual level of engagement (median of their fetched posts), so that a post is
+    // compared to what this account normally gets, not to the bigger accounts.
+    const levels = items.map((it) => (it.stats?.likes || 0) + 2 * (it.stats?.reposts || 0)).sort((a, b) => a - b);
+    const base = levels.length >= 5 ? Math.round(levels[levels.length >> 1]) : null;
     for (const it of items) {
+      if (base !== null && it.stats) it.stats.base = base;
+      if (feedName === 'tech') it._topics = 'tech'; // its videos are ranked with the Tech keywords
       if (acc.suggested) it.source.suggested = true;
       it._origin = blueskyOrigin(acc);
       if (acc.sameAs) it._sameAs = acc.sameAs;
@@ -149,7 +155,10 @@ async function collectYouTube(channels) {
   results.forEach((r, i) => {
     if (!r.ok) return report('youtube', channels[i].name, false, r.error);
     if (r.value.dup) return report('youtube', `${channels[i].name} (doublon de chaîne, ignoré)`, true, 0);
-    for (const it of r.value.items) it._origin = `yt:${channels[i].id}`;
+    for (const it of r.value.items) {
+      it._origin = `yt:${channels[i].id}`;
+      if (channels[i].category === 'Tech') it._topics = 'tech';
+    }
     items.push(...r.value.items);
     report('youtube', channels[i].name, true, r.value.items.length);
   });
@@ -260,7 +269,7 @@ async function main() {
       console.log(`Images ${feed} : ${withImage}/${arts.length} articles illustrés · og:image ${e.found} trouvée(s) (${e.fetched} page(s) lue(s), ${e.fromCache} en cache)`);
     }
     archive.set(feed, items);
-    return items.map((i) => annotate(publicItem(i), topicMatchers));
+    return items.map((i) => annotate(publicItem(i), i._topics === 'tech' ? techMatchers : topicMatchers));
   };
   const actusItems = await build('actus', [...articles, ...bluesky.posts], settings.actusMaxAgeHours, matchers, { articles: true });
   const techItems = await build('tech', [...techArticles, ...bluesky.tech], settings.techMaxAgeHours ?? 168, techMatchers, { articles: true });

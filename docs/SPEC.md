@@ -168,6 +168,12 @@ déjà_vu    = 0.2 ^ (nombre de sessions où le post a été affiché, max 3)
 nouveau    = 1.5 si publié depuis la dernière visite, sinon 1
 ```
 - `score_sujet` est la somme des poids des mots-clés trouvés, plafonnée.
+- **Tirage** : chaque carte est tirée avec la clé `log(U) / score^sharpness` (`sharpness` = 2 dans `config/topics.json`, bloc `ranking`). Plus la valeur est haute, plus le haut du fil suit sujets et fraîcheur ; à 1 le tirage est proportionnel au score.
+- **Carte groupée** : son score est celui de son meilleur article × (1 + `groupBoost` × log2 N), avec `groupBoost` = 0,2 (× 1,2 pour 2 médias, × 1,46 pour 5).
+- **Engagement relatif** (`relativeEngagement`) : pour un post dont l'auteur a une base connue (`stats.base`, médiane de likes + 2 × reposts de ses posts récents, calculée à la collecte), le facteur vaut 1 + min(1, 0,5 × log2((e + 10) / (base + 10))) : ×1 au niveau habituel du compte, ×1,5 pour le double, ×2 à quatre fois. Jamais de malus. Sans base (vidéos par hashtag, comptes suivis depuis l'app), la formule ci-dessus s'applique.
+- **Volume par source** (`volumeDamping` = 0,5) : le score d'un élément est multiplié par clamp((médiane / n_source)^0,5 ; 0,4 ; 1), où n_source est le nombre d'éléments de sa source dans le fil : une source qui publie beaucoup n'occupe pas tout le fil.
+- **Nouveau** : « depuis la dernière visite » se compte depuis la dernière génération des données que le téléphone avait affichées, pas depuis l'heure de la visite (la collecte tourne toutes les 4 à 7 h).
+- **Vidéos tech** : les vidéos d'une chaîne YouTube de catégorie Tech ou d'un compte Bluesky Tech sont classées avec les mots-clés Tech.
 - La demi-vie est configurable : par défaut 10 h pour Actus et 24 h pour Vidéos.
 - `poids_source` vaut 1 par défaut et se règle dans la config.
 - **L'ordre n'est pas chronologique.** Comme sur X, la timeline est tirée au sort en fonction du score à chaque ouverture et à chaque refresh : un post bien noté sort souvent en haut, mais l'ordre change à chaque fois. Les posts déjà vus redescendent (la mémoire des « déjà vus » dure 8 jours, plus que la fenêtre de 7 jours de Tech et Vidéos), et le même compte n'apparaît pas deux fois de suite si on peut l'éviter.

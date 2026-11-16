@@ -1,6 +1,7 @@
 // Application state, persisted preferences, follows and "seen" tracking.
 
-import { emptyPrefs, topicsOf } from '../rank.js';
+import { emptyPrefs, topicsOf, newSince } from '../rank.js';
+import { latestGeneratedAt } from '../freshness.js';
 import { createSeenTracker, pruneOpened } from '../seen.js';
 import { addSaved, removeSaved, isSaved, sanitizeSaved } from '../saved.js';
 import { actions } from './actions.js';
@@ -37,6 +38,7 @@ export const state = {
   hidePaid: store.get('hidePaid', false) === true,
   // Timestamp of the previous visit: newer posts get a boost.
   lastVisit: store.get('lastVisit', 0),
+  lastGenerated: store.get('lastGenerated', 0), // generation date (ms) of the data on screen at the previous visit
   // Text feeds (same rendering): Actus and Tech.
   feeds: {
     // `topic`: id of the topic chip selected (null = Tout)
@@ -137,28 +139,44 @@ export const seenTracker = createSeenTracker({ load: () => store.get('seen2', {}
 export const markSeen = seenTracker.mark;
 
 export function rankOpts(dataset) {
+  const r = state.data?.topics?.ranking || {};
   return {
+    sharpness: r.sharpness,
+    groupBoost: r.groupBoost,
+    volumeDamping: r.volumeDamping,
+    relativeEngagement: r.relativeEngagement,
     now: Date.now(),
     halfLife: dataset?.halfLifeHours ?? 10,
     cap: dataset?.scoreCap ?? 6,
     prefs: state.prefs,
     random: Math.random, // new order on every refresh, like a "pour toi" timeline
     seen: seenTracker.counts(),
-    lastVisit: state.lastVisit,
+    lastVisit: newSince(state.lastVisit, state.lastGenerated),
   };
 }
 
 /** Persist the visit time and pending impressions when the page is hidden / closed. */
 export function initStore() {
+  // « Nouveau » is counted from the data the user had on screen, not from the clock: the
+  // collector may run every 4 to 7 h, so an article published after the last generation was
+  // never visible even if it predates the visit.
+  const saveVisit = () => {
+    store.set('lastVisit', Date.now());
+    const g = Date.parse(latestGeneratedAt(state.data?.actus, state.data?.tech, state.data?.videos));
+    if (Number.isFinite(g)) store.set('lastGenerated', g);
+    return Number.isFinite(g) ? g : 0;
+  };
   // A new session starts when the app comes back after 10 minutes in the background.
   let hiddenAt = 0;
+  let generatedAtHide = 0;
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { hiddenAt = Date.now(); store.set('lastVisit', Date.now()); seenTracker.flush(); }
+    if (document.hidden) { hiddenAt = Date.now(); generatedAtHide = saveVisit(); seenTracker.flush(); }
     else if (hiddenAt && Date.now() - hiddenAt > 10 * 60e3) {
       state.lastVisit = hiddenAt;
+      state.lastGenerated = generatedAtHide;
       seenTracker.newSession();
       actions.afterLongAbsence(); // re-check the data in the background
     }
   });
-  window.addEventListener('pagehide', () => { store.set('lastVisit', Date.now()); seenTracker.flush(); });
+  window.addEventListener('pagehide', () => { saveVisit(); seenTracker.flush(); });
 }

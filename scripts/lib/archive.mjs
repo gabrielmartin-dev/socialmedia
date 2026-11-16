@@ -77,6 +77,6 @@ export class ItemArchive {
 
 /** Removes the collector-only fields (`_origin`, `_sameAs`) before writing public data. */
 export function publicItem(item) {
-  const { _origin, _sameAs, ...rest } = item;
+  const { _origin, _sameAs, _topics, ...rest } = item;
   return rest;
 }

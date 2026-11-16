@@ -2,6 +2,13 @@
   "_comment": "Mots-clés insensibles à la casse et aux accents. Un '*' final = préfixe (ex. 'grev*' couvre grève, grévistes). Un '=' initial = sensible à la casse (ex. '=AI' ne prend pas « j'ai »). Un mot compris dans un mot-clé plus long (« assemblée » dans « Assemblée nationale ») n'est pas compté deux fois. topicMinScore : poids minimal des mots d'un sujet pour afficher son étiquette. Poids : importance du mot dans le score. 'feed' : fil où le sujet s'applique (actus ou tech).",
   "scoreCap": 6,
   "topicMinScore": 1,
+  "ranking": {
+    "_comment": "Réglages du classement « pour toi ». sharpness : poids du score dans le tirage (1 = proportionnel, 2 = le haut du fil suit mieux sujets et fraîcheur). groupBoost : bonus d'une carte « N médias en parlent » (×(1+b×log2 N)). volumeDamping : freine les sources très prolifiques (0 = off). relativeEngagement : compare un post au niveau habituel de son auteur.",
+    "sharpness": 2,
+    "groupBoost": 0.2,
+    "volumeDamping": 0.5,
+    "relativeEngagement": true
+  },
   "halfLifeHours": {
     "actus": 10,
     "videos": 24,
