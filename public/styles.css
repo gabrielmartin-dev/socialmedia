@@ -159,10 +159,11 @@ div.avatar.square { background: var(--bg-elev); }
 .media.grid.n4 { grid-template-rows: 1fr 1fr; }
 
 /* Inline video */
-.inline-video > video { position: absolute; inset: 0; background: #000; }
+/* The video sits above its poster (the poster comes later in the DOM and would cover it). */
+.inline-video > video { position: absolute; inset: 0; z-index: 1; background: #000; }
 .inline-video > img { position: absolute; inset: 0; }
 .inline-video::after {
-  content: "▶"; position: absolute; inset: 0; display: grid; place-items: center;
+  content: "▶"; position: absolute; inset: 0; z-index: 1; display: grid; place-items: center;
   font-size: 30px; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.7); pointer-events: none;
 }
 .inline-video.playing::after { display: none; }
