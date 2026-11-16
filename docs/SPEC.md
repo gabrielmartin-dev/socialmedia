@@ -213,6 +213,7 @@ GitHub Pages
 ```
 
 - **Collecte** : Node.js. Les éléments publiés sont gardés d'un run à l'autre (`.cache/collect/items.json`, via `actions/cache`) : un article sorti de son flux RSS, ou dont la source échoue le temps d'un run, reste affiché jusqu'à la fin de sa fenêtre (72 h Actus, 168 h Tech et Vidéos). Une source retirée de la config disparaît aussitôt. Un élément sans date prend l'heure où la collecte l'a vu pour la première fois (sauf ceux déjà présents avant la première archive, ignorés). Après une recherche de flux infructueuse, le site n'est pas réinterrogé avant 24 h (sauf si le run entier est rejeté).
+- **Sources en panne** : un workflow quotidien (`check-sources.yml`, sans LLM ni dépendance en plus) revérifie les sources en échec du `status.json` déployé, cherche un flux de remplacement et tient à jour une issue `sources-indisponibles` (date de première panne gardée d'un jour à l'autre). Une tâche Claude planifiée, hors de l'app, lit l'issue et corrige ou retire la source par une PR.
 - **Front** : PWA statique, avec un service worker pour le hors ligne et un manifeste pour l'installation.
 - **Hébergement** : GitHub Pages, et collecte par GitHub Actions. Les deux sont gratuits.
 - **Aucune clé d'API payante.** Seule option : un compte Bluesky gratuit avec un mot de passe d'application, si la recherche par hashtags est refusée sans connexion.
