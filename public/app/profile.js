@@ -2,7 +2,7 @@
 
 import { authorPage, getProfile } from '../bsky.js';
 import { safeUrl } from '../url.js';
-import { $, h, svg, ICONS } from './dom.js';
+import { $, h, svg, ICONS, playEnter } from './dom.js';
 import { avatar } from './media.js';
 import { renderEntry, linkify, stopAllInline } from './cards.js';
 import { followButton } from './discover.js';
@@ -66,6 +66,7 @@ export function openProfile(src) {
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === 'view-profile'));
   renderProfile();
   window.scrollTo({ top: 0 });
+  playEnter(document.getElementById('view-profile'));
 }
 
 /** Show the profile again, as it was (back from a thread opened on top of it). */

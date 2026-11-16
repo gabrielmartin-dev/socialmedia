@@ -2,7 +2,7 @@
 // follow-ups, then the replies), fetched from the public AppView when a post is opened.
 
 import { getThread } from '../bsky.js';
-import { $, h, svg, ICONS } from './dom.js';
+import { $, h, svg, ICONS, playEnter } from './dom.js';
 import { renderEntry, stopAllInline } from './cards.js';
 import { deactivateReel } from './reels.js';
 import { switchView } from './tabs.js';
@@ -40,6 +40,7 @@ export function openThread(item) {
   history.pushState({ thread: item.id }, '');
   show();
   window.scrollTo({ top: 0 });
+  playEnter(document.getElementById('view-thread'));
 }
 
 /** Back from a profile opened on top of the thread: show the thread again. */

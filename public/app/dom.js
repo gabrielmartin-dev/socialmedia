@@ -76,3 +76,20 @@ export function toast(msg, { action, ms } = {}) {
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => t.classList.remove('show'), ms ?? (action ? 6000 : 2200));
 }
+
+/**
+ * Play the « opening » animation on a view (CSS class .view-enter), only when
+ * it is opened forward: a back navigation shows the view without it.
+ */
+export function playEnter(el) {
+  if (!el) return;
+  el.classList.remove('view-enter');
+  void el.offsetWidth; // restart the animation when the view is already shown (thread → thread)
+  el.classList.add('view-enter');
+  const done = (e) => {
+    if (e.target !== el) return;
+    el.classList.remove('view-enter');
+    el.removeEventListener('animationend', done);
+  };
+  el.addEventListener('animationend', done);
+}

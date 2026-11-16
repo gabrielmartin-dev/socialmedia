@@ -91,9 +91,12 @@ body.videos-mode .new-pill { top: calc(var(--safe-top) + 14px); }
 @keyframes pill-in { from { opacity: 0; transform: translate(-50%, -12px); } }
 
 /* ---------- Views ---------- */
-main { min-height: 100%; }
+main { min-height: 100%; overflow-x: clip; } /* l’animation d’ouverture ne doit pas élargir la page */
 .view { display: none; }
 .view.active { display: block; }
+/* Ouverture d'un fil ou d'un profil : la vue glisse depuis la droite (pas au retour). */
+.view.view-enter { animation: view-in .26s cubic-bezier(.2, .8, .2, 1); }
+@keyframes view-in { from { opacity: 0; transform: translateX(28px); } }
 .feed-view {
   padding-top: calc(var(--topbar-h) + var(--safe-top));
   padding-bottom: var(--tabbar-total);
@@ -196,7 +199,10 @@ div.avatar.square { background: var(--bg-elev); }
 .stack .avatar { width: 30px; height: 30px; font-size: 12px; }
 .group .tweet-head .name::before { content: "📰 "; }
 .group-list { display: none; margin-top: 10px; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
-.group.open .group-list { display: block; }
+.group.open .group-list { display: block; animation: reveal .22s ease-out; }
+@keyframes reveal { from { opacity: 0; transform: translateY(-6px); } }
+.dim-wrap.expanded .tweet-text.dim { animation: fade-in .25s ease-out; }
+@keyframes fade-in { from { opacity: .4; } }
 .group-item { display: grid; grid-template-columns: 24px 1fr; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--border); }
 .group-item:first-child { border-top: 0; }
 .group-item .avatar { width: 24px; height: 24px; border-radius: 6px; font-size: 11px; }
@@ -527,7 +533,10 @@ button.reel-author { text-align: left; }
 /* Image viewer */
 .zoomable { cursor: zoom-in; }
 body.no-scroll { overflow: hidden; }
-.viewer { position: fixed; inset: 0; z-index: 100; background: #000; touch-action: pan-x pinch-zoom; }
+.viewer { position: fixed; inset: 0; z-index: 100; background: #000; touch-action: pan-x pinch-zoom; animation: viewer-in .2s ease-out; }
+.viewer-slide img { animation: viewer-zoom .26s cubic-bezier(.2, .8, .2, 1); }
+@keyframes viewer-in { from { opacity: 0; } }
+@keyframes viewer-zoom { from { opacity: 0; transform: scale(.92); } }
 .viewer-track {
   display: flex; width: 100%; height: 100%; overflow-x: auto; overflow-y: hidden;
   scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior: contain;
