@@ -11,7 +11,7 @@ import { clampAspect, truncateText, domainOf } from './util.js';
 import { relativeTime, topicsOf } from '../rank.js';
 import { exactTime } from '../freshness.js';
 import { safeUrl } from '../url.js';
-import { paywallLabel, paidDomains, isPaidLink } from '../paywall.js';
+import { paywallLabel, paidDomains, isPaidLink, groupLead } from '../paywall.js';
 
 const TEXT_LIMIT = 280;
 const LINKIFY = /(https?:\/\/[^\s]+)|(#[\p{L}\p{N}_]+)|(@[a-z0-9-]+(?:\.[a-z0-9-]+)+)/giu;
@@ -396,7 +396,7 @@ function postCard(item) {
 
 function groupCard(entry) {
   const items = entry.items;
-  const lead = items.find((i) => i.image) || items[0];
+  const lead = groupLead(items);
   const newest = items.reduce((a, b) => (Date.parse(a.publishedAt) > Date.parse(b.publishedAt) ? a : b));
   return cardShell(entry, h('div', { class: 'stack' }, items.slice(0, 3).map((i) => avatar(i.source.avatar, i.source.name, { square: true }))), [
     tweetHead(entry, { name: `${items.length} médias en parlent`, publishedAt: newest.publishedAt }),

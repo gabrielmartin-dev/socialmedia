@@ -17,13 +17,13 @@ export function annotate(item, matchers) {
  * Group articles from different sources covering the same story.
  * Returns an array of entries: plain items, or { kind: 'group', id, items }.
  */
-export function groupDuplicates(items, { similarity = 0.34, windowHours = 12 } = {}) {
+export function groupDuplicates(items, { similarity = 0.34, windowHours = 12, minLeadSimilarity = 0 } = {}) {
   const n = items.length;
   const parent = Array.from({ length: n }, (_, i) => i);
   const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
   const union = (a, b) => { parent[find(a)] = find(b); };
 
-  const toks = items.map((it) => new Set(tokens(it.title)));
+  const toks = items.map((it) => new Set(tokens(it.title, { stem: true })));
   const times = items.map((it) => Date.parse(it.publishedAt) || 0);
   const windowMs = windowHours * 3600e3;
 
@@ -50,8 +50,21 @@ export function groupDuplicates(items, { similarity = 0.34, windowHours = 12 } =
     buckets.get(r).push(items[i]);
   }
 
+  const index = new Map(items.map((it, i) => [it, i]));
   const entries = [];
-  for (const members of buckets.values()) {
+  for (let members of [...buckets.values()]) {
+    // A chain A~B, B~C can bring together A and C that share nothing: keep the article closest
+    // to all the others as the lead, and let go of those too far from it.
+    if (members.length >= 3 && minLeadSimilarity > 0) {
+      const sim = (a, b) => jaccard(toks[index.get(a)], toks[index.get(b)]);
+      const lead = members.reduce((best, m) => {
+        const avg = members.reduce((s, o) => (o === m ? s : s + sim(m, o)), 0) / (members.length - 1);
+        return !best || avg > best.avg ? { m, avg } : best;
+      }, null).m;
+      const kept = members.filter((m) => m === lead || sim(lead, m) >= minLeadSimilarity);
+      for (const m of members) if (!kept.includes(m)) entries.push(m);
+      members = kept;
+    }
     if (members.length === 1) { entries.push(members[0]); continue; }
     // One article per source inside a group (keep the most recent).
     const bySource = new Map();
@@ -100,12 +113,12 @@ export function markRelays(items) {
   // Fallback when the link cannot be matched (a short link that could not be followed):
   // the card's title against the titles of the same outlet's articles.
   const byTitle = (post) => {
-    const t = new Set(tokens(post.external.title || ''));
+    const t = new Set(tokens(post.external.title || '', { stem: true }));
     if (t.size < 3) return null;
     let best = null; let bestScore = 0.8;
     for (const art of articles) {
       if (!sameOutlet(post, art)) continue;
-      const s = jaccard(t, new Set(tokens(art.title)));
+      const s = jaccard(t, new Set(tokens(art.title, { stem: true })));
       if (s >= bestScore) { best = art; bestScore = s; }
     }
     return best;

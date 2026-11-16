@@ -64,7 +64,8 @@ Barre d'onglets en bas, deux onglets :
 - **Onglet 🔍 Découvrir :**
   - recherche de comptes, dans les sources et dans tout Bluesky via l'API publique ;
   - recherche de contenus : titres, textes, auteurs et catégories des posts et articles déjà chargés (fils, comptes suivis depuis l'app, enregistrés), côté client, insensible à la casse et aux accents, tous les mots devant correspondre (30 résultats au plus) ;
-  - suggestions par catégorie, venant des sources `suggested` de la config, que la collecte récupère sans les afficher tant qu'elles ne sont pas suivies ;
+  - suggestions par catégorie, venant des sources `suggested` de la config, que la collecte récupère sans les afficher tant qu'elles ne sont pas suivies. Dans chaque catégorie, les comptes actifs et pertinents passent d'abord (tri par affinité avec tes sujets × log2(1 + nombre de posts), « Moins de [sujet] » compris), les comptes sans post récent à la fin. Sous le nom : « 12 posts récents · surtout Social » ou « Aucun post récent » ;
+  - **Repostés par tes abonnements** : en tête des suggestions, les comptes Bluesky que au moins 2 des comptes suivis par défaut ont reposté ou cité (12 au plus, hors comptes déjà dans la config) : « Reposté par Mathilde Panot, Manuel Bompard +2 ». La collecte les écrit à part dans `accounts.json` (`discovered`) ; « Suivre » passe par le même chemin que les comptes trouvés par la recherche ;
   - trois sections : **Abonnements** (par défaut, avec un bouton pour ne plus suivre), **Suggestions** et **Enregistrés** ;
   - **Enregistrés** : marque-pages locaux, pour lire plus tard (≠ un like : rien n'est envoyé nulle part). L'item complet est conservé, donc lisible même après sa sortie de la fenêtre de 72 h. 300 au plus, les plus récents d'abord. Accessible aussi par l'icône marque-page de la barre du haut.
 - **Poids local :** un abonnement dont le poids a été modifié par « Moins de ça » (ou « Plus de ça ») l'indique (« Réduit par « Moins de ça » »), avec un bouton **Rétablir** (annulable).
@@ -109,7 +110,7 @@ Champs facultatifs d'une source dans `config/sources.json` : `paywall` et `lang`
 
 Pour chaque article, la collecte conserve l'auteur (`<dc:creator>`, `<author>`, nettoyé : un simple e-mail est écarté) et les catégories du flux (`<category>`, 4 au plus) lorsqu'ils existent.
 
-**Image et résumé.** L'image vient du flux (la plus large des `media:content`, sinon `enclosure`, sinon la première vraie image du HTML : pixels de suivi, gravatars, emojis et images de moins de 80 px écartés, `data-src` / `srcset` lus). Sans image dans le flux, la collecte lit le début de la page de l'article (`og:image` / `twitter:image`, et `og:description` si le flux n'a pas de résumé) : 40 pages au plus par run (`settings.ogImageFetchesPerRun`), réponse gardée 8 jours par URL (1 jour si rien n'est trouvé). Le résumé est nettoyé des formules de fin (« The post … appeared first on … », « L'article … est apparu en premier sur … », « Lire la suite », « Continue reading », « […] »), du titre répété en tête, et vidé pour Hacker News (« Article URL: … Points: … »).
+**Image et résumé.** L'image vient du flux (la plus large des `media:content`, sinon `enclosure`, sinon la première vraie image du HTML : pixels de suivi, gravatars, emojis et images de moins de 80 px écartés, `data-src` / `srcset` lus). Sans image dans le flux, la collecte lit le début de la page de l'article (`og:image` / `twitter:image`, et `og:description` si le flux n'a pas de résumé) : 40 pages au plus par run (`settings.ogImageFetchesPerRun`), réponse gardée 8 jours par URL (1 jour si rien n'est trouvé). Une image portée par 3 articles ou plus d'une même source (le logo que beaucoup de sites servent faute d'illustration) est retirée de ces articles. Une vignette de flux de moins de 300 px de large est traitée comme une absence d'image : `og:image` est tenté (dans le budget) et la remplace si elle existe. Le résumé est nettoyé des formules de fin (« The post … appeared first on … », « L'article … est apparu en premier sur … », « Lire la suite », « Continue reading », « […] »), du titre répété en tête, et vidé pour Hacker News (« Article URL: … Points: … »).
 
 **Qualité par source.** `status.json` donne pour chaque flux RSS la part d'articles illustrés par le flux lui-même, la longueur moyenne du résumé et le nombre d'entrées sans date (`quality`) ; le journal de collecte aussi.
 
@@ -187,7 +188,11 @@ nouveau    = 1.5 si publié depuis la dernière visite, sinon 1
 ### 4.3 Regroupement des doublons (Actus)
 Deux articles de médias différents sont regroupés quand :
 - leurs titres sont suffisamment similaires (similarité de Jaccard sur les mots significatifs, au-dessus d'un seuil configurable),
-- et ils ont été publiés à moins de 12 h d'écart.
+- et ils ont été publiés à moins de 24 h d'écart (`dedup.windowHours`).
+
+Les titres sont comparés avec les pluriels et familles de mots rapprochés (« grève » = « grèves », « manifestants » = « manifestation »), en gardant les nombres de deux chiffres et plus (« 49 », « 20 ans »). Quand un groupe de 3 articles ou plus s'est formé de proche en proche (A proche de B, B proche de C), l'article le plus proche de tous les autres sert de tête et ceux dont la similarité avec lui est sous `dedup.minLeadSimilarity` (0,2) sortent du groupe.
+
+La carte groupée met en tête un article gratuit avant un « parfois payant » avant un payant ; à égalité, celui qui a une image, puis le résumé le plus long. C'est aussi l'article enregistré.
 
 Le groupe prend le meilleur score de ses membres.
 

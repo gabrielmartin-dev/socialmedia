@@ -66,7 +66,7 @@ export async function resolveAccount(client, account) {
  * would keep almost nothing from one page: up to `maxPages` pages are read to reach `limit`,
  * stopping at the first page that reaches back before `sinceMs`.
  */
-export async function authorPosts(client, account, limit = 30, { maxPages = 3, sinceMs = 0 } = {}) {
+export async function authorPosts(client, account, limit = 30, { maxPages = 3, sinceMs = 0, onRepost } = {}) {
   const out = [];
   let cursor;
   for (let page = 0; page < maxPages && out.length < limit; page++) {
@@ -77,8 +77,12 @@ export async function authorPosts(client, account, limit = 30, { maxPages = 3, s
       cursor,
     });
     for (const f of feed) {
-      if (f.reason) continue; // drop reposts
+      if (f.reason) { // drop reposts, but tell who was reposted (discovery of accounts)
+        if (f.post?.author) onRepost?.(f.post.author);
+        continue;
+      }
       const item = postToItem(f.post);
+      if (item.quote?.handle) onRepost?.({ handle: item.quote.handle, displayName: item.quote.name, avatar: item.quote.avatar });
       item.source.verified = account.verified || undefined;
       out.push(item);
     }

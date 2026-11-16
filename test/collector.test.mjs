@@ -149,7 +149,7 @@ function groupDuplicatesReference(items, { similarity = 0.34, windowHours = 12 }
   const parent = Array.from({ length: n }, (_, i) => i);
   const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
   const union = (a, b) => { parent[find(a)] = find(b); };
-  const toks = items.map((it) => new Set(tokens(it.title)));
+  const toks = items.map((it) => new Set(tokens(it.title, { stem: true })));
   const times = items.map((it) => Date.parse(it.publishedAt) || 0);
   const windowMs = windowHours * 3600e3;
   for (let i = 0; i < n; i++) {

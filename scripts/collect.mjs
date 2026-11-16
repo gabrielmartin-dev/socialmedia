@@ -11,7 +11,8 @@ import * as bsky from './lib/bluesky.mjs';
 import * as yt from './lib/youtube.mjs';
 import { compileTopics, annotate, groupDuplicates, markRelays } from './lib/score.mjs';
 import { ItemArchive, publicItem } from './lib/archive.mjs';
-import { enrichArticles, resolveShortLinks } from './lib/enrich.mjs';
+import { enrichArticles, resolveShortLinks, dropRepeatedImages } from './lib/enrich.mjs';
+import { discoveredAccounts } from './lib/discover.mjs';
 import { quality } from './lib/quality.mjs';
 import { truncate } from './lib/text.mjs';
 import { freshAndUnique } from './lib/dedupe.mjs';
@@ -69,6 +70,7 @@ async function collectMedia(media, type = 'rss') {
 }
 
 async function collectBluesky(cfg, settings) {
+  const reposted = []; // { by, author }: who the followed accounts repost or quote
   const posts = [];
   const videos = [];
   const tech = [];
@@ -85,7 +87,8 @@ async function collectBluesky(cfg, settings) {
     // to a fresh resolution.
     const { resolved, result: items } = await cachedResolve(cache, `bsky:${acc.handle || acc.name}`,
       () => bsky.resolveAccount(client, acc),
-      { ttlMs: 12 * HOUR, use: (r) => bsky.authorPosts(client, r, settings.bskyPostsPerAccount, { sinceMs: Date.now() - (acc.feed === 'tech' ? settings.techMaxAgeHours ?? 168 : settings.actusMaxAgeHours) * HOUR }) });
+      { ttlMs: 12 * HOUR, use: (r) => bsky.authorPosts(client, r, settings.bskyPostsPerAccount, { sinceMs: Date.now() - (acc.feed === 'tech' ? settings.techMaxAgeHours ?? 168 : settings.actusMaxAgeHours) * HOUR,
+        onRepost: (author) => { if (!acc.suggested && !acc.generalist) reposted.push({ by: acc.name, author }); } }) });
     return { resolved, items };
   }), 4);
   accounts.forEach((r, i) => {
@@ -126,7 +129,7 @@ async function collectBluesky(cfg, settings) {
     videos.push(...r.value);
     report('bsky-tag', tag, true, r.value.length);
   });
-  return { posts, videos, tech };
+  return { posts, videos, tech, reposted, configured: new Set(cfg.accounts.map((a) => String(a.handle || '').toLowerCase()).filter(Boolean)) };
 }
 
 async function collectYouTube(channels) {
@@ -265,6 +268,8 @@ async function main() {
       }
       const e = await enrichArticles(items, { cache, maxFetches: pageBudget });
       pageBudget = Math.max(0, pageBudget - e.fetched);
+      const logos = dropRepeatedImages(items);
+      if (logos) console.log(`Images ${feed} : ${logos} article(s) privés d'une image répétée (logo probable)`);
       const arts = items.filter((i) => i.kind === 'article');
       const withImage = arts.filter((i) => i.image).length;
       console.log(`Images ${feed} : ${withImage}/${arts.length} articles illustrés · og:image ${e.found} trouvée(s) (${e.fetched} page(s) lue(s), ${e.fromCache} en cache)`);
@@ -322,11 +327,16 @@ async function main() {
     const prev = lastPost.get(it.source.id);
     if (!prev || Date.parse(it.publishedAt) > Date.parse(prev.publishedAt)) lastPost.set(it.source.id, it);
   }
+  // Accounts reposted or quoted by at least 2 followed accounts (kept apart from `accounts`: they are
+  // not collected, only offered in Découvrir).
+  const configured = new Set([...bluesky.configured, ...[...directory.values()].map((a) => String(a.handle || '').replace(/^@/, '').toLowerCase())]);
+  const discovered = discoveredAccounts(bluesky.reposted, { exclude: configured });
+  console.log(`Découverte : ${bluesky.reposted.length} repost(s) ou citation(s) relevé(s), ${discovered.length} compte(s) relayé(s) par au moins 2 abonnements`);
   const accounts = [...directory.values()].map((a) => {
     const last = lastPost.get(a.id);
     return { ...a, lastTitle: last ? truncate(last.title || last.text || '', 140) : '', lastAt: last?.publishedAt || null };
   });
-  await fs.writeFile(path.join(OUT, 'accounts.json'), JSON.stringify({ generatedAt: meta.generatedAt, accounts }));
+  await fs.writeFile(path.join(OUT, 'accounts.json'), JSON.stringify({ generatedAt: meta.generatedAt, accounts, discovered }));
   await fs.writeFile(path.join(OUT, 'topics.json'), JSON.stringify(topicsForClient(topicsCfg, settings)));
   await fs.writeFile(path.join(OUT, 'status.json'), JSON.stringify({ generatedAt: meta.generatedAt, sources: status }, null, 2));
 
