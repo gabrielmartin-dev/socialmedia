@@ -4,6 +4,7 @@ import { h, svg, ICONS, openUrl } from './dom.js';
 import { postUri } from '../bsky.js';
 import { avatar, image } from './media.js';
 import { loadHls } from './hls.js';
+import { formatTime } from './reelcontrols.js';
 import { state, isOpened, markOpened } from './store.js';
 import { actions } from './actions.js';
 import { clampAspect, truncateText, domainOf } from './util.js';
@@ -111,13 +112,16 @@ function photoGrid(images, url) {
   return h('div', { class: `media grid n${imgs.length}` }, imgs.map((i, n) => image(i.thumb, i.alt, zoom(n))));
 }
 
-// ---- Inline video (Bluesky posts in Actus): muted autoplay while visible ----
+// ---- Inline video (Bluesky posts in Actus, Tech, threads) ----
+// Muted autoplay while visible, with the time left in a corner. A tap brings the phone's own
+// player controls (duration, progress bar to move in the video, full screen, sound).
 let inlineObs = null;
+const inFullscreen = (box) => !!(document.fullscreenElement || box._video?.webkitDisplayingFullscreen);
 const inlineObserver = () => (inlineObs ||= new IntersectionObserver((entries) => {
   for (const e of entries) {
     const box = e.target;
     if (e.isIntersecting && e.intersectionRatio >= 0.6 && state.view !== 'videos') startInline(box);
-    else stopInline(box);
+    else if (!inFullscreen(box)) stopInline(box); // the full screen player takes the video out of the page
   }
 }, { threshold: [0, 0.6] }));
 
@@ -125,8 +129,17 @@ async function startInline(box) {
   if (box._video) return;
   const video = h('video', { playsinline: true, 'webkit-playsinline': true, loop: true, preload: 'auto' });
   video.muted = box._muted !== false;
+  if (box._controls) video.controls = true;
   box._video = video;
   box.prepend(video);
+  // Time left, like on X ("0:42"), until the controls take over.
+  const time = box.querySelector('.vid-time');
+  const showTime = () => {
+    const left = video.duration - video.currentTime;
+    time.textContent = Number.isFinite(left) && left >= 0 ? formatTime(left) : '';
+  };
+  video.addEventListener('durationchange', showTime);
+  video.addEventListener('timeupdate', showTime);
   if (video.canPlayType('application/vnd.apple.mpegurl')) video.src = box._src;
   else {
     try {
@@ -144,12 +157,20 @@ function playInline(box) {
   box._video?.play().then(() => box.classList.add('playing')).catch(() => box.classList.remove('playing'));
 }
 
-/** Tap on the video: play / pause it (and never open the post behind it). */
+/**
+ * Tap on the video (never opens the post behind it): the phone's player controls appear and
+ * the sound comes on; from then on, the controls handle the taps.
+ */
 function tapInline(e, box) {
   e.stopPropagation();
+  if (box._controls && box._video) return;
+  box._controls = true;
+  box.classList.add('controls');
+  box._muted = false;
   if (!box._video) { startInline(box); return; } // the tap counts as the gesture that allows playback
-  if (box._video.paused) playInline(box);
-  else { box._video.pause(); box.classList.remove('playing'); }
+  box._video.controls = true;
+  box._video.muted = false;
+  playInline(box);
 }
 
 function stopInline(box) {
@@ -159,7 +180,11 @@ function stopInline(box) {
   box._video.pause();
   box._video.remove();
   box._video = null;
-  box.classList.remove('playing');
+  box._controls = false;
+  box._muted = true;
+  box.classList.remove('playing', 'controls');
+  const time = box.querySelector('.vid-time');
+  if (time) time.textContent = '';
 }
 
 export function stopAllInline() {
@@ -170,12 +195,13 @@ function inlineVideo(v) {
   const muteBtn = h('button', { class: 'vid-mute', 'aria-label': 'Son' }, svg(ICONS.muted, 18));
   const box = h('div', { class: 'media inline-video', style: `aspect-ratio:${clampAspect(v.aspect, 16 / 9)}` },
     v.poster ? image(v.poster) : null,
+    h('span', { class: 'vid-time', 'aria-hidden': 'true' }),
     muteBtn,
   );
   box._src = safeUrl(v.src, location.href);
   if (!box._src) return box;
   box.setAttribute('role', 'button');
-  box.setAttribute('aria-label', 'Lire / mettre en pause la vidéo');
+  box.setAttribute('aria-label', 'Lire la vidéo avec les commandes');
   box.tabIndex = 0;
   box.addEventListener('click', (e) => { if (!e.target.closest('.vid-mute')) tapInline(e, box); });
   box.addEventListener('keydown', (e) => {
