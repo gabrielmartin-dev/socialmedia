@@ -10,6 +10,31 @@
     "similarity": 0.34,
     "windowHours": 12
   },
+  "scope": {
+    "_comment": "Filtre hors sujet, appliqué seulement aux sources marquées \"generalist\" dans sources.json (franceinfo, Le Monde, AFP…). Un élément est écarté s'il a un signal hors sujet (rubrique de l'URL, catégorie du flux, mot-clé) et un score Politique + Social sous keepScore, ou si son score est sous minScore. Score = somme des poids des mots-clés trouvés (non plafonnée).",
+    "minScore": 2,
+    "keepScore": 4,
+    "offTopic": {
+      "sections": [
+        "sante", "sport", "sports", "football", "rugby", "tennis", "cyclisme", "jeux-olympiques",
+        "faits-divers", "fait-divers", "justice-faits-divers",
+        "culture", "cinema", "musique", "livres", "series-tv", "television", "tv", "people", "celebrites",
+        "meteo", "loisirs", "jeux", "horoscope", "gastronomie", "cuisine", "voyage", "voyages", "tourisme",
+        "automobile", "auto", "mode", "beaute", "bien-etre", "m-styles", "m-perso", "m-le-mag", "m-gastronomie",
+        "vie-quotidienne", "animaux", "sciences", "decouverte"
+      ],
+      "keywords": [
+        "beaute", "esthetique", "cosmetique*", "maquillage", "regime", "minceur", "recette*", "horoscope",
+        "football", "ligue 1", "ligue des champions", "ligue europa", "psg", "rugby", "xv de france", "tennis", "roland-garros",
+        "cyclisme", "tour de france", "formule 1", "grand prix", "nba", "handball", "basket", "ballon d'or", "mercato",
+        "coupe du monde", "championnat", "match", "buteur", "selectionneur",
+        "fait divers", "faits divers", "meurtre", "noyade", "accident de la route", "carambolage",
+        "meteo", "orages", "bulletin meteo", "vigilance orange", "vigilance rouge",
+        "box-office", "festival de cannes", "concert", "netflix", "telerealite", "star academy",
+        "jeu video", "jeux video", "loto", "euromillions"
+      ]
+    }
+  },
   "topics": {
     "politique": {
       "label": "Politique",

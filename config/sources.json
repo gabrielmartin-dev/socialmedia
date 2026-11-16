@@ -154,6 +154,7 @@
     },
     {
       "id": "liberation",
+      "generalist": true,
       "name": "Libération",
       "paywall": "partial",
       "site": "https://www.liberation.fr",
@@ -209,12 +210,14 @@
     },
     {
       "id": "afpfactuel",
+      "generalist": true,
       "name": "AFP Factuel",
       "site": "https://factuel.afp.com",
       "_comment": "Fact-checking de l’AFP."
     },
     {
       "id": "decodeurs",
+      "generalist": true,
       "name": "Les Décodeurs (Le Monde)",
       "paywall": "partial",
       "site": "https://www.lemonde.fr/les-decodeurs/",
@@ -223,6 +226,7 @@
     },
     {
       "id": "lemonde",
+      "generalist": true,
       "name": "Le Monde",
       "paywall": "partial",
       "site": "https://www.lemonde.fr",
@@ -230,6 +234,7 @@
     },
     {
       "id": "franceinfo",
+      "generalist": true,
       "name": "franceinfo",
       "site": "https://www.francetvinfo.fr",
       "feed": "https://www.francetvinfo.fr/titres.rss"
@@ -291,6 +296,7 @@
     },
     {
       "id": "courrierintl",
+      "generalist": true,
       "name": "Courrier international",
       "paywall": true,
       "site": "https://www.courrierinternational.com"
@@ -648,7 +654,8 @@
       },
       {
         "name": "Brèves de presse",
-        "handle": "brevesdepresse.bsky.social"
+        "handle": "brevesdepresse.bsky.social",
+        "generalist": true
       },
       {
         "name": "Aurélien Le Coq"
@@ -755,7 +762,8 @@
       },
       {
         "name": "AFP",
-        "handle": "afp.com"
+        "handle": "afp.com",
+        "generalist": true
       },
       {
         "name": "Aurélie Trouvé",

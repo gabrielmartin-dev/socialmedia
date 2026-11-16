@@ -1,0 +1,19 @@
+# TEMPORAIRE : mesure du filtre hors sujet sur les flux réels (retiré avant fusion).
+name: Rapport hors sujet
+on:
+  push:
+    branches: ['claude/project-thread-hoiilr']
+permissions:
+  contents: read
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/scope-report.mjs --all
