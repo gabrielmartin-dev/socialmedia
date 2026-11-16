@@ -10,6 +10,7 @@ import { clampAspect, truncateText, domainOf } from './util.js';
 import { relativeTime, topicsOf } from '../rank.js';
 import { exactTime } from '../freshness.js';
 import { safeUrl } from '../url.js';
+import { paywallLabel, paidDomains, isPaidLink } from '../paywall.js';
 
 const TEXT_LIMIT = 280;
 const LINKIFY = /(https?:\/\/[^\s]+)|(#[\p{L}\p{N}_]+)|(@[a-z0-9-]+(?:\.[a-z0-9-]+)+)/giu;
@@ -170,18 +171,35 @@ function inlineVideo(v) {
   return box;
 }
 
+// Sites whose articles are mostly paid (from the sources flagged in config/sources.json),
+// so that a Bluesky post sharing a Mediapart link says « Payant » on its link card too.
+let paidCache = { key: null, set: new Set() };
+function paidSites() {
+  const key = [state.data.actus, state.data.tech];
+  if (paidCache.key?.[0] !== key[0] || paidCache.key?.[1] !== key[1]) {
+    paidCache = { key, set: paidDomains([...(key[0]?.entries || []), ...(key[1]?.entries || [])]) };
+  }
+  return paidCache.set;
+}
+
+const lockBadge = (label = 'Payant') => h('span', {
+  class: 'pay-badge' + (label === 'Payant' ? '' : ' maybe'),
+  title: label === 'Payant' ? 'Article réservé aux abonnés' : 'Une partie des articles de ce site est réservée aux abonnés',
+}, svg(ICONS.lock, 13), label);
+
 /** Link card like X: image with the domain in a pill, or a compact card without image. */
-function linkCard(url, { title, description, thumb }) {
+function linkCard(url, { title, description, thumb }, { article = false } = {}) {
   const dom = domainOf(url);
+  const paid = !article && isPaidLink(url, paidSites()) ? lockBadge() : null;
   if (thumb) {
     return h('a', { class: 'link-card', href: url, target: '_blank', rel: 'noopener' },
       h('div', { class: 'media', style: 'aspect-ratio:1.91' }, image(thumb, title || '', { url })),
       h('span', { class: 'link-pill', text: title ? truncateText(title, 70) : dom }),
-      title ? h('div', { class: 'link-from', text: `De ${dom}` }) : null,
+      title || paid ? h('div', { class: 'link-from' }, title ? `De ${dom}` : dom, paid) : null,
     );
   }
   return h('a', { class: 'link-card compact', href: url, target: '_blank', rel: 'noopener' },
-    h('div', { class: 'link-from', text: dom }),
+    h('div', { class: 'link-from' }, dom, paid),
     title ? h('div', { class: 'link-title', text: title }) : null,
     description ? h('div', { class: 'link-desc', text: description }) : null,
   );
@@ -202,15 +220,15 @@ function quoteCard(q) {
 }
 
 /**
- * Small labels under a card: the topics found in it (Politique, IA…), « Abonnés » and « EN »
- * for sources flagged so in config/sources.json, « Short », the author and the feed's categories.
+ * Small labels under a card: the topics found in it (Politique, IA…), « EN » for a source flagged
+ * so in config/sources.json, « Short », the author and the feed's categories. (« Payant » is on
+ * the article's own footer line, next to « Lire sur … ».)
  */
 function badgeRow(entry) {
   const topics = topicsOf(entry).map((t) => state.data.topics?.topics?.[t]?.label).filter(Boolean);
   const src = entry.kind === 'group' ? null : entry.source;
   const tags = [
     ...topics.map((t) => h('span', { class: 'tag topic', text: t })),
-    src?.paywall ? h('span', { class: 'tag paywall', text: 'Abonnés' }) : null,
     src?.lang && src.lang !== 'fr' ? h('span', { class: 'tag lang', text: src.lang.toUpperCase(), title: 'Source en langue étrangère' }) : null,
     entry.platform === 'youtube' && (entry.video?.aspect ?? 1) < 1 ? h('span', { class: 'tag', text: 'Short' }) : null,
     ...(entry.categories || []).slice(0, 2).map((c) => h('span', { class: 'tag cat', text: c })),
@@ -251,7 +269,7 @@ function cardShell(entry, avatarNode, mainChildren, url) {
       if (link) {
         // The permalink, the image card and the articles of a group count as "opened"
         // (a hashtag or a @mention inside the text does not).
-        if (link.matches('.time-link, .link-card, .group-item')) {
+        if (link.matches('.time-link, .link-card, .group-item, .open-link')) {
           const id = link.dataset.openId || (entry.kind === 'article' ? entry.id : null);
           if (id) openedArticle(e.currentTarget, id);
         }
@@ -279,12 +297,28 @@ function articleCard(item) {
     tweetHead(item, { name: item.source.name, handle: dom, publishedAt: item.publishedAt, url: item.url }),
     h('div', { class: 'tweet-text title' }, item.title),
     item.text ? dimText(item.text) : null,
-    item.image ? linkCard(item.url, { thumb: item.image, title: '' }) : null,
+    item.image ? linkCard(item.url, { thumb: item.image, title: '' }, { article: true }) : null,
+    articleFoot(item, dom),
     badgeRow(item),
   ], item.url);
 }
 
-/** "💬 N" under a Bluesky post: opens its thread (the whole card does too, this is the keyboard path). */
+/**
+ * « ↗ Lire sur mediapart.fr · 🔒 Payant »: says that the card is a web article (it opens the
+ * site, there is no thread to read here), and whether the site will ask for a subscription.
+ */
+function articleFoot(item, dom) {
+  const label = paywallLabel(item);
+  return h('div', { class: 'card-foot' },
+    h('a', { class: 'open-link', href: item.url, target: '_blank', rel: 'noopener' },
+      svg(ICONS.open, 15), h('span', { text: `Lire sur ${dom || 'le site'}` })),
+    label ? lockBadge(label) : null);
+}
+
+/**
+ * « 💬 12 réponses · Voir le fil » under a Bluesky post: the visible difference with an article
+ * (which opens a website). Opens the thread; the whole card does too, this is the keyboard path.
+ */
 function threadButton(item) {
   if (item.platform !== 'bluesky' || !postUri(item.url)) return null;
   const n = item.stats?.replies || 0;
@@ -292,7 +326,7 @@ function threadButton(item) {
     h('button', {
       class: 'thread-btn', type: 'button', 'aria-label': n ? `Voir le fil, ${n} réponse${n > 1 ? 's' : ''}` : 'Voir le fil',
       onclick: (e) => { e.stopPropagation(); actions.openThread(item); },
-    }, svg(ICONS.reply, 18), n ? h('span', { text: String(n) }) : null));
+    }, svg(ICONS.reply, 18), h('span', { text: n ? `${n} réponse${n > 1 ? 's' : ''} · Voir le fil` : 'Voir le fil' })));
 }
 
 function postCard(item) {
@@ -329,7 +363,7 @@ function groupCard(entry) {
       h('a', { class: 'group-item' + (isOpened(i.id) ? ' opened' : ''), href: i.url, target: '_blank', rel: 'noopener', dataset: { openId: i.id } },
         avatar(i.source.avatar, i.source.name, { square: true }),
         h('div', {},
-          h('div', { class: 'gi-src', text: `${i.source.name} · ${relativeTime(i.publishedAt)}` }),
+          h('div', { class: 'gi-src' }, `${i.source.name} · ${relativeTime(i.publishedAt)}`, paywallLabel(i) ? lockBadge(paywallLabel(i)) : null),
           h('div', { text: i.title }),
         ),
       ))),

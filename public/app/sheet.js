@@ -3,10 +3,11 @@
 
 import { lessSource, lessKeywords, applyMore, topicsOf, keywordsOf } from '../rank.js';
 import { leadItem } from '../saved.js';
+import { hasPaid, isPaid } from '../paywall.js';
 import { exactTime } from '../freshness.js';
 import { safeUrl } from '../url.js';
 import { $, toast } from './dom.js';
-import { state, isFollowed, FEED_KEYS, savePrefs, accountFromSource, isSavedItem, setSaved, markOpened } from './store.js';
+import { state, isFollowed, isFeed, FEED_KEYS, savePrefs, accountFromSource, isSavedItem, setSaved, markOpened, setHidePaid } from './store.js';
 import { trapFocus } from './focus.js';
 import { setFollow } from './follow.js';
 import { takeOff, entriesOfSource } from './remove.js';
@@ -51,6 +52,9 @@ export function openSheet(entry) {
   lessTopic.hidden = !kws.length;
   $('#sheet-less-topic-title').textContent = `Moins de ${topics.length ? topics.join(' et ') : 'ce sujet'}`;
   $('#sheet-less-topic-sub').textContent = kws.length ? `Mots-clés : ${kws.slice(0, 5).map((k) => k.k).join(', ')}` : '';
+
+  // On a paid article (Actus, Tech): set every paid article aside in one go.
+  $('#sheet-hide-paid').hidden = !(hasPaid(entry) && isFeed(state.view) && !state.hidePaid);
 
   const followBtn = $('#sheet-follow');
   followBtn.hidden = isGroup;
@@ -129,6 +133,18 @@ export function initSheet() {
     const restore = takeOff([entry]);
     toast('Post masqué', {
       action: { label: 'Annuler', run: () => { state.hidden.delete(entry.id); savePrefs(); restore(); toast('Post rétabli'); } },
+    });
+  }));
+
+  // Takes the paid articles off the feed on screen right away (« Annuler » puts them back);
+  // the other feed follows when it is shown.
+  $('#sheet-hide-paid').addEventListener('click', onEntry(() => {
+    setHidePaid(true);
+    const view = state.view;
+    const paid = isFeed(view) ? state.feeds[view].ranked.filter((e) => (e.kind === 'group' ? e.items.every(isPaid) : isPaid(e))) : [];
+    const restore = takeOff(paid);
+    toast('Articles payants masqués', {
+      action: { label: 'Annuler', run: () => { setHidePaid(false); restore(); toast('Annulé'); } },
     });
   }));
 

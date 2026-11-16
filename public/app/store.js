@@ -33,6 +33,8 @@ export const state = {
   live: { actus: [], tech: [], videos: [] },
   prefs: Object.assign(emptyPrefs(), store.get('prefs', {})),
   hidden: new Set(store.get('hidden', [])),
+  // « Masquer les articles payants »: paid articles are left out of Actus and Tech.
+  hidePaid: store.get('hidePaid', false) === true,
   // Timestamp of the previous visit: newer posts get a boost.
   lastVisit: store.get('lastVisit', 0),
   // Text feeds (same rendering): Actus and Tech.
@@ -67,6 +69,11 @@ export function markOpened(id) {
 export function saveFollows() {
   const f = state.follows;
   store.set('follows', { followed: [...f.followed], unfollowed: [...f.unfollowed], live: f.live });
+}
+
+export function setHidePaid(on) {
+  state.hidePaid = !!on;
+  store.set('hidePaid', state.hidePaid);
 }
 
 export function savePrefs() {
