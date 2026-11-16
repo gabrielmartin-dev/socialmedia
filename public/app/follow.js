@@ -23,7 +23,9 @@ export async function setFollow(account, follow, { onUndo, silent = false } = {}
   } else {
     f.followed.delete(account.id);
     delete f.live[account.id];
-    if (!account.suggested) f.unfollowed.add(account.id);
+    // Always remembered, even for a suggestion: if the config later moves this account from
+    // « suggested » to followed by default, the explicit « Ne plus suivre » still holds.
+    f.unfollowed.add(account.id);
   }
   saveFollows();
   if (!silent) {

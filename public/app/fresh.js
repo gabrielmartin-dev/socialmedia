@@ -2,7 +2,8 @@
 // "Nouveaux posts ↑" pill shown when the app comes back and the collector has published more.
 
 import { $, h } from './dom.js';
-import { state } from './store.js';
+import { state, itemVisible, inTopicFilter } from './store.js';
+import { isPaid } from '../paywall.js';
 import { fetchData } from './live.js';
 import { openInfoSheet } from './infosheet.js';
 import { ageLabel, failedSources, failedLabel, latestGeneratedAt, newEntryCount } from '../freshness.js';
@@ -41,12 +42,19 @@ function showFailedSources() {
 // ---------- "Nouveaux posts" ----------
 const pill = () => $('#new-pill');
 
+/** Would this item be shown in `feed` with the current follows and settings? (same filters as the feeds) */
+export function shownIn(feed, item) {
+  if (!itemVisible(item) || state.hidden.has(item.id)) return false;
+  if (feed === 'videos') return !!item.video;
+  return !(state.hidePaid && isPaid(item)) && inTopicFilter(feed, item);
+}
+
 /** Shows the pill when the feed of the current tab has pending news. */
 export function updatePill() {
   const el = pill();
   if (!el) return;
   const feed = FEEDS.includes(state.view) ? state.view : null;
-  el.hidden = !(feed && pending && newEntryCount(state.data[feed], pending[feed]) > 0);
+  el.hidden = !(feed && pending && newEntryCount(state.data[feed], pending[feed], (i) => shownIn(feed, i)) > 0);
 }
 
 export function clearPending() {

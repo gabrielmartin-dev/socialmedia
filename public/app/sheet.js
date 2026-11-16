@@ -10,7 +10,7 @@ import { $, toast } from './dom.js';
 import { state, isFollowed, isFeed, FEED_KEYS, savePrefs, accountFromSource, isSavedItem, setSaved, markOpened, setHidePaid } from './store.js';
 import { trapFocus } from './focus.js';
 import { setFollow } from './follow.js';
-import { takeOff, entriesOfSource } from './remove.js';
+import { takeOff, entriesOfSource, itemsMatching } from './remove.js';
 import { actions } from './actions.js';
 
 let sheetEntry = null;
@@ -59,7 +59,7 @@ export function openSheet(entry) {
   const followBtn = $('#sheet-follow');
   followBtn.hidden = isGroup;
   if (!isGroup) {
-    const following = isFollowed(entry.source);
+    const following = isFollowed(entry.source, { strict: true });
     followBtn.querySelector('strong').textContent = following ? `Ne plus suivre ${name}` : `Suivre ${name}`;
   }
   const link = $('#sheet-open');
@@ -141,8 +141,8 @@ export function initSheet() {
   $('#sheet-hide-paid').addEventListener('click', onEntry(() => {
     setHidePaid(true);
     const view = state.view;
-    const paid = isFeed(view) ? state.feeds[view].ranked.filter((e) => (e.kind === 'group' ? e.items.every(isPaid) : isPaid(e))) : [];
-    const restore = takeOff(paid);
+    // A group keeps its free articles, as in the feed rebuilt later (withoutPaid).
+    const restore = takeOff(isFeed(view) ? itemsMatching(isPaid) : []);
     toast('Articles payants masqués', {
       action: { label: 'Annuler', run: () => { setHidePaid(false); restore(); toast('Annulé'); } },
     });
@@ -150,7 +150,8 @@ export function initSheet() {
 
   $('#sheet-follow').addEventListener('click', onEntry((entry) => {
     if (!entry.source) return;
-    const following = isFollowed(entry.source);
+    // Same answer as the « Suivre / Abonné » button of the profile page and of Découvrir.
+    const following = isFollowed(entry.source, { strict: true });
     const account = accountFromSource(entry.source);
     // Unfollowing takes that account's cards off the screen, and « Annuler » puts them back.
     const restore = following ? takeOff(entriesOfSource(entry.source.id)) : null;

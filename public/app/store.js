@@ -81,14 +81,17 @@ export function savePrefs() {
   store.set('hidden', [...state.hidden].slice(-800));
 }
 
-// strict: an account missing from the directory (e.g. a Bluesky search result)
-// is not followed unless explicitly followed. Feed items keep the lenient default.
+// strict: an account missing from the directory (e.g. a Bluesky search result, someone who
+// replied in a thread, the author of a hashtag video) is not followed unless explicitly
+// followed. Every button and menu that says « Suivre / Abonné » uses it; only the feed filter
+// keeps the lenient default (and if the directory could not be loaded at all, strict falls
+// back to it rather than offering to follow every account of the feed).
 export function isFollowed(source, { strict = false } = {}) {
   if (!source) return true;
   const f = state.follows;
   if (f.followed.has(source.id)) return true;
   if (f.unfollowed.has(source.id)) return false;
-  if (strict && !state.accounts.has(source.id) && source.suggested === undefined) return false;
+  if (strict && state.accounts.size && !state.accounts.has(source.id) && source.suggested === undefined) return false;
   const suggested = source.suggested ?? state.accounts.get(source.id)?.suggested;
   return !suggested;
 }
@@ -115,7 +118,9 @@ export function entriesFor(key) {
 }
 
 export function accountFromSource(src) {
-  return state.accounts.get(src.id) || {
+  // A Bluesky account followed from search keeps its profile (bio, Tech or Actus) in `live`.
+  const live = state.follows.live[src.id];
+  return state.accounts.get(src.id) || (live && { id: src.id, kind: 'bluesky', ...live }) || {
     id: src.id, name: src.name, avatar: src.avatar, handle: src.handle ? '@' + src.handle : '', url: src.url,
     kind: src.id.startsWith('bsky:') ? 'bluesky' : 'media', suggested: src.suggested,
   };
