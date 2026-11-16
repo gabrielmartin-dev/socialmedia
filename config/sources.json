@@ -55,12 +55,6 @@
       "feed": "https://basta.media/spip.php?page=backend"
     },
     {
-      "id": "rapportsdeforce",
-      "name": "Rapports de Force",
-      "site": "https://rapportsdeforce.fr",
-      "feed": "https://rapportsdeforce.fr/feed"
-    },
-    {
       "id": "streetpress",
       "name": "StreetPress",
       "site": "https://www.streetpress.com"
@@ -145,7 +139,8 @@
     {
       "id": "marxiste",
       "name": "Révolution (marxiste.org)",
-      "site": "https://www.marxiste.org"
+      "site": "https://www.marxiste.org",
+      "feed": "https://www.marxiste.org/articles?format=feed&type=rss"
     },
     {
       "id": "economistesatterres",

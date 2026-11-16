@@ -187,19 +187,23 @@ export async function fetchSourceFeed(source, { cache } = {}) {
     return { ...parsed, feedUrl: finalUrl };
   };
 
+  const failKey = `feedfail:${source.id}`;
+  let firstError = '';
+  const why = (err) => { if (!firstError) firstError = err?.name === 'AbortError' ? 'délai dépassé' : String(err?.message || err); };
   if (source.feed) {
-    try { return await attempt(source.feed); } catch { /* fall through */ }
+    try { const feed = await attempt(source.feed); cache?.delete(failKey); return feed; } catch (err) { why(err); }
   }
   const cacheKey = `feed:${source.id}`;
   const remembered = !source.feed && cache?.get(cacheKey);
   if (remembered) {
-    try { const feed = await attempt(remembered); cache.stats.hits++; return feed; }
-    catch { cache.delete(cacheKey); cache.stats.fallbacks++; }
+    try { const feed = await attempt(remembered); cache.stats.hits++; cache.delete(failKey); return feed; }
+    catch (err) { why(err); cache.stats.fallbacks++; }
   } else if (!source.feed && cache) cache.stats.misses++;
-  const failKey = `feedfail:${source.id}`;
   if (cache?.get(failKey)) {
-    throw new Error(`Aucun flux valide lors de la dernière recherche ; nouvel essai sous 24 h${source.feed ? ` (flux configuré en échec : ${source.feed})` : ''}`);
+    // The remembered URL stays: a source that answers again next run must find it.
+    throw new Error(`Aucun flux valide lors de la dernière recherche ; nouvel essai sous 24 h${firstError ? ` (${firstError})` : ''}`);
   }
+  if (remembered) cache.delete(cacheKey);
   const found = async (url, opts) => {
     const feed = await attempt(url, opts);
     if (!source.feed) cache?.set(cacheKey, feed.feedUrl, FEED_URL_TTL);
@@ -221,7 +225,7 @@ export async function fetchSourceFeed(source, { cache } = {}) {
   // The remembered URL failed too, but nothing better was found: keep it for the next run
   // (a network outage must not make a working source forget its feed).
   if (remembered) cache.set(cacheKey, remembered, FEED_URL_TTL);
-  throw new Error(`Aucun flux valide trouvé (essayés : ${[...new Set(tried)].join(', ') || 'aucun'})`);
+  throw new Error(`Aucun flux valide trouvé${firstError ? ` (${tried[0]} : ${firstError})` : ''} (essayés : ${[...new Set(tried)].join(', ') || 'aucun'})`);
 }
 
 /** Returns null when the entry has no valid http(s) link. */
