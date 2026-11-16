@@ -78,6 +78,7 @@ const domainsMatch = (a, b) => !!a && !!b && (a === b || a.endsWith('.' + b) || 
  * `sameAs` in config/sources.json names the RSS source (lemediatv.bsky.social → lemedia).
  * A post by anyone else sharing the article is commentary and stays as it is.
  * The article borrows the card's image / description when its feed has none.
+ * Returns { relays, unmatched } (an outlet's own links that matched no article, for the log).
  */
 export function markRelays(items) {
   const byUrl = new Map();
@@ -87,16 +88,24 @@ export function markRelays(items) {
     const key = canonicalUrl(it.url);
     if (key && !byUrl.has(key)) byUrl.set(key, it);
   }
+  // Diagnostics for the collection log: an outlet's own link that matched no article.
+  const unmatched = [];
+  let relays = 0;
   for (const it of items) {
     if (it.platform !== 'bluesky' || !it.external?.url) continue;
     const art = byUrl.get(canonicalUrl(it.external.url));
-    if (!art) continue;
+    if (!art) {
+      const own = it._sameAs || domainsMatch(it.source?.handle?.toLowerCase(), hostOf(it.external.url));
+      if (own) unmatched.push(`@${it.source?.handle} → ${it.external.url}`);
+      continue;
+    }
     const same = (it._sameAs && it._sameAs === art.source?.id)
       || domainsMatch(it.source?.handle?.toLowerCase(), hostOf(art.source?.url || art.url));
     if (!same) continue;
     it.relayOf = art.id;
+    relays++;
     if (!art.image && it.external.thumb) art.image = it.external.thumb;
     if (!art.text && it.external.description) art.text = it.external.description;
   }
-  return items;
+  return { relays, unmatched };
 }

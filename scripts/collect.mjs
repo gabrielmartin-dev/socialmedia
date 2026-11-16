@@ -252,7 +252,11 @@ async function main() {
   const build = async (feed, fresh, maxAgeHours, topicMatchers, { articles = false } = {}) => {
     const items = freshAndUnique(archive.merge(feed, fresh, { maxAgeHours, origins }), maxAgeHours);
     if (articles) {
-      markRelays(items);
+      const r = markRelays(items);
+      if (r.unmatched.length) {
+        console.log(`Relais ${feed} : ${r.relays} post(s) rattaché(s) à leur article, ${r.unmatched.length} lien(s) d'un média vers son propre site sans article correspondant, par exemple :`);
+        for (const u of r.unmatched.slice(0, 8)) console.log(`  ${u}`);
+      }
       const e = await enrichArticles(items, { cache, maxFetches: pageBudget });
       pageBudget = Math.max(0, pageBudget - e.fetched);
       const arts = items.filter((i) => i.kind === 'article');
