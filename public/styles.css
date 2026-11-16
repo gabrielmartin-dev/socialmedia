@@ -7,7 +7,11 @@
   --muted: #71767b;
   --accent: #1d9bf0;
   --danger: #f4212e;
-  --tabbar-h: 56px;
+  --tabbar-h: 48px;
+  /* Marge sous les onglets : on garde la zone de l'indicateur d'accueil iPhone,
+     sans la doubler (34 px → 22 px). */
+  --tabbar-pad: max(calc(var(--safe-bottom) - 12px), 0px);
+  --tabbar-total: calc(var(--tabbar-h) + var(--tabbar-pad));
   --topbar-h: 52px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -59,8 +63,7 @@ img { display: block; }
   height: calc(var(--topbar-h) + var(--safe-top));
   padding: var(--safe-top) 8px 0 16px;
   display: flex; align-items: center; justify-content: space-between;
-  background: rgba(0, 0, 0, .72);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
   transition: transform .2s ease;
 }
@@ -93,7 +96,7 @@ main { min-height: 100%; }
 .view.active { display: block; }
 .feed-view {
   padding-top: calc(var(--topbar-h) + var(--safe-top));
-  padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom));
+  padding-bottom: var(--tabbar-total);
   max-width: 600px; margin: 0 auto;
 }
 
@@ -227,7 +230,7 @@ div.avatar.square { background: var(--bg-elev); }
 
 /* Topic filter chips (Actus, Tech) */
 .chips { display: flex; gap: 8px; padding: 8px 14px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--border);
-  position: sticky; top: calc(var(--topbar-h) + var(--safe-top)); z-index: 6; background: rgba(0,0,0,.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+  position: sticky; top: calc(var(--topbar-h) + var(--safe-top)); z-index: 6; background: var(--bg); }
 .chips::-webkit-scrollbar { display: none; }
 .chips[hidden] { display: none; }
 .chip { flex: none; height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid #536471; font-size: 14px; font-weight: 600; }
@@ -245,7 +248,7 @@ div.avatar.square { background: var(--bg-elev); }
 .info-list li small { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; overflow-wrap: anywhere; }
 
 /* ---------- Découvrir ---------- */
-.search-wrap { padding: 8px 14px; border-bottom: 1px solid var(--border); position: sticky; top: calc(var(--topbar-h) + var(--safe-top)); background: rgba(0,0,0,.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); z-index: 5; }
+.search-wrap { padding: 8px 14px; border-bottom: 1px solid var(--border); position: sticky; top: calc(var(--topbar-h) + var(--safe-top)); background: var(--bg); z-index: 5; }
 #discover-search {
   width: 100%; height: 42px; border-radius: 999px; border: 1px solid transparent;
   background: #202327; color: var(--text); padding: 0 16px; font: inherit; font-size: 16px; outline: none;
@@ -277,7 +280,7 @@ div.avatar.square { background: var(--bg-elev); }
 
 /* ---------- Profile ---------- */
 body.profile-mode .topbar { transform: translateY(-110%); }
-#view-profile { padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom)); max-width: 600px; margin: 0 auto; }
+#view-profile { padding-bottom: var(--tabbar-total); max-width: 600px; margin: 0 auto; }
 .clickable { cursor: pointer; }
 .profile-top { position: fixed; top: 0; left: 0; right: 0; z-index: 15; padding: calc(var(--safe-top) + 8px) 12px 0; pointer-events: none; }
 .profile-back {
@@ -320,11 +323,11 @@ button.reel-author { text-align: left; }
 .empty .open-site-btn { margin-top: 16px; }
 
 /* ---------- Thread ---------- */
-#view-thread { padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom)); max-width: 600px; margin: 0 auto; }
+#view-thread { padding-bottom: var(--tabbar-total); max-width: 600px; margin: 0 auto; }
 .thread-bar {
   position: sticky; top: 0; z-index: 15; display: flex; align-items: center; gap: 12px;
   height: calc(var(--topbar-h) + var(--safe-top)); padding: var(--safe-top) 8px 0 8px;
-  background: rgba(0,0,0,.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
 }
 .thread-title { font-size: 20px; font-weight: 800; }
@@ -355,7 +358,7 @@ button.reel-author { text-align: left; }
 .thread-reply.own { border-left: 3px solid var(--accent); }
 
 /* ---------- Reels ---------- */
-#view-videos { position: fixed; inset: 0; bottom: calc(var(--tabbar-h) + var(--safe-bottom)); background: #000; }
+#view-videos { position: fixed; inset: 0; bottom: var(--tabbar-total); background: #000; }
 .reels {
   height: 100%; overflow-y: scroll; scroll-snap-type: y mandatory;
   overscroll-behavior: contain; scrollbar-width: none;
@@ -456,18 +459,18 @@ button.reel-author { text-align: left; }
 /* ---------- Tab bar ---------- */
 .tabbar {
   position: fixed; inset: auto 0 0 0; z-index: 30;
-  height: calc(var(--tabbar-h) + var(--safe-bottom));
-  padding-bottom: var(--safe-bottom);
-  display: flex; background: rgba(0,0,0,.85);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  height: var(--tabbar-total);
+  padding-bottom: var(--tabbar-pad);
+  display: flex; background: var(--bg);
   border-top: 1px solid var(--border);
 }
-.tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--muted); font-size: 11px; }
+.tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; color: var(--muted); font-size: 10px; line-height: 12px; }
+.tab svg { width: 24px; height: 24px; }
 .tab.active { color: var(--text); font-weight: 700; }
 
 /* ---------- Install banner ---------- */
 .install-banner {
-  position: fixed; left: 12px; right: 12px; bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 10px); z-index: 35;
+  position: fixed; left: 12px; right: 12px; bottom: calc(var(--tabbar-total) + 10px); z-index: 35;
   max-width: 576px; margin: 0 auto; display: flex; align-items: center; gap: 10px;
   padding: 10px 6px 10px 14px; border-radius: 14px; background: var(--bg-elev); border: 1px solid var(--border);
   box-shadow: 0 6px 24px rgba(0,0,0,.6);
@@ -514,7 +517,7 @@ button.reel-author { text-align: left; }
 .toast.has-action { pointer-events: auto; display: flex; align-items: center; gap: 14px; }
 .toast-action { color: #fff; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; padding: 6px 4px; margin: -6px -4px -6px 0; }
 .toast {
-  position: fixed; left: 50%; bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 16px); z-index: 50;
+  position: fixed; left: 50%; bottom: calc(var(--tabbar-total) + 16px); z-index: 50;
   transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
   background: var(--accent); color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 14px;
   transition: opacity .2s ease, transform .2s ease; max-width: calc(100% - 32px);
