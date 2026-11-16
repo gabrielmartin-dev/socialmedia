@@ -136,7 +136,20 @@ async function startInline(box) {
       else video.src = box._src;
     } catch { return; }
   }
-  video.play().then(() => box.classList.add('playing')).catch(() => {});
+  playInline(box);
+}
+
+/** Plays and shows it; when the browser refuses (autoplay blocked, low power mode), the ▶ stays. */
+function playInline(box) {
+  box._video?.play().then(() => box.classList.add('playing')).catch(() => box.classList.remove('playing'));
+}
+
+/** Tap on the video: play / pause it (and never open the post behind it). */
+function tapInline(e, box) {
+  e.stopPropagation();
+  if (!box._video) { startInline(box); return; } // the tap counts as the gesture that allows playback
+  if (box._video.paused) playInline(box);
+  else { box._video.pause(); box.classList.remove('playing'); }
 }
 
 function stopInline(box) {
@@ -161,10 +174,17 @@ function inlineVideo(v) {
   );
   box._src = safeUrl(v.src, location.href);
   if (!box._src) return box;
+  box.setAttribute('role', 'button');
+  box.setAttribute('aria-label', 'Lire / mettre en pause la vidéo');
+  box.tabIndex = 0;
+  box.addEventListener('click', (e) => { if (!e.target.closest('.vid-mute')) tapInline(e, box); });
+  box.addEventListener('keydown', (e) => {
+    if (e.target === box && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); tapInline(e, box); }
+  });
   muteBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     box._muted = box._muted === false;
-    if (box._video) { box._video.muted = box._muted; box._video.play().catch(() => {}); }
+    if (box._video) { box._video.muted = box._muted; playInline(box); }
     muteBtn.replaceChildren(svg(box._muted ? ICONS.muted : ICONS.sound, 18));
   });
   inlineObserver().observe(box);

@@ -32,6 +32,8 @@ function show() {
 }
 
 export function openThread(item) {
+  // Already on this post's thread (tap on the post itself): nothing to open again.
+  if (state.view === 'thread' && top()?.item.id === item.id) return;
   const from = state.view;
   if (isFeed(from)) state.feeds[from].scroll = window.scrollY;
   frames.push({ item, prev: from, scroll: window.scrollY });
