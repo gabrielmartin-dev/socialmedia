@@ -534,6 +534,48 @@
       "lang": "en",
       "site": "https://lobste.rs",
       "feed": "https://lobste.rs/rss"
+    },
+    {
+      "id": "mistral",
+      "name": "Mistral AI",
+      "site": "https://mistral.ai",
+      "feed": "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_mistral.xml",
+      "_comment": "Flux généré par Olshansk/rss-feeds."
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "lang": "en",
+      "site": "https://cursor.com",
+      "feed": "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_cursor.xml",
+      "_comment": "Flux généré par Olshansk/rss-feeds."
+    },
+    {
+      "id": "karpathy",
+      "name": "Andrej Karpathy",
+      "lang": "en",
+      "site": "https://karpathy.bearblog.dev",
+      "feed": "https://karpathy.bearblog.dev/feed/"
+    },
+    {
+      "id": "samaltman",
+      "name": "Sam Altman",
+      "lang": "en",
+      "site": "https://blog.samaltman.com",
+      "feed": "https://blog.samaltman.com/posts.atom"
+    },
+    {
+      "id": "mitchellh",
+      "name": "Mitchell Hashimoto",
+      "lang": "en",
+      "site": "https://mitchellh.com",
+      "feed": "https://mitchellh.com/feed.xml"
+    },
+    {
+      "id": "grafikart",
+      "name": "Grafikart",
+      "site": "https://grafikart.fr",
+      "feed": "https://grafikart.fr/feed.rss"
     }
   ],
   "bluesky": {
@@ -666,12 +708,39 @@
         "name": "Antton Rouget"
       },
       {
+        "name": "Clémentine Autain",
+        "handle": "clementineautain.bsky.social"
+      },
+      {
+        "name": "Raphaël Arnault",
+        "handle": "arnaultraphael.bsky.social"
+      },
+      {
+        "name": "Sandrine Rousseau",
+        "handle": "sandrousseau.bsky.social"
+      },
+      {
+        "name": "Marine Tondelier",
+        "handle": "marinetondelier.fr"
+      },
+      {
+        "name": "François Ruffin",
+        "handle": "francoisruffin.fr"
+      },
+      {
+        "name": "Olivier Faure",
+        "handle": "olivierfaure.bsky.social"
+      },
+      {
+        "name": "AFP",
+        "handle": "afp.com"
+      },
+      {
         "name": "Aurélie Trouvé",
         "suggested": true
       },
       {
-        "name": "Danièle Obono",
-        "suggested": true
+        "name": "Danièle Obono"
       },
       {
         "name": "Ugo Bernalicis",
@@ -679,7 +748,7 @@
       },
       {
         "name": "Paul Vannier",
-        "suggested": true
+        "handle": "paulvannier.bsky.social"
       },
       {
         "name": "Hadrien Clouet",
@@ -914,22 +983,48 @@
       "id": "yt-underscore",
       "name": "Underscore_",
       "url": "https://www.youtube.com/@Underscore_",
-      "category": "Tech",
-      "suggested": true
+      "category": "Tech"
     },
     {
       "id": "yt-micode",
       "name": "Micode",
       "url": "https://www.youtube.com/@Micode",
-      "category": "Tech",
-      "suggested": true
+      "category": "Tech"
     },
     {
       "id": "yt-fireship",
       "name": "Fireship",
       "url": "https://www.youtube.com/@Fireship",
-      "category": "Tech",
-      "suggested": true
+      "category": "Tech"
+    },
+    {
+      "id": "yt-garyseconomics",
+      "name": "Garys Economics",
+      "channelId": "UC5Ghe5TBQGYIOANuiNW4hDQ"
+    },
+    {
+      "id": "yt-primetime",
+      "name": "ThePrimeTime",
+      "channelId": "UCUyeluBRhGPCW4rPe_UvBZQ",
+      "category": "Tech"
+    },
+    {
+      "id": "yt-grafikart",
+      "name": "Grafikart",
+      "channelId": "UCj_iGliGCkLcHSZ8eqVNPDQ",
+      "category": "Tech"
+    },
+    {
+      "id": "yt-mkbhd",
+      "name": "Marques Brownlee",
+      "channelId": "UCBJycsmduvYEL83R_U4JriQ",
+      "category": "Tech"
+    },
+    {
+      "id": "yt-optimum",
+      "name": "Optimum",
+      "channelId": "UCRYOj4DmyxhBVrdvbsUwmAA",
+      "category": "Tech"
     }
   ],
   "tiktok": [
