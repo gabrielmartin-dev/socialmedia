@@ -98,7 +98,7 @@ Bannière discrète « Ajouter à l'écran d'accueil », affichée **une seule f
 Toutes les sources sont déclarées dans `config/sources.json`. Les identifiants exacts (URL de flux RSS, handles Bluesky, ID de chaînes YouTube) sont vérifiés au moment du développement. Une source introuvable est retirée et signalée.
 
 ### 3.1 Médias (RSS) → Actus
-Mediapart, La France insoumise (site officiel), Le Média, Blast, Politis, Regards, Reporterre, Basta!, Rapports de Force, StreetPress, Le Monde diplomatique, Frustration Magazine, Arrêt sur images.
+Mediapart, La France insoumise (site officiel), Le Média, Blast, Politis, Regards, Reporterre, Basta!, StreetPress, Le Monde diplomatique, Frustration Magazine, Arrêt sur images.
 
 Mediapart est payant : le flux ne fournit que le titre et le chapô. Le clic ouvre le site, où l'abonnement éventuel s'applique.
 

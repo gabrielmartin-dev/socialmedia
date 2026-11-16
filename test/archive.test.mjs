@@ -161,3 +161,23 @@ test('feeds: an outage does not make a source forget its remembered feed URL', a
     assert.equal(cache.get('feed:s'), 'https://s.fr/custom.xml');
   } finally { globalThis.fetch = real; }
 });
+
+test('feeds: during the pause the remembered URL is kept and still tried; a success ends the pause', async () => {
+  const real = globalThis.fetch;
+  let up = false;
+  const rss = '<rss><channel><title>S</title><item><title>Un article</title><link>https://s.fr/a</link></item></channel></rss>';
+  globalThis.fetch = async () => (up ? new Response(rss, { status: 200 }) : new Response('blocked', { status: 403 }));
+  try {
+    const cache = new ResolutionCache('/nonexistent/x.json');
+    cache.set('feed:s', 'https://s.fr/custom.xml', 3600e3);
+    cache.set('feedfail:s', true, 3600e3);
+    await assert.rejects(fetchSourceFeed({ id: 's', name: 'S', site: 'https://s.fr/' }, { cache }), /nouvel essai sous 24 h \(HTTP 403/);
+    assert.equal(cache.get('feed:s'), 'https://s.fr/custom.xml', 'not forgotten during the pause');
+    up = true;
+    const feed = await fetchSourceFeed({ id: 's', name: 'S', site: 'https://s.fr/' }, { cache });
+    assert.equal(feed.entries.length, 1);
+    assert.equal(cache.get('feedfail:s'), undefined, 'the pause ends as soon as the source answers');
+    up = false;
+    await assert.rejects(fetchSourceFeed({ id: 'c', name: 'C', site: 'https://c.fr/', feed: 'https://c.fr/feed' }, { cache }), /Aucun flux valide trouvé \(https:\/\/c\.fr\/feed : HTTP 403/);
+  } finally { globalThis.fetch = real; }
+});
