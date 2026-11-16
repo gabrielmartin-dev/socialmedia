@@ -3,12 +3,12 @@
 // score = √(1 + topicScore) × sourceWeight × freshness × engagement × seen × new
 // topicScore = min(cap, Σ keywordWeight × localKeywordFactor)
 // freshness  = 0.5 ^ (ageHours / halfLife)
-// engagement = 1 + 0.25 × log10(1 + likes + 2 × reposts)   (Bluesky only)
+// engagement = 1 + 0.25 × log10(1 + likes + 2 × reposts)   (Bluesky only; or relative to the author's usual level)
 // seen       = 0.2 ^ (number of sessions in which the item was displayed, max 3)
 // new        = 1.5 if published since the previous visit, else 1
 //
 // "Pour toi" mode (random given): weighted random sampling without replacement
-// (Efraimidis–Spirakis: key = U^(1/score)), so high scores tend to come first but
+// (Efraimidis–Spirakis: key = U^(1/score^sharpness)), so high scores tend to come first but
 // the order changes on every refresh; then a diversity pass avoids the same
 // source twice in a row.
 
@@ -24,12 +24,27 @@ export function topicScore(item, prefs, cap = 6) {
   return Math.min(cap, sum);
 }
 
-export function itemScore(item, { now = Date.now(), halfLife = 6, cap = 6, prefs = emptyPrefs() } = {}) {
+/**
+ * Engagement factor of a Bluesky post. With `relative` and the author's usual level
+ * (`stats.base`, the median of their recent posts), only what exceeds that level counts:
+ * ×1 at the usual level, ×1.5 at twice, ×2 at four times or more; never a penalty.
+ * Otherwise (or without a base): 1 + 0.25 × log10(1 + likes + 2 × reposts).
+ */
+export function engagementFactor(st, relative = false) {
+  if (!st) return 1;
+  const e = (st.likes || 0) + 2 * (st.reposts || 0);
+  if (relative && Number.isFinite(st.base)) return 1 + Math.min(1, 0.5 * Math.log2(Math.max(1, (e + 10) / (st.base + 10))));
+  return 1 + 0.25 * Math.log10(1 + e);
+}
+
+/** Which date counts as « since last time »: the previous generation of the data when known. */
+export const newSince = (lastVisit, lastGenerated) => lastGenerated || lastVisit || 0;
+
+export function itemScore(item, { now = Date.now(), halfLife = 6, cap = 6, prefs = emptyPrefs(), relativeEngagement = false } = {}) {
   const ageH = Math.max(0, (now - Date.parse(item.publishedAt)) / 3600e3);
   const freshness = Math.pow(0.5, ageH / halfLife);
   const src = prefs.sources[item.source?.id] ?? 1;
-  const st = item.stats;
-  const engagement = st ? 1 + 0.25 * Math.log10(1 + (st.likes || 0) + 2 * (st.reposts || 0)) : 1;
+  const engagement = engagementFactor(item.stats, relativeEngagement);
   // Square root keeps topics important without letting one hot post crush the rest.
   return Math.sqrt(1 + topicScore(item, prefs, cap)) * src * freshness * engagement;
 }
@@ -50,8 +65,12 @@ function newestDate(entry) {
   return entry.kind === 'group' ? Math.max(...entry.items.map((i) => Date.parse(i.publishedAt))) : Date.parse(entry.publishedAt);
 }
 
+/** A story covered by several outlets weighs a little more than one article: × (1 + groupBoost × log2(n)). */
 export function entryScore(entry, opts) {
-  if (entry.kind === 'group') return Math.max(...entry.items.map((i) => itemScore(i, opts)));
+  if (entry.kind === 'group') {
+    const best = Math.max(...entry.items.map((i) => itemScore(i, opts)));
+    return best * (1 + (opts?.groupBoost || 0) * Math.log2(entry.items.length));
+  }
   return itemScore(entry, opts);
 }
 
@@ -70,6 +89,20 @@ export function diversify(list, gap = 2) {
 }
 
 /**
+ * A source publishing much more than the others holds that many more lottery tickets:
+ * its items are multiplied by clamp((median / count)^d, 0.4, 1). Map(sourceId → factor).
+ */
+export function volumeFactors(entries, d) {
+  const counts = new Map();
+  for (const e of entries) if (e.kind !== 'group') counts.set(e.source?.id, (counts.get(e.source?.id) || 0) + 1);
+  const sorted = [...counts.values()].sort((a, b) => a - b);
+  if (!sorted.length) return new Map();
+  const mid = sorted.length >> 1;
+  const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  return new Map([...counts].map(([id, n]) => [id, Math.min(1, Math.max(0.4, Math.pow(median / n, d)))]));
+}
+
+/**
  * Rank entries, skipping hidden ids. Returns a new array.
  * - Without opts.random: deterministic, best score first.
  * - With opts.random (e.g. Math.random): "pour toi" mode, different on each call.
@@ -82,11 +115,13 @@ export function isHidden(entry, hidden) {
 }
 
 export function rank(entries, opts = {}, hidden = new Set()) {
-  const { random, seen, lastVisit } = opts;
-  const scored = entries
-    .filter((e) => !isHidden(e, hidden))
+  const { random, seen, lastVisit, sharpness = 1, volumeDamping = 0 } = opts;
+  const shown = entries.filter((e) => !isHidden(e, hidden));
+  const damping = volumeDamping > 0 ? volumeFactors(shown, volumeDamping) : null;
+  const scored = shown
     .map((e) => {
       let s = entryScore(e, opts);
+      if (damping && e.kind !== 'group') s *= damping.get(e.source?.id) ?? 1;
       const n = seenCount(e, seen);
       if (n) s *= SEEN_FACTOR ** n;
       else if (lastVisit && newestDate(e) > lastVisit) s *= NEW_BOOST;
@@ -94,7 +129,7 @@ export function rank(entries, opts = {}, hidden = new Set()) {
     });
   if (!random) return scored.sort((a, b) => b.s - a.s).map((x) => x.e);
   const sampled = scored
-    .map((x) => ({ e: x.e, k: Math.log(Math.max(random(), 1e-12)) / x.s }))
+    .map((x) => ({ e: x.e, k: Math.log(Math.max(random(), 1e-12)) / Math.pow(x.s, sharpness) }))
     .sort((a, b) => b.k - a.k)
     .map((x) => x.e);
   return diversify(sampled);

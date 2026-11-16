@@ -102,3 +102,78 @@ test('hashtag videos: French or undeclared language only', async () => {
   assert.deepEqual(items.map((i) => i.id.split(/[:/]/).pop()).length, 3);
   assert.ok(!items.some((i) => i.id.includes('2')));
 });
+
+// ---------- lot 2: ranking ----------
+import { entryScore, itemScore, engagementFactor, newSince, volumeFactors } from '../public/rank.js';
+
+const lcg = (seed) => () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+const NOW = Date.parse('2026-11-16T12:00:00Z');
+const post = (id, src, extra = {}) => ({ id, kind: 'post', source: { id: src }, publishedAt: new Date(NOW - 3600e3).toISOString(), keywords: [], ...extra });
+
+test('sharpness: a score twice as high wins ~67 % with 1, ~80 % with 2', () => {
+  const a = post('a', 's1', { keywords: [{ k: 'x', w: 3, t: 'politique' }] });
+  const b = post('b', 's2');
+  const sa = itemScore(a, { now: NOW }); const sb = itemScore(b, { now: NOW });
+  assert.ok(Math.abs(sa / sb - 2) < 0.3, `ratio ${sa / sb}`);
+  const frac = (sharpness) => {
+    const random = lcg(42); let wins = 0;
+    for (let i = 0; i < 4000; i++) if (rank([a, b], { now: NOW, random, sharpness })[0].id === 'a') wins++;
+    return wins / 4000;
+  };
+  const f1 = frac(1); const f2 = frac(2);
+  assert.ok(f2 > f1 + 0.08, `${f1} -> ${f2}`);
+  assert.deepEqual(rank([b, a], { now: NOW, sharpness: 2 }).map((e) => e.id), ['a', 'b'], 'deterministic order unchanged');
+});
+
+test('groupBoost: a story covered by 4 outlets beats the same article alone', () => {
+  const art = (id, src) => ({ id, kind: 'article', source: { id: src }, publishedAt: new Date(NOW - 3600e3).toISOString(), keywords: [] });
+  const items = ['a', 'b', 'c', 'd'].map((x) => art(x, 's' + x));
+  const group = { kind: 'group', id: 'g-a', items };
+  const alone = entryScore(items[0], { now: NOW, halfLife: 10 });
+  assert.equal(entryScore(group, { now: NOW, halfLife: 10 }), alone, 'no boost by default');
+  const boosted = entryScore(group, { now: NOW, halfLife: 10, groupBoost: 0.2 });
+  assert.ok(Math.abs(boosted / alone - 1.4) < 1e-9);
+});
+
+test('relative engagement: the author’s usual level counts as 1', () => {
+  const f = (likes, base) => engagementFactor({ likes, reposts: 0, base }, true);
+  assert.equal(f(100, 100), 1);
+  assert.ok(Math.abs(f(210, 100) - 1.5) < 0.01);
+  assert.equal(f(5, 100), 1, 'never a penalty');
+  assert.equal(f(100000, 100), 2, 'capped');
+  assert.equal(engagementFactor({ likes: 100, reposts: 0 }, true), engagementFactor({ likes: 100, reposts: 0 }), 'no base: old formula');
+});
+
+test('volumeDamping: a very prolific source loses share in the top of the feed', () => {
+  const entries = [];
+  for (let i = 0; i < 30; i++) entries.push(post('big' + i, 'big'));
+  for (let s = 0; s < 10; s++) for (let i = 0; i < 3; i++) entries.push(post(`s${s}-${i}`, 's' + s));
+  const share = (volumeDamping) => {
+    const random = lcg(7); let n = 0;
+    for (let t = 0; t < 200; t++) n += rank(entries, { now: NOW, random, volumeDamping }).slice(0, 20).filter((e) => e.source.id === 'big').length;
+    return n / (200 * 20);
+  };
+  const s0 = share(0); const s5 = share(0.5);
+  assert.ok(s5 < s0 - 0.05, `${s0} -> ${s5}`);
+  const f = volumeFactors(entries, 0.5);
+  assert.equal(f.get('s1'), 1);
+  assert.ok(f.get('big') >= 0.4 && f.get('big') < 1);
+});
+
+test('« nouveau » counts from the previous generation of the data when known', () => {
+  assert.equal(newSince(5000, 3000), 3000);
+  assert.equal(newSince(5000, 0), 5000);
+  assert.equal(newSince(0, null), 0);
+  // published between the previous generation (8h) and the previous visit (12h): new
+  const gen = NOW - 4 * 3600e3; const visit = NOW;
+  const item = post('p', 's', { publishedAt: new Date(NOW - 2 * 3600e3).toISOString() });
+  const other = post('q', 't', { publishedAt: new Date(NOW - 6 * 3600e3).toISOString() });
+  const order = rank([other, item], { now: NOW, lastVisit: newSince(visit, gen) });
+  assert.equal(order[0].id, 'p');
+  assert.equal(rank([item], { now: NOW, lastVisit: visit }).length, 1);
+});
+
+test('ranking config is shipped to the client with sane values', () => {
+  assert.equal(cfg.ranking.sharpness, 2);
+  assert.ok(cfg.ranking.groupBoost > 0);
+});
