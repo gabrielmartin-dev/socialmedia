@@ -97,7 +97,7 @@ test('markRelays: the outlet\'s own Bluesky post points to its article; other pe
   const commentary = post('p4', 'quelquun.bsky.social', 'https://www.mediapart.fr/journal/1');
   const lost = post('p5', 'mediapart.fr', 'https://www.mediapart.fr/journal/pas-dans-le-flux');
   const r = markRelays([a1, a2, a3, own, sameAs, afp, commentary, lost]);
-  assert.deepEqual(r, { relays: 3, unmatched: ['@mediapart.fr → https://www.mediapart.fr/journal/pas-dans-le-flux'] }, 'unmatched own links are reported for the log');
+  assert.deepEqual(r, { relays: 3, byTitle: 0, unmatched: ['@mediapart.fr → https://www.mediapart.fr/journal/pas-dans-le-flux'] }, 'unmatched own links are reported for the log');
   assert.equal(own.relayOf, 'a1');
   assert.equal(sameAs.relayOf, 'a2');
   assert.equal(afp.relayOf, 'a3');

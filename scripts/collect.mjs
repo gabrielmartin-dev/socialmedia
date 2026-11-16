@@ -230,6 +230,7 @@ function freshAndUnique(items, maxAgeHours) {
 
 async function main() {
   await cache.load();
+  cache.deletePrefix('short:'); // first version of the short links, failures cached 30 days
   await archive.load();
   const sources = await readJson('config/sources.json');
   const topicsCfg = await readJson('config/topics.json');
@@ -254,9 +255,11 @@ async function main() {
     if (articles) {
       const sl = await resolveShortLinks(items, { cache });
       if (sl.fetched || sl.fromCache) console.log(`Liens courts ${feed} : ${sl.resolved} résolu(s) (${sl.fetched} suivi(s), ${sl.fromCache} en cache)`);
+      if (sl.failure) console.log(`  lien court non suivi, par exemple : ${sl.failure}`);
       const r = markRelays(items);
+      if (r.relays || r.unmatched.length) console.log(`Relais ${feed} : ${r.relays} post(s) rattaché(s) à leur article (dont ${r.byTitle} par le titre)`);
       if (r.unmatched.length) {
-        console.log(`Relais ${feed} : ${r.relays} post(s) rattaché(s) à leur article, ${r.unmatched.length} lien(s) d'un média vers son propre site sans article correspondant, par exemple :`);
+        console.log(`Relais ${feed} : ${r.unmatched.length} lien(s) d'un média vers son propre site sans article correspondant, par exemple :`);
         for (const u of r.unmatched.slice(0, 8)) console.log(`  ${u}`);
       }
       const e = await enrichArticles(items, { cache, maxFetches: pageBudget });
