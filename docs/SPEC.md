@@ -159,6 +159,8 @@ La correspondance est insensible à la casse et aux accents, sur le titre, le ch
 - Un mot-clé préfixé par `=` est sensible à la casse (`=AI` ne se déclenche pas sur « j'ai », `=SUD` pas sur « Corée du Sud »).
 - L'étiquette et la puce d'un sujet demandent que les mots-clés de ce sujet pèsent ensemble au moins `topicMinScore` (1) : un seul mot faible comme « politique » (0,5) ne suffit pas. Le score de classement, lui, compte tous les mots.
 
+Les dictionnaires couvrent aussi (liste dans `config/topics.json`) : partis et courants (PS, PCF, RN, LFI…), argent et pouvoir (austérité, ultra-riches, lobbies, concentration des médias, corruption), colonialisme et Proche-Orient, libertés publiques ; côté Social, migrations et droit d'asile, droit et conditions de travail, logement et santé publique, éducation, discriminations, féminisme ; côté Tech, matériel et modèles d'IA (Nvidia, DeepSeek, RAG, AI Act…) et outils de développement (Docker, Postgres, Wasm…).
+
 ### 4.2 Score et ordre « pour toi »
 ```
 score = √(1 + score_sujet) × poids_source × fraîcheur × engagement × déjà_vu × nouveau
@@ -208,6 +210,8 @@ Les sources marquées `"generalist": true` dans `config/sources.json` (franceinf
 - **gardé** si le score Politique + Social (somme des poids des mots-clés trouvés, non plafonnée) atteint `keepScore` (4), ou si l'URL est rangée dans une rubrique politique du site (`onTopic` : `/politique/`, `/elections/`, `/social/`…) ;
 - **écarté** sinon, s'il a un signal hors sujet : rubrique de l'URL (`/sante/`, `/sports/`, `/faits-divers/`, `/culture/`…), catégorie du flux, ou mot-clé (beauté, football, météo…) ;
 - **écarté** aussi si son score est sous `minScore` (1,5) : rien ne dit qu'il est politique ou social.
+- **écarté** si l'article est dans une rubrique internationale du site (`international`, `monde`, `europe`, `afrique`, `proche-orient`…) ou vient d'une source marquée `scopeMinScore` (Courrier international) et que son score est sous 3 (`scope.international.minScore`). « Grève générale en Argentine contre l'austérité » reste ; « Élections au Chili : la droite en tête » est écarté. Gaza et la Palestine passent (« gaza » + « génocide » = 3).
+- Seuls les sujets listés dans `scope.topics` (Politique, Social) comptent dans ce score : un nouveau sujet d'affichage n'élargit pas ce que les sources généralistes laissent passer.
 
 Pour un post Bluesky, le texte et la carte de lien (titre, description, URL) sont examinés. Le journal de collecte donne le nombre d'éléments écartés et des exemples avec la raison ; `node scripts/scope-report.mjs --all` liste ce que le filtre garde et écarte sur les flux du moment, pour régler les listes sans jeter de vraies actus. L'actualité internationale sans mot-clé du périmètre (guerre en Ukraine, diplomatie) est écartée de ces sources.
 

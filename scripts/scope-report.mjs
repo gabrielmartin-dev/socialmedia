@@ -20,7 +20,7 @@ const groups = [];
 for (const src of sources.media.filter((s) => s.generalist)) {
   try {
     const feed = await fetchSourceFeed(src);
-    groups.push({ name: src.name, items: feed.entries.filter((e) => e.link && e.title).map((e) => entryToArticle(e, src)).filter(Boolean) });
+    groups.push({ name: src.name, minScore: src.scopeMinScore || 0, items: feed.entries.filter((e) => e.link && e.title).map((e) => entryToArticle(e, src)).filter(Boolean) });
   } catch (err) { console.log(`${src.name} : échec (${err.message})`); }
 }
 const client = await bsky.createClient({});
@@ -37,8 +37,8 @@ for (const g of groups) {
   const rows = g.items.map((it) => {
     const ext = it.external || {};
     const text = [it.title, it.text, ext.title, ext.description].filter(Boolean).join('\n');
-    const kws = matchKeywords(matchText(it), matchers);
-    return { it, reason: outOfScope(it, scope, matchers), score: kws.reduce((s, m) => s + m.w, 0), kws: kws.map((m) => m.k).join(', ') };
+    const kws = matchKeywords(matchText(it), matchers.filter((m) => !scope.topics || scope.topics.has(m.t)));
+    return { it, reason: outOfScope(it, scope, matchers, { minScore: g.minScore }), score: kws.reduce((s, m) => s + m.w, 0), kws: kws.map((m) => m.k).join(', ') };
   });
   const d = rows.filter((r) => r.reason);
   total += rows.length; dropped += d.length;
