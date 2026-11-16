@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import { fetchText } from './http.mjs';
 import { stripHtml, truncate, decodeEntities } from './text.mjs';
 import { safeUrl } from '../../public/url.js';
+import { detectPaywall, cleanPaidTitle } from '../../public/paywall.js';
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -189,14 +190,18 @@ export function entryToArticle(entry, source) {
   if (!url) return null;
   const author = cleanAuthor(entry.author);
   const categories = (entry.categories || []).slice(0, 4);
+  // « Payant » on this one article when the feed says so (LWN's « [$] », « Réservé aux abonnés »…).
+  const paid = source.paywall !== true && detectPaywall({ title: entry.title, text: entry.text, categories: entry.categories || [] });
   return {
     id: 'a-' + hashId(source.id, entry.guid || entry.link || entry.title),
     kind: 'article',
     platform: 'rss',
     source: { id: source.id, name: source.name, avatar: safeUrl(source.avatar), url: safeUrl(source.site), ...(source.suggested ? { suggested: true } : {}),
-      // Optional flags of config/sources.json: « Abonnés » label, and « EN » for a source that is not in French.
-      ...(source.paywall ? { paywall: true } : {}), ...(source.lang && source.lang !== 'fr' ? { lang: source.lang } : {}) },
-    title: truncate(entry.title, 220),
+      // Optional flags of config/sources.json: `paywall` (true: mostly paid, "partial": sometimes),
+      // and « EN » for a source that is not in French.
+      ...(source.paywall === true || source.paywall === 'partial' ? { paywall: source.paywall } : {}), ...(source.lang && source.lang !== 'fr' ? { lang: source.lang } : {}) },
+    title: truncate(cleanPaidTitle(entry.title), 220),
+    ...(paid ? { paywall: true } : {}),
     text: truncate(entry.text && entry.text !== entry.title ? entry.text : '', 1200),
     url,
     image: safeUrl(entry.image, url),

@@ -32,6 +32,7 @@
     {
       "id": "politis",
       "name": "Politis",
+      "paywall": "partial",
       "site": "https://www.politis.fr",
       "feed": "https://www.politis.fr/flux-rss-apps/"
     },
@@ -67,6 +68,7 @@
     {
       "id": "mondediplo",
       "name": "Le Monde diplomatique",
+      "paywall": "partial",
       "site": "https://www.monde-diplomatique.fr",
       "feed": "https://www.monde-diplomatique.fr/rss/"
     },
@@ -137,6 +139,7 @@
     {
       "id": "deferlante",
       "name": "La Déferlante",
+      "paywall": "partial",
       "site": "https://revueladeferlante.org"
     },
     {
@@ -152,6 +155,7 @@
     {
       "id": "liberation",
       "name": "Libération",
+      "paywall": "partial",
       "site": "https://www.liberation.fr",
       "feed": "https://www.liberation.fr/arc/outboundfeeds/rss/?outputType=xml",
       "suggested": true
@@ -159,6 +163,7 @@
     {
       "id": "altereco",
       "name": "Alternatives Économiques",
+      "paywall": true,
       "site": "https://www.alternatives-economiques.fr",
       "suggested": true
     },
@@ -186,6 +191,7 @@
     {
       "id": "socialter",
       "name": "Socialter",
+      "paywall": "partial",
       "site": "https://www.socialter.fr",
       "suggested": true
     },
@@ -210,6 +216,7 @@
     {
       "id": "decodeurs",
       "name": "Les Décodeurs (Le Monde)",
+      "paywall": "partial",
       "site": "https://www.lemonde.fr/les-decodeurs/",
       "feed": "https://www.lemonde.fr/les-decodeurs/rss_full.xml",
       "_comment": "Fact-checking du Monde."
@@ -217,6 +224,7 @@
     {
       "id": "lemonde",
       "name": "Le Monde",
+      "paywall": "partial",
       "site": "https://www.lemonde.fr",
       "feed": "https://www.lemonde.fr/rss/une.xml"
     },
@@ -229,6 +237,7 @@
     {
       "id": "humanite",
       "name": "L’Humanité",
+      "paywall": "partial",
       "site": "https://www.humanite.fr"
     },
     {
@@ -252,6 +261,7 @@
     {
       "id": "mediacites",
       "name": "Mediacités",
+      "paywall": true,
       "site": "https://www.mediacites.fr",
       "_comment": "Investigation locale (Lille, Lyon, Nantes, Toulouse)."
     },
@@ -264,6 +274,7 @@
     {
       "id": "offinvestigation",
       "name": "Off Investigation",
+      "paywall": "partial",
       "site": "https://www.off-investigation.fr"
     },
     {
@@ -281,6 +292,7 @@
     {
       "id": "courrierintl",
       "name": "Courrier international",
+      "paywall": true,
       "site": "https://www.courrierinternational.com"
     },
     {
@@ -365,6 +377,7 @@
     {
       "id": "verge-ai",
       "name": "The Verge",
+      "paywall": "partial",
       "lang": "en",
       "site": "https://www.theverge.com",
       "feed": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml"
@@ -379,6 +392,7 @@
     {
       "id": "mittr",
       "name": "MIT Technology Review",
+      "paywall": "partial",
       "lang": "en",
       "site": "https://www.technologyreview.com",
       "feed": "https://www.technologyreview.com/topic/artificial-intelligence/feed"
@@ -386,6 +400,7 @@
     {
       "id": "next",
       "name": "Next",
+      "paywall": "partial",
       "site": "https://next.ink",
       "feed": "https://next.ink/feed/"
     },
@@ -408,6 +423,7 @@
     {
       "id": "wired-ai",
       "name": "Wired",
+      "paywall": "partial",
       "lang": "en",
       "site": "https://www.wired.com",
       "feed": "https://www.wired.com/feed/tag/ai/latest/rss",
@@ -416,6 +432,7 @@
     {
       "id": "404media",
       "name": "404 Media",
+      "paywall": "partial",
       "lang": "en",
       "site": "https://www.404media.co",
       "feed": "https://www.404media.co/rss/",
@@ -470,6 +487,7 @@
     {
       "id": "lemonde-pixels",
       "name": "Pixels (Le Monde)",
+      "paywall": "partial",
       "site": "https://www.lemonde.fr/pixels/",
       "feed": "https://www.lemonde.fr/pixels/rss_full.xml"
     },
@@ -489,6 +507,7 @@
     {
       "id": "lwn",
       "name": "LWN.net",
+      "paywall": "partial",
       "lang": "en",
       "site": "https://lwn.net",
       "feed": "https://lwn.net/headlines/newrss"
@@ -496,6 +515,7 @@
     {
       "id": "thedecoder",
       "name": "The Decoder",
+      "paywall": "partial",
       "lang": "en",
       "site": "https://the-decoder.com",
       "feed": "https://the-decoder.com/feed/"
@@ -510,6 +530,7 @@
     {
       "id": "interconnects",
       "name": "Interconnects",
+      "paywall": "partial",
       "lang": "en",
       "site": "https://www.interconnects.ai",
       "feed": "https://www.interconnects.ai/feed"
@@ -517,6 +538,7 @@
     {
       "id": "pragmatic",
       "name": "The Pragmatic Engineer",
+      "paywall": "partial",
       "lang": "en",
       "site": "https://newsletter.pragmaticengineer.com",
       "feed": "https://newsletter.pragmaticengineer.com/feed"
