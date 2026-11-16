@@ -61,7 +61,15 @@
         "democratie": 1,
         "republique": 0.5,
         "constitution*": 1,
-        "conseil constitutionnel": 1.5
+        "conseil constitutionnel": 1.5,
+        "antifascis*": 2,
+        "fascis*": 1.5,
+        "islamophob*": 2,
+        "racisme": 1.5,
+        "antiracis*": 1.5,
+        "palestin*": 1.5,
+        "gaza": 1.5,
+        "genocide": 1.5
       },
       "feed": "actus"
     },
@@ -122,7 +130,16 @@
         "greviste*": 2,
         "piquet": 1.5,
         "luttes": 1.5,
-        "social": 0.5
+        "social": 0.5,
+        "feminis*": 1.5,
+        "feminicide*": 2,
+        "violences sexuelles": 2,
+        "violences sexistes": 2,
+        "metoo": 1.5,
+        "lgbt*": 1.5,
+        "homophob*": 1.5,
+        "transphob*": 1.5,
+        "discrimination*": 1
       },
       "feed": "actus"
     },

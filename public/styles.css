@@ -223,7 +223,6 @@ div.avatar.square { background: var(--bg-elev); }
 .byline { color: var(--muted); margin-right: 2px; }
 .tag { padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
 .tag.topic { color: var(--accent); border-color: rgba(29, 155, 240, .45); }
-.tag.paywall { color: #e8a33d; border-color: rgba(232, 163, 61, .5); }
 .tag.lang { color: var(--text); border-color: #536471; font-weight: 700; }
 
 /* Topic filter chips (Actus, Tech) */
@@ -334,7 +333,19 @@ button.reel-author { text-align: left; }
 .tweet-actions { margin-top: 10px; }
 .thread-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; margin-left: -6px; padding: 0 8px; border-radius: 16px; color: var(--muted); font-size: 14px; }
 .thread-btn:active { background: rgba(29, 155, 240, .15); color: var(--accent); }
+.thread-btn { color: var(--accent); font-weight: 600; }
+
+/* Web article: « ↗ Lire sur site.fr » (opens the site, no thread) and « 🔒 Payant » */
+.card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; font-size: 14px; }
+.open-link { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; margin-left: -6px; padding: 0 8px; border-radius: 16px; color: var(--muted); }
+.open-link:active { background: var(--bg-hover); color: var(--text); }
+.pay-badge { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px 1px 6px; border-radius: 999px; font-size: 12px; line-height: 18px; font-weight: 700;
+  color: #f4b44c; background: rgba(232, 163, 61, .14); border: 1px solid rgba(232, 163, 61, .5); white-space: nowrap; }
+.pay-badge.maybe { font-weight: 500; color: #c9a46a; background: transparent; border-style: dashed; }
+.link-from .pay-badge, .gi-src .pay-badge { margin-left: 6px; vertical-align: 1px; }
+.feed-footer .paid-toggle { display: block; margin: 8px auto 0; color: #f4b44c; }
 .thread-focus { background: var(--bg-hover); }
+.thread-focus .tweet-actions { display: none; } /* « Voir le fil » on the thread already open */
 .thread-focus .tweet-text { font-size: 18px; line-height: 24px; }
 .thread-parent { border-bottom: 0; }
 .thread-parent { position: relative; }
@@ -474,6 +485,7 @@ button.reel-author { text-align: left; }
 @keyframes up { from { transform: translateY(100%); } }
 .sheet-handle { width: 36px; height: 4px; border-radius: 4px; background: var(--border); margin: 0 auto 8px; }
 .sheet-btn { display: flex; gap: 14px; align-items: center; width: 100%; padding: 14px 20px; text-align: left; }
+.sheet-btn > svg { flex: none; }
 .sheet-btn:active { background: var(--bg-elev); }
 .sheet-btn span { display: flex; flex-direction: column; }
 .sheet-btn small { color: var(--muted); font-size: 13px; margin-top: 2px; }

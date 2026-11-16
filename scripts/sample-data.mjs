@@ -28,7 +28,8 @@ const tall = (hue, label = '') => svgFile(`tall-${hue}-${slug(label)}.svg`,
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 640"><rect width="360" height="640" fill="hsl(${hue},45%,22%)"/><text x="180" y="320" font-family="sans-serif" font-size="24" fill="rgba(255,255,255,.6)" text-anchor="middle">${label}</text></svg>`);
 
 const src = (id, name) => ({ id, name, avatar: null });
-const A = { ...src('demo-a', 'Média A'), paywall: true }, B = src('demo-b', 'Média B'), C = src('demo-c', 'Média C'), D = src('demo-d', 'Média D');
+// A: mostly paid (« Payant » on every card), D: partly paid (« Parfois payant », « Payant » when the feed says so).
+const A = { ...src('demo-a', 'Média A'), paywall: true, url: 'https://media-a.example' }, B = src('demo-b', 'Média B'), C = src('demo-c', 'Média C'), D = { ...src('demo-d', 'Média D'), paywall: 'partial' };
 const E = { ...src('demo-e', 'Média suggéré E'), suggested: true };
 
 const articles = [
@@ -43,11 +44,12 @@ const articles = [
   [E, 'Grève : les cheminots reconduisent le mouvement', 'Article d’un média suggéré, visible seulement une fois suivi.', 5, 60],
 ].map(([s, title, text, min, hue], i) => ({
   id: 'demo-a' + i, kind: 'article', platform: 'rss', source: s, title, text,
-  url: 'https://example.org/article/' + i, image: i % 3 === 2 ? null : pic(hue, 'image article'), publishedAt: ago(min),
+  url: (s === A ? 'https://media-a.example/article/' : 'https://example.org/article/') + i, image: i % 3 === 2 ? null : pic(hue, 'image article'), publishedAt: ago(min),
 }));
 // Author and categories, as the RSS parser now keeps them.
 articles[0].author = 'Marie Curie'; articles[0].categories = ['Retraites', 'Social'];
 articles[3].author = 'Jean Jaurès';
+articles[7].paywall = true; // flagged by the feed (« Réservé aux abonnés »)
 
 const posts = [
   ['demo-p1', 'Député·e exemple', 'depute.example', 'Le gouvernement passe encore en force avec le 49.3. Nous déposerons une motion de censure dès ce soir à l’Assemblée.', 35, true],
@@ -56,12 +58,13 @@ const posts = [
 ].map(([id, name, handle, text, min, verified]) => ({
   id, kind: 'post', platform: 'bluesky',
   source: { id: 'bsky:' + handle, name, handle, avatar: null, verified, url: 'https://bsky.app/profile/' + handle },
-  title: '', text, url: 'https://bsky.app/profile/' + handle, image: null,
+  title: '', text, url: `https://bsky.app/profile/${handle}/post/3kdemo${id.slice(-1)}`, image: null,
   images: id === 'demo-p2' ? [{ thumb: pic(200, 'photo 1'), alt: '' }, { thumb: pic(260, 'photo 2'), alt: '' }] : undefined,
   publishedAt: ago(min),
   stats: { replies: 30 + min, reposts: 74 * (min % 7 + 1), likes: 1234 + min * 40 },
 }));
 posts[0].segments = [{ t: 'Le gouvernement passe encore en force avec le ' }, { t: '#49_3', href: 'https://bsky.app/hashtag/49_3' }, { t: '. Nous déposerons une motion de censure dès ce soir. Plus d’infos : ' }, { t: 'example.org/censure', href: 'https://example.org/censure' }];
+posts[2].external = { url: 'https://media-a.example/article/9', title: 'Retraites : ce que contient vraiment la réforme', description: '', thumb: null };
 posts[2].quote = { name: 'Journaliste exemple', handle: 'journaliste.example', avatar: null, text: 'OFFICIEL : début de la mobilisation demain matin devant l’Assemblée.', url: 'https://bsky.app', publishedAt: ago(300), image: null };
 posts.push({
   id: 'demo-p4', kind: 'post', platform: 'bluesky',

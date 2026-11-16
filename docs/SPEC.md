@@ -33,11 +33,14 @@ Barre d'onglets en bas, deux onglets :
 - **Carte article** : avatar et nom du média, temps relatif (« il y a 12 min »), titre, 1 à 2 lignes de chapô, image si disponible. Un tap ouvre l'article sur le site d'origine.
 - **Carte post Bluesky** : avatar, nom, @handle, temps relatif, texte, images, lien vers le post. Un tap ouvre le post sur bsky.app.
 - **Carte groupée (doublons)** : « 📰 N médias en parlent ». Titre principal + logos des médias. Un tap déplie la liste des articles.
-- **Étiquettes sous la carte :** le ou les sujets détectés (Politique, Social, IA, Dev, d'après les libellés de `topics.json`), « Abonnés » pour une source marquée `paywall: true`, « EN » pour une source marquée `lang: "en"`, « Short » pour un Short YouTube, et pour un article l'auteur (« Par … ») et jusqu'à 2 catégories du flux.
+- **Post ouvrable ou article web :** un post Bluesky se termine par « 💬 N réponses · Voir le fil » (en bleu), qui ouvre le fil de réponses dans l'app ; un article se termine par « ↗ Lire sur site.fr », qui ouvre le site d'origine.
+- **Articles payants :** à côté de « Lire sur … », un badge 🔒 « Payant » (source marquée `paywall: true`, ou article que le flux signale payant) ou « Parfois payant » en pointillés (source marquée `paywall: "partial"`, sans indice sur cet article). Le badge apparaît aussi sur la carte de lien d'un post Bluesky qui pointe vers un site majoritairement payant, et sur chaque article d'une carte groupée.
+- **Masquer les articles payants :** dans le menu ⋯ d'une carte payante d'Actus ou Tech. Les articles « Payant » disparaissent aussitôt (avec « Annuler »), les « Parfois payant » restent. Le réglage est mémorisé sur le téléphone ; en bas du fil, « N articles payants masqués · Les afficher » le défait.
+- **Étiquettes sous la carte :** le ou les sujets détectés (Politique, Social, IA, Dev, d'après les libellés de `topics.json`), « EN » pour une source marquée `lang: "en"`, « Short » pour un Short YouTube, et pour un article l'auteur (« Par … ») et jusqu'à 2 catégories du flux.
 - **Filtres par sujet :** puces en haut d'Actus (Tout / Politique / Social) et de Tech (Tout / IA / Dev). Le filtre s'applique au fil et aux posts qui arrivent ensuite ; il n'est pas mémorisé après un rechargement.
 - **Heure exacte :** le temps relatif reste affiché, la date et l'heure exactes (« mercredi 11 novembre 2026 à 14:32 ») sont dans le menu ⋯ et au survol de l'heure.
 - **Carte groupée :** le bouton passe de « Voir les N articles » à « Masquer » une fois dépliée ; les noms des médias sont visibles sans déplier (« Mediapart · Politis · Blast +2 »).
-- **Menu ⋯ de chaque carte :** « Enregistrer », « Plus de ça », « Masquer ce post », « Moins de [source] », « Moins de [sujet] » (avec les mots-clés concernés), « Suivre / Ne plus suivre », « Ouvrir l'original », et la date et l'heure exactes de publication. Voir §4.4.
+- **Menu ⋯ de chaque carte :** « Enregistrer », « Plus de ça », « Masquer ce post », « Moins de [source] », « Moins de [sujet] » (avec les mots-clés concernés), « Masquer les articles payants » (cartes payantes seulement), « Suivre / Ne plus suivre », « Ouvrir l'original », et la date et l'heure exactes de publication. Voir §4.4.
 - **Annuler :** chacune de ces actions affiche un toast avec « Annuler » (pendant 6 s), « Ne plus suivre » compris.
 
 ### 2.4 Feed Vidéos
@@ -94,7 +97,9 @@ Mediapart, La France insoumise (site officiel), Le Média, Blast, Politis, Regar
 
 Mediapart est payant : le flux ne fournit que le titre et le chapô. Le clic ouvre le site, où l'abonnement éventuel s'applique.
 
-Champs facultatifs d'une source dans `config/sources.json` : `paywall: true` (étiquette « Abonnés » sur ses cartes ; posé sur Mediapart et Arrêt sur images) et `lang` (« EN » sur ses cartes quand ce n'est pas `fr` ; posé sur les sources anglophones de Tech).
+Champs facultatifs d'une source dans `config/sources.json` : `paywall` et `lang` (« EN » sur ses cartes quand ce n'est pas `fr` ; posé sur les sources anglophones de Tech).
+
+**`paywall`** : `true` quand la plupart des articles sont réservés aux abonnés (Mediapart, Arrêt sur images, Mediacités, Courrier international, Alternatives Économiques) ; `"partial"` quand une partie seulement l'est (Le Monde et ses rubriques, Libération, L'Humanité, Le Monde diplomatique, Politis, La Déferlante, Socialter, Off Investigation, Next, The Verge, Wired, MIT Technology Review, 404 Media, LWN, The Pragmatic Engineer, Interconnects, The Decoder). En plus, la collecte marque un article payant quand son flux le dit, quelle que soit la source : titre préfixé « [$] » (LWN, retiré du titre affiché), mention « réservé aux abonnés », « abonnés uniquement », « subscribers only », « [Abonnés] », ou catégorie « Abonnés » / « Premium » / « Payant ». Une simple mention du mot « abonnés » ne suffit pas. Le code est partagé entre collecte et app (`public/paywall.js`).
 
 Pour chaque article, la collecte conserve l'auteur (`<dc:creator>`, `<author>`, nettoyé : un simple e-mail est écarté) et les catégories du flux (`<category>`, 4 au plus) lorsqu'ils existent.
 

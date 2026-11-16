@@ -372,3 +372,47 @@ test('prunePositions keeps the most recently saved ones', () => {
   const small = { a: [10, 60, 1] };
   assert.equal(prunePositions(small), small);
 });
+
+import { detectPaywall, isPaid, paywallLabel, hasPaid, withoutPaid, paidDomains, isPaidLink } from '../public/paywall.js';
+
+test('paywall: hints of the feed, never a mere mention of subscribers', () => {
+  assert.ok(detectPaywall({ title: '[$] Kernel news' }));
+  assert.ok(detectPaywall({ title: 'Enquête', text: 'Article réservé aux abonnés' }));
+  assert.ok(detectPaywall({ title: 'Réservé à nos abonnés : la réforme' }));
+  assert.ok(detectPaywall({ title: 'Big story', text: 'This post is for paying subscribers' }));
+  assert.ok(detectPaywall({ title: 'x', categories: ['Premium'] }));
+  assert.ok(detectPaywall({ title: 'La réforme (abonnés)' }));
+  assert.ok(!detectPaywall({ title: 'Netflix perd des abonnés', text: 'Les abonnés de la plateforme…' }));
+  assert.ok(!detectPaywall({ title: 'x', categories: ['Politique', 'Abonnements téléphoniques'] }));
+  assert.ok(!detectPaywall());
+});
+
+test('paywall: labels, filter and paid sites', () => {
+  const mp = { id: 'a1', kind: 'article', source: { id: 'mediapart', paywall: true, url: 'https://www.mediapart.fr' } };
+  const lm = { id: 'a2', kind: 'article', source: { id: 'lemonde', paywall: 'partial', url: 'https://www.lemonde.fr' } };
+  const lmPaid = { ...lm, id: 'a3', paywall: true };
+  const free = { id: 'a4', kind: 'article', source: { id: 'reporterre' } };
+  const post = { id: 'p1', kind: 'post', source: { id: 'bsky:x' } };
+  assert.equal(paywallLabel(mp), 'Payant');
+  assert.equal(paywallLabel(lm), 'Parfois payant');
+  assert.equal(paywallLabel(lmPaid), 'Payant');
+  assert.equal(paywallLabel(free), null);
+  assert.ok(isPaid(lmPaid) && !isPaid(lm) && !isPaid(post));
+
+  const groupMixed = { id: 'g1', kind: 'group', items: [mp, free, lm] };
+  const groupPaid2 = { id: 'g2', kind: 'group', items: [mp, lmPaid, free] };
+  const groupAllPaid = { id: 'g3', kind: 'group', items: [mp, lmPaid] };
+  assert.ok(hasPaid(groupMixed) && !hasPaid({ id: 'g', kind: 'group', items: [free, lm] }));
+  const { entries, removed } = withoutPaid([mp, lm, lmPaid, free, post, groupMixed, groupPaid2, groupAllPaid]);
+  assert.equal(removed, 1 + 1 + 1 + 2 + 2);
+  assert.deepEqual(entries.map((e) => e.id), ['a2', 'a4', 'p1', 'g1', 'a4']);
+  assert.deepEqual(entries[3].items.map((i) => i.id), ['a4', 'a2'], 'a group keeps its free articles');
+  assert.deepEqual(groupMixed.items.length, 3, 'the original group is not mutated');
+
+  const sites = paidDomains([mp, lm, groupAllPaid]);
+  assert.deepEqual([...sites], ['mediapart.fr'], 'only sources paid as a whole');
+  assert.ok(isPaidLink('https://www.mediapart.fr/journal/x', sites));
+  assert.ok(isPaidLink('https://blogs.mediapart.fr/x', sites));
+  assert.ok(!isPaidLink('https://notmediapart.fr/x', sites));
+  assert.ok(!isPaidLink('pas une url', sites) && !isPaidLink('https://www.mediapart.fr', new Set()));
+});

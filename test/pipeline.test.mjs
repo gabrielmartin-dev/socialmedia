@@ -248,3 +248,24 @@ test('YouTube feed: the description of media:group reaches the item text', async
   const feed = parseFeed(await fixture('youtube.xml'));
   assert.equal(feed.entries[0].text, 'Description');
 });
+
+test('paid articles: « [$] » and « Réservé aux abonnés » flag one article, a partly paid source keeps its flag', () => {
+  const base = { guid: 'p', link: 'https://lwn.net/Articles/1/', text: '', categories: [], publishedAt: '2026-01-01T00:00:00.000Z' };
+  const lwn = { id: 'lwn', name: 'LWN.net', paywall: 'partial' };
+  const paid = entryToArticle({ ...base, title: '[$] The kernel in 2026' }, lwn);
+  assert.equal(paid.paywall, true);
+  assert.equal(paid.title, 'The kernel in 2026', 'the « [$] » marker is replaced by the « Payant » badge');
+  assert.equal(paid.source.paywall, 'partial');
+  const free = entryToArticle({ ...base, title: 'Free article' }, lwn);
+  assert.ok(!('paywall' in free));
+  // A hint in the feed counts even for a source that is not flagged in the config.
+  const hinted = entryToArticle({ ...base, title: 'Enquête', text: 'Cet article est réservé aux abonnés.' }, { id: 's', name: 'S' });
+  assert.equal(hinted.paywall, true);
+  const cat = entryToArticle({ ...base, title: 'Enquête', categories: ['Abonnés'] }, { id: 's', name: 'S' });
+  assert.equal(cat.paywall, true);
+  // A source paid as a whole: the source carries it, not every article.
+  const mp = entryToArticle({ ...base, title: '[$] x' }, { id: 'mediapart', name: 'Mediapart', paywall: true });
+  assert.equal(mp.source.paywall, true);
+  assert.ok(!('paywall' in mp));
+  assert.ok(!('paywall' in entryToArticle({ ...base, title: 'T' }, { id: 's', name: 'S', paywall: 'oui' }).source), 'unknown values are ignored');
+});

@@ -1,11 +1,12 @@
 // Actus / Tech feeds: ranking, incremental rendering, footer.
 
 import { rank, emptyPrefs } from '../rank.js';
+import { withoutPaid } from '../paywall.js';
 import { $, h, toast } from './dom.js';
 import { renderEntry } from './cards.js';
 import { actions } from './actions.js';
 import { maxAgeMs } from './live.js';
-import { state, FEED_KEYS, entriesFor, inTopicFilter, rankOpts, savePrefs, seenTracker, markSeen } from './store.js';
+import { state, FEED_KEYS, entriesFor, inTopicFilter, rankOpts, savePrefs, seenTracker, markSeen, setHidePaid } from './store.js';
 
 const ACTUS_CHUNK = 15;
 
@@ -27,7 +28,11 @@ export function renderFeed(key) {
   const data = state.data[key];
   const list = $(`#${key}-list`);
   list.replaceChildren();
-  feed.ranked = data ? rank(entriesFor(key).filter((e) => inTopicFilter(key, e)), rankOpts(data), state.hidden) : [];
+  let entries = data ? entriesFor(key).filter((e) => inTopicFilter(key, e)) : [];
+  // « Masquer les articles payants »: they are left out, and the footer says how many.
+  feed.paidHidden = 0;
+  if (state.hidePaid) ({ entries, removed: feed.paidHidden } = withoutPaid(entries));
+  feed.ranked = data ? rank(entries, rankOpts(data), state.hidden) : [];
   renderChips(key);
   feed.rendered = 0;
   feed.dirty = false;
@@ -113,6 +118,17 @@ export function renderFooter(key) {
       h('strong', { text: 'Tu es à jour' }),
       h('span', { text: `Tu as parcouru tout ce qui est paru ces ${hours >= 48 ? Math.round(hours / 24) + ' derniers jours' : hours + ' dernières heures'}.` }),
     ) : null,
+    state.hidePaid ? h('button', {
+      class: 'paid-toggle',
+      text: feed.paidHidden
+        ? `${feed.paidHidden} article${feed.paidHidden > 1 ? 's' : ''} payant${feed.paidHidden > 1 ? 's' : ''} masqué${feed.paidHidden > 1 ? 's' : ''} · Les afficher`
+        : 'Articles payants masqués · Les afficher',
+      onclick: () => {
+        setHidePaid(false);
+        renderAllFeeds();
+        toast('Les articles payants sont de retour', { action: { label: 'Annuler', run: () => { setHidePaid(true); renderAllFeeds(); } } });
+      },
+    }) : null,
     hasPrefs ? h('button', {
       text: 'Réinitialiser mes préférences « moins de ça »',
       onclick: () => {
