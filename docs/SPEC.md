@@ -170,6 +170,10 @@ Deux articles de médias différents sont regroupés quand :
 
 Le groupe prend le meilleur score de ses membres.
 
+Deux éléments qui pointent vers la même page (à `utm_*`, `www.`, `#…` et `/` final près) n'en font qu'un.
+
+**Relais Bluesky d'un média.** Quand un média est suivi à la fois en RSS et sur Bluesky, son post Bluesky qui ne fait que renvoyer vers un de ses articles (carte de lien vers la même page) est marqué `relayOf` : l'app le masque dès que l'article est affiché, et le garde si seul le compte Bluesky est suivi. « Même média » : le handle Bluesky est le domaine du site (mediapart.fr, afp.com ↔ factuel.afp.com), ou le compte porte `sameAs` (id de la source RSS) dans `config/sources.json`. Un autre compte qui partage l'article reste affiché. L'article reprend l'image et la description de la carte quand son flux n'en a pas.
+
 ### 4.4 « Moins de ça » et « Plus de ça »
 Ce sont des réglages locaux, enregistrés dans le stockage du téléphone. Chacun est annulable depuis le toast qui suit.
 - **Masquer ce post** : ne retire que ce post.
@@ -194,7 +198,7 @@ GitHub Pages
        └─ applique les ajustements locaux, trie et affiche
 ```
 
-- **Collecte** : Node.js. Les données de la fenêtre glissante (48 à 72 h) sont conservées et les anciens éléments purgés.
+- **Collecte** : Node.js. Les éléments publiés sont gardés d'un run à l'autre (`.cache/collect/items.json`, via `actions/cache`) : un article sorti de son flux RSS, ou dont la source échoue le temps d'un run, reste affiché jusqu'à la fin de sa fenêtre (72 h Actus, 168 h Tech et Vidéos). Une source retirée de la config disparaît aussitôt. Un élément sans date prend l'heure où la collecte l'a vu pour la première fois (sauf ceux déjà présents avant la première archive, ignorés). Après une recherche de flux infructueuse, le site n'est pas réinterrogé avant 24 h (sauf si le run entier est rejeté).
 - **Front** : PWA statique, avec un service worker pour le hors ligne et un manifeste pour l'installation.
 - **Hébergement** : GitHub Pages, et collecte par GitHub Actions. Les deux sont gratuits.
 - **Aucune clé d'API payante.** Seule option : un compte Bluesky gratuit avec un mot de passe d'application, si la recherche par hashtags est refusée sans connexion.

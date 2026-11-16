@@ -3,6 +3,7 @@
 
 import { tokens, jaccard } from './text.mjs';
 import { compileTopics, matchKeywords } from '../../public/topics.js';
+import { canonicalUrl, hostOf } from '../../public/url.js';
 
 // Matching itself is shared with the browser (public/topics.js).
 export { compileTopics, matchKeywords };
@@ -64,4 +65,38 @@ export function groupDuplicates(items, { similarity = 0.34, windowHours = 12 } =
     entries.push({ kind: 'group', id: 'g-' + uniq.map((m) => m.id).sort()[0], items: uniq });
   }
   return entries;
+}
+
+const domainsMatch = (a, b) => !!a && !!b && (a === b || a.endsWith('.' + b) || b.endsWith('.' + a));
+
+/**
+ * A media outlet followed both by RSS and on Bluesky posts each article twice: the article
+ * itself, and a Bluesky post whose link card points to it. Such a post gets `relayOf` (the
+ * article id); the app hides it whenever that article is shown, and keeps it otherwise (an
+ * account followed only on Bluesky). « Same outlet » = the Bluesky handle is the site's
+ * domain (mediapart.fr ↔ www.mediapart.fr, afp.com ↔ factuel.afp.com), or the account's
+ * `sameAs` in config/sources.json names the RSS source (lemediatv.bsky.social → lemedia).
+ * A post by anyone else sharing the article is commentary and stays as it is.
+ * The article borrows the card's image / description when its feed has none.
+ */
+export function markRelays(items) {
+  const byUrl = new Map();
+  for (const it of items) {
+    delete it.relayOf;
+    if (it.kind !== 'article') continue;
+    const key = canonicalUrl(it.url);
+    if (key && !byUrl.has(key)) byUrl.set(key, it);
+  }
+  for (const it of items) {
+    if (it.platform !== 'bluesky' || !it.external?.url) continue;
+    const art = byUrl.get(canonicalUrl(it.external.url));
+    if (!art) continue;
+    const same = (it._sameAs && it._sameAs === art.source?.id)
+      || domainsMatch(it.source?.handle?.toLowerCase(), hostOf(art.source?.url || art.url));
+    if (!same) continue;
+    it.relayOf = art.id;
+    if (!art.image && it.external.thumb) art.image = it.external.thumb;
+    if (!art.text && it.external.description) art.text = it.external.description;
+  }
+  return items;
 }

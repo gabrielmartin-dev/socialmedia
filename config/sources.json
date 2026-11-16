@@ -827,7 +827,7 @@
         "suggested": true
       },
       {
-        "name": "Le Média",
+        "name": "Le Média", "sameAs": "lemedia",
         "handle": "lemediatv.bsky.social",
         "suggested": true
       },
@@ -837,7 +837,7 @@
         "suggested": true
       },
       {
-        "name": "StreetPress",
+        "name": "StreetPress", "sameAs": "streetpress",
         "suggested": true
       },
       {
@@ -851,7 +851,7 @@
         "suggested": true
       },
       {
-        "name": "Hugging Face",
+        "name": "Hugging Face", "sameAs": "huggingface",
         "feed": "tech",
         "suggested": true
       },
