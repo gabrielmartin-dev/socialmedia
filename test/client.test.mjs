@@ -353,3 +353,22 @@ test('installHint: prompt on Android Chrome, instructions on iOS Safari, nothing
   assert.equal(installHint({ userAgent: android, hasPrompt: true, standalone: true }), null);
   assert.equal(installHint(), null);
 });
+
+import { resumeAt, prunePositions, MAX_POSITIONS } from '../public/app/resume.js';
+
+test('resumeAt: starts over when barely started or almost finished, else whole seconds', () => {
+  assert.equal(resumeAt(1.5, 60), 0, 'below 3 s');
+  assert.equal(resumeAt(42.7, 60), 42);
+  assert.equal(resumeAt(57, 60), 0, 'less than 5 s before the end');
+  assert.equal(resumeAt(120.2, NaN), 120, 'unknown duration (live HLS)');
+  assert.equal(resumeAt(undefined, 60), 0);
+});
+
+test('prunePositions keeps the most recently saved ones', () => {
+  const map = Object.fromEntries(Array.from({ length: MAX_POSITIONS + 5 }, (_, i) => [`v${i}`, [10, 60, i]]));
+  const kept = prunePositions(map);
+  assert.equal(Object.keys(kept).length, MAX_POSITIONS);
+  assert.ok(!('v0' in kept) && 'v104' in kept);
+  const small = { a: [10, 60, 1] };
+  assert.equal(prunePositions(small), small);
+});
