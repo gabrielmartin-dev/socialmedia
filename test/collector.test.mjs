@@ -201,3 +201,14 @@ test('groupDuplicates (early exit) gives exactly the same entries as the full sc
     }
   }
 });
+
+// ---------- diagnostic report ----------
+test('algo-report: runs on demo data and prints its sections', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+  execFileSync('node', ['scripts/sample-data.mjs'], { cwd: root, stdio: 'ignore' });
+  const out = execFileSync('node', ['scripts/algo-report.mjs'], { cwd: root, encoding: 'utf8' });
+  for (const title of ['ACTUS : vue d\'ensemble', 'simulation du classement', 'TECH : vue d\'ensemble', 'DÉCOUVRIR']) {
+    assert.ok(out.includes(title), title);
+  }
+});

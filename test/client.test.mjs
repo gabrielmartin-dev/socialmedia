@@ -66,9 +66,9 @@ test('seen tracker: debounced write, flushed on demand, one impression per sessi
   assert.deepEqual(writes.at(-1), {});
 });
 
-test('pruneSeen drops entries older than 4 days and malformed values', () => {
+test('pruneSeen drops entries older than 8 days and malformed values', () => {
   const now = Date.now();
-  assert.deepEqual(pruneSeen({ old: [now - 5 * 86400e3, 1], ok: [now - 1000, 2], bad: 'x' }, now), { ok: [now - 1000, 2] });
+  assert.deepEqual(pruneSeen({ old: [now - 9 * 86400e3, 1], kept: [now - 5 * 86400e3, 1], ok: [now - 1000, 2], bad: 'x' }, now), { kept: [now - 5 * 86400e3, 1], ok: [now - 1000, 2] });
 });
 
 test('mergeIntoTail never touches what is already rendered', () => {

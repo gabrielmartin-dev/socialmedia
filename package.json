@@ -7,6 +7,7 @@
   "scripts": {
     "collect": "node scripts/collect.mjs",
     "sample": "node scripts/sample-data.mjs",
+    "report": "node scripts/algo-report.mjs",
     "dev": "node scripts/serve.mjs",
     "test": "node --test test/*.test.mjs"
   },

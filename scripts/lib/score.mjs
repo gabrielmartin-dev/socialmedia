@@ -2,15 +2,14 @@
 // (freshness + local "moins de ça" weights), using the keyword matches computed here.
 
 import { tokens, jaccard } from './text.mjs';
-import { compileTopics, matchKeywords } from '../../public/topics.js';
+import { compileTopics, matchKeywords, matchText } from '../../public/topics.js';
 import { canonicalUrl, hostOf } from '../../public/url.js';
 
 // Matching itself is shared with the browser (public/topics.js).
 export { compileTopics, matchKeywords };
 
 export function annotate(item, matchers) {
-  const text = [item.title, item.text].filter(Boolean).join('\n');
-  item.keywords = matchKeywords(text, matchers);
+  item.keywords = matchKeywords(matchText(item), matchers);
   return item;
 }
 
@@ -67,7 +66,7 @@ export function groupDuplicates(items, { similarity = 0.34, windowHours = 12 } =
   return entries;
 }
 
-const domainsMatch = (a, b) => !!a && !!b && (a === b || a.endsWith('.' + b) || b.endsWith('.' + a));
+export const domainsMatch = (a, b) => !!a && !!b && (a === b || a.endsWith('.' + b) || b.endsWith('.' + a));
 
 /** A Bluesky post whose link card points to its own outlet's site (or `sameAs` account). */
 export const isOwnLink = (post) => !!post.external?.url

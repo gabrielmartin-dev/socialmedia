@@ -9,6 +9,14 @@ export function normalize(s) {
     .replace(/[’‘`]/g, "'");
 }
 
+/** Strip accents and unify apostrophes, keeping the case (for case-sensitive keywords). */
+export function stripAccents(s) {
+  return String(s ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[’‘`]/g, "'");
+}
+
 export function escapeRegex(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

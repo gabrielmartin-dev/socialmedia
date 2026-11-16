@@ -97,10 +97,12 @@ export function isFollowed(source, { strict = false } = {}) {
 }
 export const itemVisible = (item) => item.tag || isFollowed(item.source);
 
+export const topicMinScore = () => state.data?.topics?.topicMinScore ?? 1;
+
 /** True when an entry belongs to the topic chip selected in `key` (always true without a filter). */
 export function inTopicFilter(key, entry) {
   const topic = state.feeds[key]?.topic;
-  return !topic || topicsOf(entry).includes(topic);
+  return !topic || topicsOf(entry, topicMinScore()).includes(topic);
 }
 
 /** Entries of a feed (collected + live), restricted to followed accounts (groups are rebuilt). */

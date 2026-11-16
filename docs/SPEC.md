@@ -120,7 +120,7 @@ Pour chaque article, la collecte conserve l'auteur (`<dc:creator>`, `<author>`, 
 - Les reposts sont écartés ; pour garder assez de posts originaux d'un compte qui reposte beaucoup, la collecte lit jusqu'à 3 pages de son fil (sans remonter avant la fenêtre).
 
 ### 3.3 Vidéos d'internautes (recherche Bluesky) → Vidéos
-Recherche des posts contenant une vidéo pour les hashtags : `#manif` `#manifestation` `#greve` `#grève` `#violencespolicieres` `#blocage` `#retraites` `#mobilisation`. La liste est extensible dans la config.
+Recherche des posts contenant une vidéo pour les hashtags : `#manif` `#manifestation` `#greve` `#grève` `#violencespolicieres` `#blocage` `#retraites` `#mobilisation`. La liste est extensible dans la config. Seuls les posts en français (ou sans langue déclarée) sont gardés.
 
 ### 3.4 YouTube (RSS des chaînes) → Vidéos
 La description de chaque vidéo (`media:group`, 500 caractères) est récupérée : elle s'affiche sous le titre quand on touche le texte du reel. Les Shorts (format vertical) sont distingués des vidéos longues par une étiquette (« Short » / « Vidéo longue »). Le nombre de vues n'est ni récupéré ni affiché.
@@ -154,7 +154,10 @@ Deux sujets, chacun défini par un dictionnaire de mots-clés pondérés dans `c
 - **Politique** : Assemblée, gouvernement, ministre, 49.3, loi, élection, Macron, Sénat, député, motion de censure, budget, etc.
 - **Social** : grève, manif, syndicat, retraites, salaire, licenciement, logement, hôpital, services publics, chômage, précarité, etc.
 
-La correspondance est insensible à la casse et aux accents, sur le titre, le chapô et le texte du post.
+La correspondance est insensible à la casse et aux accents, sur le titre, le chapô et le texte du post, mais aussi sur la carte de lien, le post cité et les catégories du flux. Règles :
+- Un mot compris dans un mot-clé plus long n'est pas compté deux fois : dans « Assemblée nationale », seul `assemblee nationale` compte, pas `assemblee`.
+- Un mot-clé préfixé par `=` est sensible à la casse (`=AI` ne se déclenche pas sur « j'ai », `=SUD` pas sur « Corée du Sud »).
+- L'étiquette et la puce d'un sujet demandent que les mots-clés de ce sujet pèsent ensemble au moins `topicMinScore` (1) : un seul mot faible comme « politique » (0,5) ne suffit pas. Le score de classement, lui, compte tous les mots.
 
 ### 4.2 Score et ordre « pour toi »
 ```
@@ -167,7 +170,11 @@ nouveau    = 1.5 si publié depuis la dernière visite, sinon 1
 - `score_sujet` est la somme des poids des mots-clés trouvés, plafonnée.
 - La demi-vie est configurable : par défaut 10 h pour Actus et 24 h pour Vidéos.
 - `poids_source` vaut 1 par défaut et se règle dans la config.
-- **L'ordre n'est pas chronologique.** Comme sur X, la timeline est tirée au sort en fonction du score à chaque ouverture et à chaque refresh : un post bien noté sort souvent en haut, mais l'ordre change à chaque fois. Les posts déjà vus redescendent, et le même compte n'apparaît pas deux fois de suite si on peut l'éviter.
+- **L'ordre n'est pas chronologique.** Comme sur X, la timeline est tirée au sort en fonction du score à chaque ouverture et à chaque refresh : un post bien noté sort souvent en haut, mais l'ordre change à chaque fois. Les posts déjà vus redescendent (la mémoire des « déjà vus » dure 8 jours, plus que la fenêtre de 7 jours de Tech et Vidéos), et le même compte n'apparaît pas deux fois de suite si on peut l'éviter.
+
+**Même page vue par deux sources.** La collecte ne garde qu'un élément par URL. Si l'éditeur lui-même (Cloudflare, LWN…) et un agrégateur (Hacker News, Lobsters) la publient, c'est l'élément de l'éditeur qui reste ; entre deux agrégateurs, le premier de la config.
+
+**Mesure.** Chaque collecte imprime dans son journal `scripts/algo-report.mjs` (étape « Diagnostic des algorithmes » du workflow, `npm run report` en local) : répartition par source, âge et sujet, simulation du classement, regroupements et doublons manqués, liens partagés, engagement, images répétées. C'est la base pour régler les seuils.
 
 ### 4.3 Regroupement des doublons (Actus)
 Deux articles de médias différents sont regroupés quand :
@@ -182,7 +189,7 @@ Deux éléments qui pointent vers la même page (à `utm_*`, `www.`, `#…` et `
 
 ### 4.4 « Moins de ça » et « Plus de ça »
 Ce sont des réglages locaux, enregistrés dans le stockage du téléphone. Chacun est annulable depuis le toast qui suit.
-- **Masquer ce post** : ne retire que ce post.
+- **Masquer ce post** : ne retire que ce post. Pour une carte groupée, tous ses articles sont masqués : la carte ne revient pas quand un média s'y ajoute.
 - **Moins de [source]** : divise le poids local de la source (× 0,5, plancher 0,1).
 - **Moins de [sujet]** : divise le poids local des mots-clés du post (× 0,7, plancher 0,2). Le menu nomme les sujets (Politique, Social…) et les mots-clés concernés.
 - **Plus de ça** : le signal inverse, sur la source et sur les mots-clés. C'est le miroir exact des précédents : facteurs inversés (× 2 et × 1/0,7), plafonds à 1 / plancher (10 pour une source, 5 pour un mot-clé). Un « plus » suivi d'un « moins » s'annule, et le poids revient à sa valeur par défaut.

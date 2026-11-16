@@ -36,7 +36,7 @@ export function openSheet(entry) {
   sheetEntry = entry;
   const isGroup = entry.kind === 'group';
   const name = isGroup ? '' : entry.source.name;
-  const topics = topicsOf(entry).map(topicLabel);
+  const topics = topicsOf(entry, state.data.topics?.topicMinScore ?? 1).map(topicLabel);
   const kws = keywordsOf(entry);
 
   const saved = isSavedItem(leadItem(entry).id);
@@ -123,16 +123,18 @@ export function initSheet() {
   }));
 
   $('#sheet-less-topic').addEventListener('click', onEntry((entry) => {
-    const topics = topicsOf(entry).map(topicLabel);
+    const topics = topicsOf(entry, state.data.topics?.topicMinScore ?? 1).map(topicLabel);
     withUndo(`Tu verras moins de ${topics.join(' et ') || 'ce sujet'} au prochain rafraîchissement`, () => lessKeywords(state.prefs, entry));
   }));
 
   $('#sheet-hide').addEventListener('click', onEntry((entry) => {
-    state.hidden.add(entry.id);
+    // A group's id changes when a media joins it: hide its articles too.
+    const ids = [entry.id, ...(entry.kind === 'group' ? entry.items.map((i) => i.id) : [])];
+    ids.forEach((id) => state.hidden.add(id));
     savePrefs();
     const restore = takeOff([entry]);
     toast('Post masqué', {
-      action: { label: 'Annuler', run: () => { state.hidden.delete(entry.id); savePrefs(); restore(); toast('Post rétabli'); } },
+      action: { label: 'Annuler', run: () => { ids.forEach((id) => state.hidden.delete(id)); savePrefs(); restore(); toast('Post rétabli'); } },
     });
   }));
 

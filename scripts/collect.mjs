@@ -14,7 +14,7 @@ import { ItemArchive, publicItem } from './lib/archive.mjs';
 import { enrichArticles, resolveShortLinks } from './lib/enrich.mjs';
 import { quality } from './lib/quality.mjs';
 import { truncate } from './lib/text.mjs';
-import { sanitizeItem } from './lib/sanitize.mjs';
+import { freshAndUnique } from './lib/dedupe.mjs';
 import { safeUrl, canonicalUrl } from '../public/url.js';
 import { checkRun } from './lib/health.mjs';
 import { packFeed } from '../public/pack.js';
@@ -208,25 +208,6 @@ function configuredOrigins(sources) {
     ...sources.youtube.map((c) => `yt:${c.id}`),
     ...(sources.tiktok || []).map((a) => `tiktok:${a.id}`),
   ]);
-}
-
-function freshAndUnique(items, maxAgeHours) {
-  const cutoff = Date.now() - maxAgeHours * 3600e3;
-  const future = Date.now() + 3600e3;
-  const map = new Map();
-  const urls = new Set();
-  for (const raw of items) {
-    const it = sanitizeItem(raw);
-    if (!it) continue;
-    const t = Date.parse(it.publishedAt);
-    if (!Number.isFinite(t) || t < cutoff || t > future) continue;
-    // Same page with or without tracking parameters / `www.` / trailing slash = duplicate.
-    const key = canonicalUrl(it.url);
-    if (map.has(it.id) || (key && urls.has(key))) continue;
-    map.set(it.id, it);
-    if (key) urls.add(key);
-  }
-  return [...map.values()].sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
 }
 
 async function main() {

@@ -271,7 +271,7 @@ function quoteCard(q) {
  * the article's own footer line, next to « Lire sur … ».)
  */
 function badgeRow(entry) {
-  const topics = topicsOf(entry).map((t) => state.data.topics?.topics?.[t]?.label).filter(Boolean);
+  const topics = topicsOf(entry, state.data.topics?.topicMinScore ?? 1).map((t) => state.data.topics?.topics?.[t]?.label).filter(Boolean);
   const src = entry.kind === 'group' ? null : entry.source;
   const tags = [
     ...topics.map((t) => h('span', { class: 'tag topic', text: t })),

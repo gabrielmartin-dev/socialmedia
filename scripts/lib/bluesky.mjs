@@ -96,6 +96,8 @@ export async function searchVideos(client, query, { limit = 100, sinceHours = 72
   // Without a session the AppView rejects `since` (HTTP 400): the collector drops old posts anyway.
   const since = client.authenticated ? new Date(Date.now() - sinceHours * 3600e3).toISOString() : undefined;
   const { posts = [] } = await client.call('app.bsky.feed.searchPosts', { q: query, sort: 'latest', limit, since });
-  return posts.map((p) => postToItem(p)).filter((i) => i.kind === 'video');
+  // Hashtags exist in every language: keep French posts and posts with no language declared.
+  const french = (p) => { const l = p.record?.langs; return !Array.isArray(l) || !l.length || l.some((x) => String(x).toLowerCase().startsWith('fr')); };
+  return posts.filter(french).map((p) => postToItem(p)).filter((i) => i.kind === 'video');
 }
 
