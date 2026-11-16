@@ -10,7 +10,7 @@ Projet perso : un seul utilisateur, aucun coût, tout est livré en une fois (pa
 
 - **Usage** : uniquement sur téléphone, en lecture. Pas de publication, de like, de commentaire ni de compte utilisateur.
 - **Coût** : 0 €. Pas de LLM, pas d'API payante, pas de serveur payant.
-- **Pas de garde-fous agressifs** : aucun filtrage de contenu, aucun badge d'avertissement, aucun seuil d'engagement. Tout ce qui vient des sources est affiché et simplement classé par l'algorithme.
+- **Pas de garde-fous agressifs** : aucun badge d'avertissement, aucun seuil d'engagement. Tout ce qui vient des sources militantes et des personnalités suivies est affiché et simplement classé par l'algorithme. Seules les sources généralistes sont filtrées, pour rester dans le périmètre politique de gauche, luttes sociales et tech (voir 4.5).
 - **Configuration par fichier** : sources, mots-clés et poids sont modifiables dans `config/` (pas d'écran de réglages).
 
 ## 2. Interface
@@ -188,6 +188,14 @@ Ce sont des réglages locaux, enregistrés dans le stockage du téléphone. Chac
 - Un groupe n'a pas de source unique : seuls les mots-clés comptent pour lui.
 - Les réglages s'appliquent au prochain rafraîchissement : le fil affiché n'est pas réordonné sous le doigt.
 - Un lien en bas du feed permet de tout réinitialiser.
+
+### 4.5 Filtre hors sujet (sources généralistes)
+Les sources marquées `"generalist": true` dans `config/sources.json` (franceinfo, Le Monde, Les Décodeurs, Libération, Courrier international, AFP Factuel, et sur Bluesky l'AFP et Brèves de presse) publient aussi du sport, de la santé, des conseils conso, des faits divers, de la culture… La collecte n'en garde que ce qui relève du périmètre, d'après le bloc `scope` de `config/topics.json` :
+- **gardé** si le score Politique + Social (somme des poids des mots-clés trouvés, non plafonnée) atteint `keepScore` (4), ou si l'URL est rangée dans une rubrique politique du site (`onTopic` : `/politique/`, `/elections/`, `/social/`…) ;
+- **écarté** sinon, s'il a un signal hors sujet : rubrique de l'URL (`/sante/`, `/sports/`, `/faits-divers/`, `/culture/`…), catégorie du flux, ou mot-clé (beauté, football, météo…) ;
+- **écarté** aussi si son score est sous `minScore` (1,5) : rien ne dit qu'il est politique ou social.
+
+Pour un post Bluesky, le texte et la carte de lien (titre, description, URL) sont examinés. Le journal de collecte donne le nombre d'éléments écartés et des exemples avec la raison ; `node scripts/scope-report.mjs --all` liste ce que le filtre garde et écarte sur les flux du moment, pour régler les listes sans jeter de vraies actus. L'actualité internationale sans mot-clé du périmètre (guerre en Ukraine, diplomatie) est écartée de ces sources.
 
 ## 5. Architecture technique
 
