@@ -160,6 +160,8 @@ La correspondance est insensible à la casse et aux accents, sur le titre, le ch
 - Un mot-clé préfixé par `=` est sensible à la casse (`=AI` ne se déclenche pas sur « j'ai », `=SUD` pas sur « Corée du Sud »).
 - L'étiquette et la puce d'un sujet demandent que les mots-clés de ce sujet pèsent ensemble au moins `topicMinScore` (1) : un seul mot faible comme « politique » (0,5) ne suffit pas. Le score de classement, lui, compte tous les mots.
 
+Deux sujets de plus, **Écologie** (Actus : climat, pesticides, nucléaire, A69…) et **Libertés** (Tech : vie privée, surveillance, RGPD, failles…), comptent dans le score et donnent leur étiquette aux cartes, mais **n'ajoutent pas de puce** en haut du fil (`"chip": false` dans `config/topics.json`) : les articles de Reporterre, Vert, La Quadrature du Net ou EFF ne restent plus au plancher. Les puces restent Politique / Social et IA / Dev. Ils ne comptent pas dans le filtre hors sujet.
+
 Les dictionnaires couvrent aussi (liste dans `config/topics.json`) : partis et courants (PS, PCF, RN, LFI…), argent et pouvoir (austérité, ultra-riches, lobbies, concentration des médias, corruption), colonialisme et Proche-Orient, libertés publiques ; côté Social, migrations et droit d'asile, droit et conditions de travail, logement et santé publique, éducation, discriminations, féminisme ; côté Tech, matériel et modèles d'IA (Nvidia, DeepSeek, RAG, AI Act…) et outils de développement (Docker, Postgres, Wasm…).
 
 ### 4.2 Score et ordre « pour toi »

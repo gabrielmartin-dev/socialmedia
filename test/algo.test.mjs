@@ -329,3 +329,21 @@ test('a small feed thumbnail is replaced by og:image when one is found, kept oth
   assert.equal(stuck.image, 'https://ex.fr/t150.jpg', 'nothing found: the small image stays');
   assert.ok(!('_smallImage' in publicItem(stuck)), 'internal flag never published');
 });
+
+// ---------- topics without a chip (Écologie, Libertés) ----------
+test('Écologie and Libertés score articles but add no chip', async () => {
+  assert.equal(cfg.topics.ecologie.chip, false);
+  assert.equal(cfg.topics.libertes.chip, false);
+  for (const id of ['politique', 'social', 'ia', 'dev']) assert.notEqual(cfg.topics[id].chip, false, id);
+  const src = await fs.readFile(new URL('../public/app/feed.js', import.meta.url), 'utf8');
+  assert.match(src, /chip !== false/, 'renderChips skips topics with chip: false');
+  const act = compileTopics(cfg, 'actus');
+  assert.ok(kw('Climat : la COP31 s’ouvre à Antalya', act).includes('climat'));
+  assert.ok(kw('Pesticides : la science et la justice donnent raison aux écologistes', act).some((k) => k === 'pesticide' || k === 'ecologistes'));
+  const t = compileTopics(cfg, 'tech');
+  assert.ok(kw('Reconnaissance faciale : surveillance de masse et vie privée', t).includes('reconnaissance faciale'));
+  assert.ok(kw('Une faille critique dans Apache', t).includes('faille'));
+  assert.equal(matchKeywords('Climat', act)[0].t, 'ecologie');
+  // security keywords moved out of Dev
+  assert.ok(!('security' in cfg.topics.dev.keywords) && 'security' in cfg.topics.libertes.keywords);
+});
