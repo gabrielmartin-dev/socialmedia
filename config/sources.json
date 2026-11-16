@@ -293,6 +293,7 @@
       "id": "courrierintl",
       "generalist": true,
       "name": "Courrier international",
+      "scopeMinScore": 3,
       "paywall": true,
       "site": "https://www.courrierinternational.com"
     },

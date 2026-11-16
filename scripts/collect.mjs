@@ -19,7 +19,7 @@ import { safeUrl, canonicalUrl } from '../public/url.js';
 import { checkRun } from './lib/health.mjs';
 import { packFeed } from '../public/pack.js';
 import { topicsForClient } from './lib/client-config.mjs';
-import { compileScope, generalistOrigins, filterScope } from './lib/scope.mjs';
+import { compileScope, generalistOrigins, sourceMinScores, filterScope } from './lib/scope.mjs';
 import { ResolutionCache, cachedResolve, DAY, HOUR } from './lib/cache.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -244,9 +244,10 @@ async function main() {
   // Generalist sources (franceinfo, Le Monde, AFP…): only their political and social items.
   const scope = compileScope(topicsCfg.scope);
   const generalist = generalistOrigins(sources, blueskyOrigin);
+  const minScores = sourceMinScores(sources);
   const build = async (feed, fresh, maxAgeHours, topicMatchers, { articles = false } = {}) => {
     const all = freshAndUnique(archive.merge(feed, fresh, { maxAgeHours, origins }), maxAgeHours);
-    const { kept: items, dropped } = feed === 'tech' ? { kept: all, dropped: [] } : filterScope(all, { scope, matchers, generalist });
+    const { kept: items, dropped } = feed === 'tech' ? { kept: all, dropped: [] } : filterScope(all, { scope, matchers, generalist, minScores });
     if (dropped.length) {
       const n = all.filter((i) => generalist.has(i._origin)).length;
       console.log(`Hors sujet ${feed} : ${dropped.length}/${n} élément(s) de sources généralistes écarté(s), par exemple :`);

@@ -65,3 +65,43 @@ test('scope config stays in the collector', () => {
   assert.equal(topicsForClient(topics).scope, undefined);
   assert.ok(topicsForClient(topics).topics.politique);
 });
+
+// ---------- lot 3: topics and scope ----------
+import { matchKeywords } from '../public/topics.js';
+const techMatchers = compileTopics(topics, 'tech');
+const found = (t, m = matchers) => matchKeywords(t, m).map((k) => k.k);
+
+test('scope: only Politique and Social weigh in, so a new topic does not widen the filter', () => {
+  const extra = { ...topics, topics: { ...topics.topics, ecologie: { label: 'Écologie', feed: 'actus', keywords: { canicule: 5 } } } };
+  const withTopic = compileTopics(extra, 'actus');
+  const it = art('Canicule : le thermomètre explose', 'https://www.francetvinfo.fr/meteo/x.html');
+  assert.equal(outOfScope(it, scope, withTopic), outOfScope(it, scope, matchers));
+  assert.ok(outOfScope(art('Canicule sur la France', 'https://www.francetvinfo.fr/x/y.html'), scope, withTopic));
+});
+
+test('scope: international items need 3 points, a lone weak word is not enough', () => {
+  const chile = art('Élections au Chili : la droite en tête', 'https://www.lemonde.fr/international/article/2026/11/16/chili.html');
+  assert.match(outOfScope(chile, scope, matchers), /^international, score \d+(\.\d+)? < 3$/);
+  const gov = art('Le gouvernement japonais présente son plan', 'https://www.lemonde.fr/asie-pacifique/article/1.html');
+  assert.match(outOfScope(gov, scope, matchers), /^international/);
+  const strike = art('Grève générale en Argentine contre l’austérité', 'https://www.lemonde.fr/international/article/2.html');
+  assert.equal(outOfScope(strike, scope, matchers), null);
+  const gaza = art('Gaza : le génocide dénoncé par des ONG', 'https://www.lemonde.fr/proche-orient/article/3.html');
+  assert.equal(outOfScope(gaza, scope, matchers), null);
+  // Courrier international is entirely international: its own bar applies to every URL
+  const ci = art('Le Parlement britannique ajourne la séance', 'https://www.courrierinternational.com/article/x');
+  assert.match(outOfScope(ci, scope, matchers, { minScore: 3 }), /^international/);
+  assert.equal(sources.media.find((s) => s.id === 'courrierintl').scopeMinScore, 3);
+});
+
+test('topics: the themes missing from the keywords are now found', () => {
+  assert.ok(found('Sans-papiers : la préfecture multiplie les OQTF').includes('oqtf'));
+  assert.ok(found('Bolloré, CNews et la concentration des médias').includes('concentration des medias'));
+  assert.ok(found('Israël bombarde le Liban').includes('israel'));
+  assert.ok(found('Taxe Zucman : les ultra-riches et les dividendes du CAC 40').includes('taxe zucman'));
+  assert.ok(found('Cinq pays dévoilent leur projet de hub de retour au Rwanda, pour des personnes migrantes').includes('migrant'));
+  assert.ok(found('Le RN et le PS à l’Assemblée').includes('RN') && found('Le RN et le PS à l’Assemblée').includes('PS'));
+  assert.ok(!found('Le groupe de rock pops').includes('PS'));
+  assert.ok(found('Nvidia lance de nouveaux GPU pour les datacenters', techMatchers).includes('nvidia'));
+  assert.ok(found('Docker et Postgres : migrer vers SQLite', techMatchers).includes('docker'));
+});
