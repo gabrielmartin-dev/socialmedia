@@ -100,3 +100,28 @@ test('quality: share of pictures, average summary, undated entries', () => {
   assert.deepEqual(quality([{ image: 'x', text: 'abcd', publishedAt: 'x' }, { image: null, text: '', publishedAt: null }]), { withImage: 50, avgText: 2, undated: 1 });
   assert.deepEqual(quality([]), { withImage: 0, avgText: 0, undated: 0 });
 });
+
+test('resolveShortLinks: an outlet\'s short link is followed once, then matches its article', async () => {
+  const { resolveShortLinks, looksShort } = await import('../scripts/lib/enrich.mjs');
+  const { markRelays } = await import('../scripts/lib/score.mjs');
+  assert.equal(looksShort('https://l.mediapart.fr/kuR'), true);
+  assert.equal(looksShort('https://www.mediapart.fr/journal/france/161126/un-titre'), false);
+  const cache = new ResolutionCache('/nonexistent/x.json');
+  const followed = [];
+  const follow = async (u) => { followed.push(u); return 'https://www.mediapart.fr/journal/france/161126/un-titre?utm_source=bluesky'; };
+  const mk = () => [
+    { id: 'a1', kind: 'article', url: 'https://www.mediapart.fr/journal/france/161126/un-titre', source: { id: 'mediapart', url: 'https://www.mediapart.fr' } },
+    { id: 'p1', kind: 'post', platform: 'bluesky', source: { id: 'bsky:mediapart.fr', handle: 'mediapart.fr' }, external: { url: 'https://l.mediapart.fr/kuR' } },
+    { id: 'p2', kind: 'post', platform: 'bluesky', source: { id: 'bsky:x.bsky.social', handle: 'x.bsky.social' }, external: { url: 'https://bit.ly/abc' } },
+  ];
+  const items = mk();
+  const s = await resolveShortLinks(items, { cache, follow });
+  assert.deepEqual(followed, ['https://l.mediapart.fr/kuR'], 'only the outlet\'s own short links');
+  assert.equal(s.resolved, 1);
+  assert.equal(markRelays(items).relays, 1);
+  assert.equal(items[1].relayOf, 'a1');
+  const again = mk();
+  await resolveShortLinks(again, { cache, follow });
+  assert.equal(followed.length, 1, 'remembered');
+  assert.equal(again[1].external.url, 'https://www.mediapart.fr/journal/france/161126/un-titre?utm_source=bluesky');
+});

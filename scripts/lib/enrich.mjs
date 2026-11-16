@@ -8,6 +8,7 @@ import { decodeEntities, stripHtml, truncate } from './text.mjs';
 import { safeUrl, canonicalUrl } from '../../public/url.js';
 import { isJunkImage } from './rss.mjs';
 import { pool } from './http.mjs';
+import { isOwnLink } from './score.mjs';
 
 const UA = 'Mozilla/5.0 (compatible; TimelinePerso/1.0; personal news reader)';
 export const OG_TTL_MS = 8 * 24 * 3600e3; // longer than the longest window (Tech, 7 days)
@@ -85,6 +86,63 @@ export async function enrichArticles(items, { cache, maxFetches = 40, concurrenc
       apply(it, v);
     } catch {
       cache?.set(key, { i: null, d: '' }, OG_RETRY_MS);
+    }
+  }), concurrency);
+  return stats;
+}
+
+export const SHORT_TTL_MS = 30 * 24 * 3600e3;
+
+/** l.mediapart.fr/kuR, bit.ly/xyz…: a single short path segment, no query. */
+export function looksShort(url) {
+  try {
+    const u = new URL(url);
+    const parts = u.pathname.split('/').filter(Boolean);
+    return parts.length === 1 && parts[0].length <= 12 && !u.search && !/\.\w{2,5}$/.test(parts[0]);
+  } catch { return false; }
+}
+
+/** Final URL after redirects (no body read). */
+export async function followRedirects(url, { timeoutMs = 6000 } = {}) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal, redirect: 'follow', headers: { 'User-Agent': UA, Accept: 'text/html' } });
+    res.body?.cancel?.().catch(() => {});
+    return res.url || url;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * An outlet's Bluesky posts often link through its own short-link domain (Mediapart:
+ * l.mediapart.fr/kuR): such a link never matches the article URL. The short links of the
+ * outlets' own posts are followed (once per link, remembered 30 days, at most `maxFetches`
+ * per run) and the card's URL replaced with the article's, so that markRelays can match it.
+ */
+export async function resolveShortLinks(items, { cache, maxFetches = 60, concurrency = 6, follow = followRedirects } = {}) {
+  const stats = { fromCache: 0, fetched: 0, resolved: 0 };
+  const queue = [];
+  const replace = (it, final) => {
+    const u = safeUrl(final);
+    if (u && u !== it.external.url) { it.external = { ...it.external, url: u }; stats.resolved++; }
+  };
+  for (const it of items) {
+    if (it.platform !== 'bluesky' || !isOwnLink(it) || !looksShort(it.external.url)) continue;
+    const key = `short:${it.external.url}`;
+    const hit = cache?.get(key);
+    if (hit !== undefined) { stats.fromCache++; if (hit) replace(it, hit); continue; }
+    if (queue.length < maxFetches) queue.push({ it, key });
+  }
+  await pool(queue.map(({ it, key }) => async () => {
+    stats.fetched++;
+    try {
+      const final = await follow(it.external.url);
+      cache?.set(key, final === it.external.url ? '' : final, SHORT_TTL_MS);
+      replace(it, final);
+    } catch {
+      cache?.set(key, '', 24 * 3600e3);
     }
   }), concurrency);
   return stats;
