@@ -416,3 +416,16 @@ test('paywall: labels, filter and paid sites', () => {
   assert.ok(!isPaidLink('https://notmediapart.fr/x', sites));
   assert.ok(!isPaidLink('pas une url', sites) && !isPaidLink('https://www.mediapart.fr', new Set()));
 });
+
+import { ratioAt, formatTime } from '../public/app/reelcontrols.js';
+
+test('progress bar: position clamped to the bar, times like 1:15 or 1:02:05', () => {
+  assert.equal(ratioAt(150, 100, 200), 0.25);
+  assert.equal(ratioAt(50, 100, 200), 0, 'left of the bar');
+  assert.equal(ratioAt(400, 100, 200), 1, 'right of the bar');
+  assert.equal(ratioAt(150, 100, 0), 0, 'bar not laid out');
+  assert.equal(formatTime(0), '0:00');
+  assert.equal(formatTime(75.9), '1:15');
+  assert.equal(formatTime(3725), '1:02:05');
+  assert.equal(formatTime(NaN), '0:00');
+});

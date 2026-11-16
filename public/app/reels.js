@@ -17,6 +17,15 @@ const REELS_CHUNK = 5;
 const YT_ORIGIN = 'https://www.youtube-nocookie.com';
 /** Automatic new attempts on a broken stream before showing the error. */
 const MAX_RETRIES = 2;
+const HLS_MIME = 'application/vnd.apple.mpegurl';
+/** hls.js: never a quality above what the screen shows (saves mobile data). */
+const HLS_CONFIG = { maxBufferLength: 20, capLevelToPlayerSize: true };
+/** Buffer of the next video, prepared in advance. */
+const PRELOAD_BUFFER_S = 6;
+const PRELOAD_DELAY_MS = 1500;
+const FULLSCREEN_ICON = 'M4 4h6v2H6v4H4V4Zm10 0h6v6h-2V6h-4V4ZM4 14h2v4h4v2H4v-6Zm14 0h2v6h-6v-2h4v-4Z';
+const EXIT_FULLSCREEN_ICON = 'M8 4h2v6H4V8h4V4Zm6 0h2v4h4v2h-6V4ZM4 14h6v6H8v-4H4v-2Zm10 0h6v2h-4v4h-2v-6Z';
+const canFullscreen = () => !!(document.fullscreenEnabled || 'webkitEnterFullscreen' in HTMLVideoElement.prototype);
 
 let reelObs = null;
 const reelObserver = () => (reelObs ||= new IntersectionObserver((entries) => {
@@ -45,8 +54,12 @@ function reelSlide(item) {
   }
   const kind = item.platform === 'youtube' ? ((v.aspect ?? 16 / 9) < 1 ? ' · Short' : ' · Vidéo longue') : '';
 
-  const muteBtn = v.type === 'hls'
+  const muteBtn = v.type === 'hls' || v.type === 'youtube'
     ? h('button', { class: 'reel-btn mute', 'aria-label': 'Son', 'aria-pressed': String(!state.muted), onclick: (e) => { e.stopPropagation(); toggleMute(); } }, svg(state.muted ? ICONS.muted : ICONS.sound, 24))
+    : null;
+
+  const fullBtn = v.type === 'hls' && landscape && canFullscreen()
+    ? h('button', { class: 'reel-btn fullscreen', 'aria-label': 'Plein écran', onclick: (e) => { e.stopPropagation(); toggleFullscreen(slide); } }, svg(FULLSCREEN_ICON, 24))
     : null;
 
   const slide = h('div', { class: `reel${landscape ? ' landscape' : ''}`, dataset: { id: item.id } },
@@ -64,6 +77,7 @@ function reelSlide(item) {
       text,
     ),
     h('div', { class: 'reel-side' },
+      fullBtn,
       muteBtn,
       h('a', { class: 'reel-btn', href: item.url, target: '_blank', rel: 'noopener', 'aria-label': "Ouvrir l'original" }, svg(ICONS.open, 22)),
       h('button', { class: 'reel-btn', 'aria-label': 'Options', onclick: (e) => { e.stopPropagation(); actions.openSheet(item); } }, svg(ICONS.more, 24)),
@@ -76,6 +90,7 @@ function reelSlide(item) {
 export function buildReels() {
   const list = $('#videos-list');
   deactivateReel();
+  dropPreload();
   list.replaceChildren();
   state.reels.ranked = state.data.videos ? rank(entriesFor('videos').filter((i) => i.video), rankOpts(state.data.videos), state.hidden) : [];
   state.reels.rendered = 0;
@@ -114,6 +129,8 @@ function appendReels() {
 
 export async function activateReel(slide, userGesture = false) {
   if (state.view !== 'videos') return;
+  // In full screen the slide leaves the list, which shifts the others under the observer.
+  if (document.fullscreenElement && document.fullscreenElement !== slide) return;
   if (state.reels.active === slide && !userGesture) return;
   if (state.reels.active !== slide) deactivateReel();
   state.reels.active = slide;
@@ -126,10 +143,13 @@ export async function activateReel(slide, userGesture = false) {
 
   const item = slide._item;
   const v = item.video;
-  if (slide.querySelector('video, iframe')) {
-    slide.querySelector('video')?.play().catch(() => {});
+  if (slide.querySelector('video:not(.reel-pre), iframe')) {
+    slide.querySelector('video:not(.reel-pre)')?.play().catch(() => {});
     return;
   }
+
+  // Prepare the next video while this one starts.
+  setTimeout(() => { if (state.reels.active === slide) preloadReel(slide.nextElementSibling); }, PRELOAD_DELAY_MS);
 
   if (v.type === 'hls') {
     const hlsSrc = safeUrl(v.src, location.href);
@@ -148,6 +168,7 @@ export async function activateReel(slide, userGesture = false) {
       title: item.title || item.source.name,
     });
     // Ask the YouTube player to report its position (infoDelivery messages), for the resume.
+    // It also takes the sound and pause commands (ytCommand).
     if (v.type === 'youtube') iframe.addEventListener('load', () => iframe.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), YT_ORIGIN));
     slide.classList.add('has-iframe');
     slide.insertBefore(iframe, slide.querySelector('.reel-play'));
@@ -158,9 +179,20 @@ export async function activateReel(slide, userGesture = false) {
 async function playHls(slide, hlsSrc, v) {
   const id = slide.dataset.id;
   const start = getPosition(id);
-  const video = h('video', { playsinline: true, 'webkit-playsinline': true, loop: true, preload: 'auto', poster: safeUrl(v.poster, location.href) || undefined });
+  // The next video may already be loading (preloadReel): take it over.
+  let pre = slide._pre;
+  if (pre) {
+    slide._pre = null;
+    if (preloaded === slide) preloaded = null;
+    if (pre.failed) { destroyPreload(pre); pre = null; }
+  }
+  const video = pre ? pre.video : newVideo();
+  video.classList.remove('reel-pre');
+  video.preload = 'auto';
+  const poster = safeUrl(v.poster, location.href);
+  if (poster) video.poster = poster;
   video.muted = state.muted;
-  slide.insertBefore(video, slide.querySelector('.reel-play'));
+  if (!pre) slide.insertBefore(video, slide.querySelector('.reel-play'));
   slide.append(h('div', { class: 'reel-loading', 'aria-hidden': 'true' }, h('div', { class: 'spinner' })));
   attachControls(slide, video);
 
@@ -180,9 +212,9 @@ async function playHls(slide, hlsSrc, v) {
     showError(slide);
   };
 
-  const native = video.canPlayType('application/vnd.apple.mpegurl');
+  const native = video.canPlayType(HLS_MIME);
   if (native) {
-    if (start) video.addEventListener('loadedmetadata', () => { video.currentTime = start; }, { once: true });
+    if (pre) { /* src already set, position already applied */ } else if (start) video.addEventListener('loadedmetadata', () => { video.currentTime = start; }, { once: true });
     video.addEventListener('error', () => {
       if (state.reels.active !== slide || !video.isConnected) return;
       if (retries++ >= MAX_RETRIES) { fail(); return; }
@@ -194,13 +226,14 @@ async function playHls(slide, hlsSrc, v) {
         video.play().catch(() => {});
       }, 1000 * retries);
     });
-    video.src = hlsSrc;
+    if (!pre) video.src = hlsSrc;
   } else {
     try {
       const Hls = await loadHls();
       if (state.reels.active !== slide) return;
       if (Hls?.isSupported()) {
-        const hls = new Hls({ maxBufferLength: 20, startPosition: start || -1 });
+        const hls = pre?.hls || new Hls({ ...HLS_CONFIG, startPosition: start || -1 });
+        hls.config.maxBufferLength = HLS_CONFIG.maxBufferLength;
         hls.on(Hls.Events.ERROR, (_e, data) => {
           if (!data.fatal || state.reels.active !== slide) return;
           if (retries++ >= MAX_RETRIES) { fail(); return; }
@@ -208,8 +241,7 @@ async function playHls(slide, hlsSrc, v) {
           // No playlist yet: load it again; otherwise resume loading the segments.
           else setTimeout(() => { if (slide._hls !== hls) return; if (hls.levels?.length) hls.startLoad(); else hls.loadSource(hlsSrc); }, 1000 * retries);
         });
-        hls.loadSource(hlsSrc);
-        hls.attachMedia(video);
+        if (!pre?.hls) { hls.loadSource(hlsSrc); hls.attachMedia(video); }
         slide._hls = hls;
       } else {
         if (start) video.addEventListener('loadedmetadata', () => { video.currentTime = start; }, { once: true });
@@ -232,6 +264,96 @@ async function playHls(slide, hlsSrc, v) {
   }
 }
 
+const newVideo = () => h('video', { playsinline: true, 'webkit-playsinline': true, loop: true, preload: 'auto' });
+
+let preloaded = null; // the slide whose video is being prepared in advance
+
+/** Starts loading the HLS video of `slide` (the next one), hidden, muted, with a small buffer. */
+async function preloadReel(slide) {
+  const v = slide?._item?.video;
+  if (!v || v.type !== 'hls' || slide._pre || slide === state.reels.active) return;
+  const src = safeUrl(v.src, location.href);
+  if (!src) return;
+  dropPreload();
+  const video = newVideo();
+  video.classList.add('reel-pre');
+  video.muted = true;
+  const pre = { video, hls: null, failed: false };
+  slide._pre = pre;
+  preloaded = slide;
+  slide.insertBefore(video, slide.querySelector('.reel-play'));
+  const start = getPosition(slide.dataset.id);
+  if (video.canPlayType(HLS_MIME)) {
+    // Native HLS buffers as much as it likes with preload=auto: only the start here.
+    video.preload = 'metadata';
+    if (start) video.addEventListener('loadedmetadata', () => { video.currentTime = start; }, { once: true });
+    video.addEventListener('error', () => { pre.failed = true; });
+    video.src = src;
+    return;
+  }
+  try {
+    const Hls = await loadHls();
+    if (slide._pre !== pre) return;
+    if (!Hls?.isSupported()) { dropPreload(); return; }
+    pre.hls = new Hls({ ...HLS_CONFIG, maxBufferLength: PRELOAD_BUFFER_S, startPosition: start || -1 });
+    pre.hls.on(Hls.Events.ERROR, (_e, data) => { if (data.fatal && slide._pre === pre) pre.failed = true; });
+    pre.hls.loadSource(src);
+    pre.hls.attachMedia(video);
+  } catch {
+    if (slide._pre === pre) dropPreload();
+  }
+}
+
+function destroyPreload(pre) {
+  pre.hls?.destroy();
+  pre.video.removeAttribute('src');
+  pre.video.load();
+  pre.video.remove();
+}
+
+/** Forgets the video prepared in advance, if any. */
+function dropPreload() {
+  const slide = preloaded;
+  preloaded = null;
+  if (!slide?._pre) return;
+  destroyPreload(slide._pre);
+  slide._pre = null;
+}
+
+/** Full screen for a landscape video, turned sideways where the phone allows it. */
+async function toggleFullscreen(slide) {
+  if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); return; }
+  if (state.reels.active !== slide) activateReel(slide, true);
+  const video = slide.querySelector('video:not(.reel-pre)');
+  if (document.fullscreenEnabled && slide.requestFullscreen) {
+    try {
+      await slide.requestFullscreen({ navigationUI: 'hide' });
+      await screen.orientation?.lock?.('landscape');
+    } catch { /* orientation lock refused: full screen stays */ }
+  } else if (video?.webkitEnterFullscreen) {
+    video.webkitEnterFullscreen(); // iPhone: the system player
+  }
+}
+
+let fullscreenSlide = null;
+function onFullscreenChange() {
+  const el = document.fullscreenElement;
+  // Back from full screen: the list is where it was, on the same video.
+  if (!el && fullscreenSlide?.isConnected) fullscreenSlide.scrollIntoView({ block: 'start' });
+  fullscreenSlide = el?.classList.contains('reel') ? el : null;
+  document.querySelectorAll('.reel .fullscreen').forEach((b) => {
+    const on = b.closest('.reel') === el;
+    b.replaceChildren(svg(on ? EXIT_FULLSCREEN_ICON : FULLSCREEN_ICON, 24));
+    b.setAttribute('aria-label', on ? 'Quitter le plein écran' : 'Plein écran');
+  });
+  if (!el) try { screen.orientation?.unlock?.(); } catch { /* not supported */ }
+}
+
+/** Sends a command to the YouTube player of `slide` (mute, unMute, playVideo, pauseVideo). */
+function ytCommand(slide, func) {
+  slide?.querySelector('iframe')?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args: [] }), YT_ORIGIN);
+}
+
 /** Broken stream: message with a new attempt and the link to the original. */
 function showError(slide) {
   slide.querySelectorAll('.reel-error, .reel-loading').forEach((el) => el.remove());
@@ -244,7 +366,7 @@ function showError(slide) {
 
 /** Remembers where the active reel is, for the resume. */
 function savePlayback(slide) {
-  const video = slide.querySelector('video');
+  const video = slide.querySelector('video:not(.reel-pre)');
   if (video) savePosition(slide.dataset.id, video.currentTime, video.duration);
   else if (slide._ytTime != null) savePosition(slide.dataset.id, slide._ytTime, slide._ytDuration);
 }
@@ -253,11 +375,12 @@ export function deactivateReel() {
   const slide = state.reels.active;
   if (!slide) return;
   savePlayback(slide);
-  slide._ytTime = slide._ytDuration = null;
-  slide.classList.remove('active', 'has-iframe', 'buffering');
+  slide._ytTime = slide._ytDuration = slide._ytState = null;
+  slide._ytReady = slide._ytResume = false;
+  slide.classList.remove('active', 'has-iframe', 'buffering', 'scrubbing');
   slide._hls?.destroy();
   slide._hls = null;
-  slide.querySelectorAll('video, iframe, .reel-progress, .reel-flash, .reel-loading, .reel-error').forEach((el) => {
+  slide.querySelectorAll('video:not(.reel-pre), iframe, .reel-progress, .reel-time, .reel-flash, .reel-loading, .reel-error').forEach((el) => {
     if (el.tagName === 'VIDEO') { el.pause(); el.removeAttribute('src'); el.load(); }
     el.remove();
   });
@@ -272,6 +395,7 @@ export function removeReel(id) {
   const index = state.reels.ranked.findIndex((i) => i.id === id);
   const item = slide._item;
   if (state.reels.active === slide) deactivateReel();
+  if (preloaded === slide) dropPreload();
   reelObserver().unobserve(slide);
   slide.remove();
   state.reels.ranked = state.reels.ranked.filter((i) => i.id !== id);
@@ -295,7 +419,7 @@ export function restoreReel({ item, index }) {
 /** Sound on / off for the HLS reels; the icon always tells the truth. */
 function setMuted(muted) {
   state.muted = muted;
-  const video = state.reels.active?.querySelector('video');
+  const video = state.reels.active?.querySelector('video:not(.reel-pre)');
   if (video) video.muted = muted;
   document.querySelectorAll('.reel .mute').forEach((b) => {
     b.replaceChildren(svg(muted ? ICONS.muted : ICONS.sound, 24));
@@ -305,7 +429,9 @@ function setMuted(muted) {
 
 function toggleMute() {
   setMuted(!state.muted);
-  const video = state.reels.active?.querySelector('video');
+  const slide = state.reels.active;
+  if (slide?.querySelector('iframe')) { ytCommand(slide, state.muted ? 'mute' : 'unMute'); return; }
+  const video = slide?.querySelector('video');
   if (video && !state.muted) video.play().catch(() => {});
 }
 
@@ -317,15 +443,17 @@ function toggleMute() {
 export function initReels() {
   document.addEventListener('visibilitychange', () => {
     const slide = state.reels.active;
-    const video = slide?.querySelector('video');
+    const video = slide?.querySelector('video:not(.reel-pre)');
     if (document.hidden) {
       if (slide) savePlayback(slide);
       if (video) { video._resumeOnShow = !video.paused; video.pause(); }
-    } else if (state.view === 'videos' && video?._resumeOnShow) {
-      video._resumeOnShow = false;
-      video.play().catch(() => {});
+      if (slide?.querySelector('iframe')) { slide._ytResume = slide._ytState === 1; ytCommand(slide, 'pauseVideo'); }
+    } else if (state.view === 'videos') {
+      if (video?._resumeOnShow) { video._resumeOnShow = false; video.play().catch(() => {}); }
+      if (slide?._ytResume) { slide._ytResume = false; ytCommand(slide, 'playVideo'); }
     }
   });
+  document.addEventListener('fullscreenchange', onFullscreenChange);
   window.addEventListener('message', (e) => {
     if (e.origin !== YT_ORIGIN) return;
     const slide = state.reels.active;
@@ -333,9 +461,21 @@ export function initReels() {
     if (!iframe || e.source !== iframe.contentWindow) return;
     let data;
     try { data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; }
-    const info = data?.event === 'infoDelivery' ? data.info : null;
+    // Player ready: apply the sound setting (the embed always starts muted).
+    if ((data?.event === 'onReady' || data?.event === 'initialDelivery') && !slide._ytReady) {
+      slide._ytReady = true;
+      if (!state.muted) ytCommand(slide, 'unMute');
+    }
+    const info = data?.event === 'infoDelivery' || data?.event === 'initialDelivery' ? data.info : null;
     if (!info) return;
     if (Number.isFinite(info.currentTime)) slide._ytTime = info.currentTime;
     if (Number.isFinite(info.duration)) slide._ytDuration = info.duration;
+    if (Number.isFinite(info.playerState)) slide._ytState = info.playerState;
+    // The icon follows what the player really does (it may refuse the sound).
+    if (typeof info.muted === 'boolean') {
+      const btn = slide.querySelector('.mute');
+      btn?.replaceChildren(svg(info.muted ? ICONS.muted : ICONS.sound, 24));
+      btn?.setAttribute('aria-pressed', String(!info.muted));
+    }
   });
 }

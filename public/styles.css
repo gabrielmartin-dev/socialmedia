@@ -374,7 +374,7 @@ button.reel-author { text-align: left; }
 .reel.landscape iframe { top: 50%; bottom: auto; height: auto; aspect-ratio: 16 / 9; transform: translateY(-50%); }
 .reel-overlay {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
-  padding: 60px 64px 16px 16px;
+  padding: 60px 64px 26px 16px;
   background: linear-gradient(transparent, rgba(0,0,0,.75));
   pointer-events: none;
 }
@@ -397,7 +397,7 @@ button.reel-author { text-align: left; }
 .reel-text.expanded .reel-desc { display: block; }
 .reel-desc .link { color: #7cc4f8; }
 .reel-side {
-  position: absolute; right: 8px; bottom: 20px; z-index: 4;
+  position: absolute; right: 8px; bottom: 30px; z-index: 4;
   display: flex; flex-direction: column; gap: 14px; align-items: center;
 }
 .reel-btn {
@@ -414,8 +414,20 @@ button.reel-author { text-align: left; }
 .reel.active .reel-play.auto { display: none; }
 
 /* HLS reel controls */
-.reel-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: 5; background: rgba(255,255,255,.25); pointer-events: none; }
+.reel video.reel-pre { opacity: 0; pointer-events: none; }
+/* Progress bar: a 24 px touch zone for a 3 px line, thicker while dragged. */
+.reel-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 24px; z-index: 5; touch-action: none; cursor: pointer; display: flex; align-items: flex-end; }
+.reel-progress-track { width: 100%; height: 3px; background: rgba(255,255,255,.25); transition: height .15s; }
+.reel-progress.dragging .reel-progress-track { height: 6px; }
 .reel-progress-fill { height: 100%; width: 100%; background: #fff; transform: scaleX(0); transform-origin: left; }
+.reel-time {
+  position: absolute; left: 50%; top: 45%; z-index: 5; transform: translate(-50%, -50%); display: none; pointer-events: none;
+  padding: 8px 16px; font-size: 22px; border-radius: 999px; background: rgba(0,0,0,.65); color: #fff;
+  font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.reel.scrubbing .reel-time { display: block; }
+.reel.scrubbing .reel-overlay, .reel.scrubbing .reel-side { opacity: 0; transition: opacity .15s; }
+.reel:fullscreen { height: 100%; width: 100%; }
 .reel-flash {
   position: absolute; top: 50%; left: 50%; z-index: 5; pointer-events: none; opacity: 0;
   min-width: 76px; height: 76px; padding: 0 18px; border-radius: 38px; background: rgba(0,0,0,.55); color: #fff;
