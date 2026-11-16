@@ -45,7 +45,7 @@ export function renderFeed(key) {
 /** Topic chips (Tout / Politique / Social, Tout / IA / Dev): labels come from topics.json. */
 export function renderChips(key) {
   const el = $(`#${key}-chips`);
-  const topics = Object.entries(state.data.topics?.topics || {}).filter(([, t]) => (t.feed || 'actus') === key);
+  const topics = Object.entries(state.data.topics?.topics || {}).filter(([, t]) => (t.feed || 'actus') === key && t.chip !== false); // chip: false = counts in the score and labels, no chip on top
   el.hidden = !topics.length;
   const current = state.feeds[key].topic;
   const chip = (id, label) => h('button', {
