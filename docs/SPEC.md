@@ -67,7 +67,8 @@ Barre d'onglets en bas, deux onglets :
   - trois sections : **Abonnements** (par défaut, avec un bouton pour ne plus suivre), **Suggestions** et **Enregistrés** ;
   - **Enregistrés** : marque-pages locaux, pour lire plus tard (≠ un like : rien n'est envoyé nulle part). L'item complet est conservé, donc lisible même après sa sortie de la fenêtre de 72 h. 300 au plus, les plus récents d'abord. Accessible aussi par l'icône marque-page de la barre du haut.
 - **Poids local :** un abonnement dont le poids a été modifié par « Moins de ça » (ou « Plus de ça ») l'indique (« Réduit par « Moins de ça » »), avec un bouton **Rétablir** (annulable).
-- **Stockage :** les abonnements sont enregistrés sur le téléphone. Un compte Bluesky trouvé par la recherche est récupéré directement par l'app, sans passer par GitHub.
+- **Stockage :** les abonnements sont enregistrés sur le téléphone. Un compte Bluesky trouvé par la recherche est récupéré directement par l'app, sans passer par GitHub. Un choix « Suivre » ou « Ne plus suivre » fait dans l'app prime sur la config, même si un compte passe ensuite de suggestion à suivi par défaut (ou l'inverse).
+- **Cohérence :** le menu ⋯ d'un post, la page de profil et Découvrir donnent toujours le même état (« Suivre » / « Abonné ») ; un compte jamais suivi (réponse dans un fil, vidéo trouvée par hashtag) n'affiche jamais « Ne plus suivre ». « Ne plus suivre » retire aussi ses articles des cartes groupées, qui gardent ceux des autres médias. La pastille « Nouveaux posts ↑ » ne compte que ce que le fil affichera (comptes suivis, posts non masqués, payants exclus s'ils sont masqués).
 - **Exception :** les vidéos d'internautes trouvées par hashtag restent toujours visibles.
 
 ### 2.6 Pages de profil

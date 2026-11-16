@@ -19,11 +19,17 @@ export function ageLabel(iso, now = Date.now()) {
 /** Ids of an entry (a group holds several articles). */
 export const entryIds = (entry) => (entry.kind === 'group' ? entry.items.map((i) => i.id) : [entry.id]);
 
-/** Number of entries of `next` that bring an item unknown to `prev`. */
-export function newEntryCount(prev, next) {
+const itemsOf = (entry) => (entry.kind === 'group' ? entry.items : [entry]);
+
+/**
+ * Number of entries of `next` that bring an item unknown to `prev`. `keep(item)` says whether
+ * the item would actually be shown (account followed, not hidden…): a new post from a
+ * suggestion that is not followed must not announce « Nouveaux posts ».
+ */
+export function newEntryCount(prev, next, keep = () => true) {
   if (!Array.isArray(next?.entries)) return 0;
   const known = new Set((prev?.entries || []).flatMap(entryIds));
-  return next.entries.filter((e) => entryIds(e).some((id) => !known.has(id))).length;
+  return next.entries.filter((e) => itemsOf(e).some((i) => !known.has(i.id) && keep(i))).length;
 }
 
 /** Sources of status.json that failed during the last collection. */

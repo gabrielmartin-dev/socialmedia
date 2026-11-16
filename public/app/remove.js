@@ -15,22 +15,64 @@ function markOthersStale(view) {
   if (view !== 'videos') state.reels.built = false;
 }
 
-/** Entries of the displayed feed / reels that come from an account. */
-export function entriesOfSource(sourceId) {
-  if (isFeed(state.view)) return state.feeds[state.view].ranked.filter((e) => e.kind !== 'group' && e.source.id === sourceId);
-  if (state.view === 'videos') return state.reels.ranked.filter((e) => e.source.id === sourceId);
+/**
+ * What has to leave the displayed feed / reels so that no item matching `pred` stays on screen.
+ * A plain card is taken off; a grouped card (« N médias en parlent ») keeps its other articles:
+ * it is replaced by the smaller group, or by the single article left. Returns { entries, replacements }
+ * for takeOff (replacements: id of the group → what replaces it).
+ */
+export function trimItems(ranked, pred) {
+  const entries = [];
+  const replacements = new Map();
+  for (const e of ranked) {
+    if (e.kind !== 'group') { if (pred(e)) entries.push(e); continue; }
+    const kept = e.items.filter((i) => !pred(i));
+    if (kept.length === e.items.length) continue;
+    entries.push(e);
+    if (kept.length) replacements.set(e.id, kept.length > 1 ? { ...e, items: kept } : kept[0]);
+  }
+  return { entries, replacements };
+}
+
+function displayed() {
+  if (isFeed(state.view)) return state.feeds[state.view].ranked;
+  if (state.view === 'videos') return state.reels.ranked;
   return [];
 }
 
-export function takeOff(entries) {
+/** Items of the displayed feed / reels that match `pred`, ready for takeOff. */
+export const itemsMatching = (pred) => trimItems(displayed(), pred);
+
+/**
+ * Posts of an account on screen (grouped articles included). Hashtag videos stay: they are
+ * shown whoever posted them, so taking them off would only last until the next refresh.
+ */
+export const entriesOfSource = (sourceId) => itemsMatching((i) => !i.tag && i.source?.id === sourceId);
+
+/**
+ * `entries`: an array of entries, or { entries, replacements } (see trimItems): an entry that has
+ * a replacement is swapped for it in place instead of being taken off (feeds only).
+ */
+export function takeOff(what) {
+  const { entries, replacements = new Map() } = Array.isArray(what) ? { entries: what } : what;
   const view = state.view;
   const records = [];
+  const swaps = [];
   if (isFeed(view)) {
     const feed = state.feeds[view];
     const list = $(`#${view}-list`);
     for (const entry of entries) {
       const idx = feed.ranked.findIndex((e) => e.id === entry.id);
       if (idx < 0) continue;
+      const replacement = replacements.get(entry.id);
+      if (replacement) {
+        feed.ranked[idx] = replacement;
+        const card = cardsIn(list, entry.id)[0];
+        const next = card ? makeCard(replacement) : null;
+        card?.replaceWith(next);
+        swaps.push({ entry, replacement, card: next });
+        continue;
+      }
       feed.ranked.splice(idx, 1);
       const card = cardsIn(list, entry.id)[0];
       if (card) {
@@ -63,6 +105,11 @@ export function takeOff(entries) {
     if (isFeed(view)) {
       const feed = state.feeds[view];
       const list = $(`#${view}-list`);
+      for (const s of swaps) {
+        const idx = feed.ranked.indexOf(s.replacement);
+        if (idx >= 0) feed.ranked[idx] = s.entry;
+        if (s.card?.isConnected) s.card.replaceWith(makeCard(s.entry));
+      }
       for (const r of [...records].sort((a, b) => a.idx - b.idx)) {
         feed.ranked.splice(Math.min(r.idx, feed.ranked.length), 0, r.entry);
         if (r.shown) {
