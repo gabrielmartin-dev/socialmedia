@@ -69,6 +69,10 @@ export function groupDuplicates(items, { similarity = 0.34, windowHours = 12 } =
 
 const domainsMatch = (a, b) => !!a && !!b && (a === b || a.endsWith('.' + b) || b.endsWith('.' + a));
 
+/** A Bluesky post whose link card points to its own outlet's site (or `sameAs` account). */
+export const isOwnLink = (post) => !!post.external?.url
+  && (!!post._sameAs || domainsMatch(post.source?.handle?.toLowerCase(), hostOf(post.external.url)));
+
 /**
  * A media outlet followed both by RSS and on Bluesky posts each article twice: the article
  * itself, and a Bluesky post whose link card points to it. Such a post gets `relayOf` (the
@@ -95,8 +99,7 @@ export function markRelays(items) {
     if (it.platform !== 'bluesky' || !it.external?.url) continue;
     const art = byUrl.get(canonicalUrl(it.external.url));
     if (!art) {
-      const own = it._sameAs || domainsMatch(it.source?.handle?.toLowerCase(), hostOf(it.external.url));
-      if (own) unmatched.push(`@${it.source?.handle} → ${it.external.url}`);
+      if (isOwnLink(it)) unmatched.push(`@${it.source?.handle} → ${it.external.url}`);
       continue;
     }
     const same = (it._sameAs && it._sameAs === art.source?.id)

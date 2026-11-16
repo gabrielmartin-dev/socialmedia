@@ -11,7 +11,7 @@ import * as bsky from './lib/bluesky.mjs';
 import * as yt from './lib/youtube.mjs';
 import { compileTopics, annotate, groupDuplicates, markRelays } from './lib/score.mjs';
 import { ItemArchive, publicItem } from './lib/archive.mjs';
-import { enrichArticles } from './lib/enrich.mjs';
+import { enrichArticles, resolveShortLinks } from './lib/enrich.mjs';
 import { quality } from './lib/quality.mjs';
 import { truncate } from './lib/text.mjs';
 import { sanitizeItem } from './lib/sanitize.mjs';
@@ -252,6 +252,8 @@ async function main() {
   const build = async (feed, fresh, maxAgeHours, topicMatchers, { articles = false } = {}) => {
     const items = freshAndUnique(archive.merge(feed, fresh, { maxAgeHours, origins }), maxAgeHours);
     if (articles) {
+      const sl = await resolveShortLinks(items, { cache });
+      if (sl.fetched || sl.fromCache) console.log(`Liens courts ${feed} : ${sl.resolved} résolu(s) (${sl.fetched} suivi(s), ${sl.fromCache} en cache)`);
       const r = markRelays(items);
       if (r.unmatched.length) {
         console.log(`Relais ${feed} : ${r.relays} post(s) rattaché(s) à leur article, ${r.unmatched.length} lien(s) d'un média vers son propre site sans article correspondant, par exemple :`);
