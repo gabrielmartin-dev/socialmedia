@@ -10,6 +10,34 @@
     "similarity": 0.34,
     "windowHours": 12
   },
+  "scope": {
+    "_comment": "Filtre hors sujet, appliqué seulement aux sources marquées \"generalist\" dans sources.json (franceinfo, Le Monde, AFP…). Un élément dont l'URL est dans une rubrique onTopic est gardé ; sinon il est écarté s'il a un signal hors sujet (rubrique de l'URL, catégorie du flux, mot-clé) et un score Politique + Social sous keepScore, ou si son score est sous minScore. Score = somme des poids des mots-clés trouvés (non plafonnée).",
+    "minScore": 1.5,
+    "keepScore": 4,
+    "onTopic": {
+      "sections": ["politique", "elections", "election-presidentielle-2027", "social", "manifestations", "blocage-des-lycees", "pouvoir-achat", "retraite", "logement"]
+    },
+    "offTopic": {
+      "sections": [
+        "sante", "sport", "sports", "football", "rugby", "tennis", "cyclisme", "jeux-olympiques",
+        "faits-divers", "fait-divers", "justice-faits-divers",
+        "culture", "cinema", "musique", "livres", "series-tv", "television", "tv", "people", "celebrites",
+        "meteo", "loisirs", "jeux", "horoscope", "gastronomie", "cuisine", "voyage", "voyages", "tourisme",
+        "automobile", "auto", "mode", "beaute", "bien-etre", "m-styles", "m-perso", "m-le-mag", "m-gastronomie",
+        "vie-quotidienne", "animaux", "sciences", "decouverte"
+      ],
+      "keywords": [
+        "beaute", "esthetique", "cosmetique*", "maquillage", "regime", "minceur", "recette*", "horoscope",
+        "football", "ligue 1", "ligue des champions", "ligue europa", "psg", "rugby", "xv de france", "tennis", "roland-garros",
+        "cyclisme", "tour de france", "formule 1", "grand prix", "nba", "handball", "basket", "ballon d'or", "mercato",
+        "coupe du monde", "championnat", "match", "buteur", "selectionneur",
+        "fait divers", "faits divers", "meurtre", "noyade", "accident de la route", "carambolage",
+        "meteo", "orages", "bulletin meteo", "vigilance orange", "vigilance rouge",
+        "box-office", "festival de cannes", "concert", "netflix", "telerealite", "star academy",
+        "jeu video", "jeux video", "loto", "euromillions"
+      ]
+    }
+  },
   "topics": {
     "politique": {
       "label": "Politique",
@@ -65,11 +93,15 @@
         "antifascis*": 2,
         "fascis*": 1.5,
         "islamophob*": 2,
-        "racisme": 1.5,
+        "racis*": 1.5,
         "antiracis*": 1.5,
         "palestin*": 1.5,
         "gaza": 1.5,
-        "genocide": 1.5
+        "genocide": 1.5,
+        "fraude fiscale": 1.5,
+        "evasion fiscale": 1.5,
+        "milliardaire*": 1.5,
+        "impot*": 1
       },
       "feed": "actus"
     },
@@ -79,10 +111,11 @@
         "grev*": 2.5,
         "manif*": 2.5,
         "mobilisation*": 2,
-        "rassemblement": 1,
+        "rassemblement*": 1,
         "blocage*": 2,
         "bloquons": 2,
         "syndicat*": 2,
+        "syndical*": 2,
         "intersyndicale": 2.5,
         "cgt": 1.5,
         "cfdt": 1,
@@ -100,7 +133,7 @@
         "france travail": 1.5,
         "precarite": 2,
         "precaire*": 1.5,
-        "logement": 1.5,
+        "logement*": 1.5,
         "loyer*": 1.5,
         "expulsion*": 1.5,
         "sans-abri": 1.5,
@@ -128,6 +161,8 @@
         "lacrymo*": 2,
         "nasse": 1.5,
         "greviste*": 2,
+        "lyceen*": 2,
+        "cortege*": 1.5,
         "piquet": 1.5,
         "luttes": 1.5,
         "social": 0.5,
@@ -135,6 +170,9 @@
         "feminicide*": 2,
         "violences sexuelles": 2,
         "violences sexistes": 2,
+        "agressions sexuelles": 2,
+        "agression sexuelle": 2,
+        "harcelement sexuel": 2,
         "metoo": 1.5,
         "lgbt*": 1.5,
         "homophob*": 1.5,

@@ -19,6 +19,7 @@ import { safeUrl, canonicalUrl } from '../public/url.js';
 import { checkRun } from './lib/health.mjs';
 import { packFeed } from '../public/pack.js';
 import { topicsForClient } from './lib/client-config.mjs';
+import { compileScope, generalistOrigins, filterScope } from './lib/scope.mjs';
 import { ResolutionCache, cachedResolve, DAY, HOUR } from './lib/cache.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -250,8 +251,17 @@ async function main() {
   const origins = configuredOrigins(sources);
   // Articles without picture: og:image of the page, shared budget for Actus + Tech.
   let pageBudget = settings.ogImageFetchesPerRun ?? 40;
+  // Generalist sources (franceinfo, Le Monde, AFP…): only their political and social items.
+  const scope = compileScope(topicsCfg.scope);
+  const generalist = generalistOrigins(sources, blueskyOrigin);
   const build = async (feed, fresh, maxAgeHours, topicMatchers, { articles = false } = {}) => {
-    const items = freshAndUnique(archive.merge(feed, fresh, { maxAgeHours, origins }), maxAgeHours);
+    const all = freshAndUnique(archive.merge(feed, fresh, { maxAgeHours, origins }), maxAgeHours);
+    const { kept: items, dropped } = feed === 'tech' ? { kept: all, dropped: [] } : filterScope(all, { scope, matchers, generalist });
+    if (dropped.length) {
+      const n = all.filter((i) => generalist.has(i._origin)).length;
+      console.log(`Hors sujet ${feed} : ${dropped.length}/${n} élément(s) de sources généralistes écarté(s), par exemple :`);
+      for (const { item, reason } of dropped.slice(0, 10)) console.log(`  [${reason}] ${item.source?.name} · ${(item.title || item.text || '').slice(0, 90)}`);
+    }
     if (articles) {
       const sl = await resolveShortLinks(items, { cache });
       if (sl.fetched || sl.fromCache) console.log(`Liens courts ${feed} : ${sl.resolved} résolu(s) (${sl.fetched} suivi(s), ${sl.fromCache} en cache)`);

@@ -3,8 +3,9 @@
 
 /** topics config + the freshness windows (hours) the collector applies per feed. */
 export function topicsForClient(topicsCfg, settings = {}) {
+  const { scope, ...rest } = topicsCfg; // the out-of-scope filter only runs in the collector
   return {
-    ...topicsCfg,
+    ...rest,
     settings: {
       actusMaxAgeHours: settings.actusMaxAgeHours ?? 72,
       techMaxAgeHours: settings.techMaxAgeHours ?? 168,
