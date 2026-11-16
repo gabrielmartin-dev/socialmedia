@@ -11,8 +11,12 @@ import { state, entriesFor, rankOpts, markSeen } from './store.js';
 import { actions } from './actions.js';
 import { PLATFORM_LABELS } from './util.js';
 import { linkify } from './cards.js';
+import { getPosition, savePosition } from './resume.js';
 
 const REELS_CHUNK = 5;
+const YT_ORIGIN = 'https://www.youtube-nocookie.com';
+/** Automatic new attempts on a broken stream before showing the error. */
+const MAX_RETRIES = 2;
 
 let reelObs = null;
 const reelObserver = () => (reelObs ||= new IntersectionObserver((entries) => {
@@ -42,7 +46,7 @@ function reelSlide(item) {
   const kind = item.platform === 'youtube' ? ((v.aspect ?? 16 / 9) < 1 ? ' · Short' : ' · Vidéo longue') : '';
 
   const muteBtn = v.type === 'hls'
-    ? h('button', { class: 'reel-btn mute', 'aria-label': 'Son', onclick: (e) => { e.stopPropagation(); toggleMute(); } }, svg(state.muted ? ICONS.muted : ICONS.sound, 24))
+    ? h('button', { class: 'reel-btn mute', 'aria-label': 'Son', 'aria-pressed': String(!state.muted), onclick: (e) => { e.stopPropagation(); toggleMute(); } }, svg(state.muted ? ICONS.muted : ICONS.sound, 24))
     : null;
 
   const slide = h('div', { class: `reel${landscape ? ' landscape' : ''}`, dataset: { id: item.id } },
@@ -130,37 +134,11 @@ export async function activateReel(slide, userGesture = false) {
   if (v.type === 'hls') {
     const hlsSrc = safeUrl(v.src, location.href);
     if (!hlsSrc) return;
-    const video = h('video', { playsinline: true, 'webkit-playsinline': true, loop: true, preload: 'auto', poster: safeUrl(v.poster, location.href) || undefined });
-    video.muted = state.muted;
-    slide.insertBefore(video, slide.querySelector('.reel-play'));
-    attachControls(slide, video);
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = hlsSrc;
-    } else {
-      try {
-        const Hls = await loadHls();
-        if (state.reels.active !== slide) return;
-        if (Hls?.isSupported()) {
-          const hls = new Hls({ maxBufferLength: 20 });
-          hls.loadSource(hlsSrc);
-          hls.attachMedia(video);
-          slide._hls = hls;
-        } else {
-          video.src = hlsSrc;
-        }
-      } catch {
-        toast('Lecture vidéo indisponible');
-        return;
-      }
-    }
-    try { await video.play(); } catch {
-      // Unmuted autoplay refused: retry muted.
-      video.muted = true;
-      video.play().catch(() => slide.querySelector('.reel-play')?.classList.remove('auto'));
-    }
+    playHls(slide, hlsSrc, v);
   } else if (v.type === 'youtube' || v.type === 'tiktok') {
+    const start = v.type === 'youtube' ? getPosition(item.id) : 0;
     const src = v.type === 'youtube'
-      ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(v.src)}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&loop=1&playlist=${encodeURIComponent(v.src)}`
+      ? `${YT_ORIGIN}/embed/${encodeURIComponent(v.src)}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&loop=1&playlist=${encodeURIComponent(v.src)}&enablejsapi=1&origin=${encodeURIComponent(location.origin)}${start ? `&start=${start}` : ''}`
       : `https://www.tiktok.com/player/v1/${encodeURIComponent(v.src)}?autoplay=1&muted=1&loop=1&description=0&music_info=0`;
     const iframe = h('iframe', {
       src,
@@ -169,18 +147,117 @@ export async function activateReel(slide, userGesture = false) {
       referrerpolicy: 'strict-origin-when-cross-origin',
       title: item.title || item.source.name,
     });
+    // Ask the YouTube player to report its position (infoDelivery messages), for the resume.
+    if (v.type === 'youtube') iframe.addEventListener('load', () => iframe.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), YT_ORIGIN));
     slide.classList.add('has-iframe');
     slide.insertBefore(iframe, slide.querySelector('.reel-play'));
   }
 }
 
+/** Creates the HLS player of `slide`: resume, loading spinner, automatic retries, error message. */
+async function playHls(slide, hlsSrc, v) {
+  const id = slide.dataset.id;
+  const start = getPosition(id);
+  const video = h('video', { playsinline: true, 'webkit-playsinline': true, loop: true, preload: 'auto', poster: safeUrl(v.poster, location.href) || undefined });
+  video.muted = state.muted;
+  slide.insertBefore(video, slide.querySelector('.reel-play'));
+  slide.append(h('div', { class: 'reel-loading', 'aria-hidden': 'true' }, h('div', { class: 'spinner' })));
+  attachControls(slide, video);
+
+  // Spinner while the stream loads or stalls; none while paused.
+  const loading = (on) => slide.classList.toggle('buffering', on);
+  loading(true);
+  video.addEventListener('waiting', () => loading(true));
+  video.addEventListener('playing', () => loading(false));
+  video.addEventListener('pause', () => loading(false));
+
+  let retries = 0;
+  const fail = () => {
+    if (state.reels.active !== slide || !video.isConnected) return;
+    loading(false);
+    slide._hls?.destroy();
+    slide._hls = null;
+    showError(slide);
+  };
+
+  const native = video.canPlayType('application/vnd.apple.mpegurl');
+  if (native) {
+    if (start) video.addEventListener('loadedmetadata', () => { video.currentTime = start; }, { once: true });
+    video.addEventListener('error', () => {
+      if (state.reels.active !== slide || !video.isConnected) return;
+      if (retries++ >= MAX_RETRIES) { fail(); return; }
+      const at = video.currentTime || start;
+      setTimeout(() => {
+        if (state.reels.active !== slide || !video.isConnected) return;
+        if (at) video.addEventListener('loadedmetadata', () => { video.currentTime = at; }, { once: true });
+        video.src = hlsSrc;
+        video.play().catch(() => {});
+      }, 1000 * retries);
+    });
+    video.src = hlsSrc;
+  } else {
+    try {
+      const Hls = await loadHls();
+      if (state.reels.active !== slide) return;
+      if (Hls?.isSupported()) {
+        const hls = new Hls({ maxBufferLength: 20, startPosition: start || -1 });
+        hls.on(Hls.Events.ERROR, (_e, data) => {
+          if (!data.fatal || state.reels.active !== slide) return;
+          if (retries++ >= MAX_RETRIES) { fail(); return; }
+          if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+          // No playlist yet: load it again; otherwise resume loading the segments.
+          else setTimeout(() => { if (slide._hls !== hls) return; if (hls.levels?.length) hls.startLoad(); else hls.loadSource(hlsSrc); }, 1000 * retries);
+        });
+        hls.loadSource(hlsSrc);
+        hls.attachMedia(video);
+        slide._hls = hls;
+      } else {
+        if (start) video.addEventListener('loadedmetadata', () => { video.currentTime = start; }, { once: true });
+        video.addEventListener('error', fail);
+        video.src = hlsSrc;
+      }
+    } catch {
+      fail();
+      return;
+    }
+  }
+  try { await video.play(); } catch {
+    if (state.reels.active !== slide || !video.isConnected) return;
+    // Unmuted autoplay refused: retry muted, and say so on the sound button.
+    if (!state.muted) setMuted(true);
+    video.play().catch(() => {
+      loading(false);
+      slide.querySelector('.reel-play')?.classList.remove('auto');
+    });
+  }
+}
+
+/** Broken stream: message with a new attempt and the link to the original. */
+function showError(slide) {
+  slide.querySelectorAll('.reel-error, .reel-loading').forEach((el) => el.remove());
+  slide.classList.remove('buffering');
+  slide.append(h('div', { class: 'reel-error', role: 'alert' },
+    h('strong', { text: 'Vidéo indisponible' }),
+    h('button', { class: 'empty-btn', type: 'button', text: 'Réessayer', onclick: (e) => { e.stopPropagation(); deactivateReel(); activateReel(slide, true); } }),
+    h('a', { class: 'empty-btn ghost', href: slide._item.url, target: '_blank', rel: 'noopener', text: "Ouvrir l'original" })));
+}
+
+/** Remembers where the active reel is, for the resume. */
+function savePlayback(slide) {
+  const video = slide.querySelector('video');
+  if (video) savePosition(slide.dataset.id, video.currentTime, video.duration);
+  else if (slide._ytTime != null) savePosition(slide.dataset.id, slide._ytTime, slide._ytDuration);
+}
+
 export function deactivateReel() {
   const slide = state.reels.active;
   if (!slide) return;
-  slide.classList.remove('active', 'has-iframe');
+  savePlayback(slide);
+  slide._ytTime = slide._ytDuration = null;
+  slide.classList.remove('active', 'has-iframe', 'buffering');
   slide._hls?.destroy();
   slide._hls = null;
-  slide.querySelectorAll('video, iframe, .reel-progress, .reel-flash').forEach((el) => {
+  slide.querySelectorAll('video, iframe, .reel-progress, .reel-flash, .reel-loading, .reel-error').forEach((el) => {
     if (el.tagName === 'VIDEO') { el.pause(); el.removeAttribute('src'); el.load(); }
     el.remove();
   });
@@ -215,17 +292,50 @@ export function restoreReel({ item, index }) {
   slide.scrollIntoView({ block: 'start' });
 }
 
-function toggleMute() {
-  state.muted = !state.muted;
+/** Sound on / off for the HLS reels; the icon always tells the truth. */
+function setMuted(muted) {
+  state.muted = muted;
   const video = state.reels.active?.querySelector('video');
-  if (video) { video.muted = state.muted; if (!state.muted) video.play().catch(() => {}); }
-  document.querySelectorAll('.reel .mute').forEach((b) => b.replaceChildren(svg(state.muted ? ICONS.muted : ICONS.sound, 24)));
+  if (video) video.muted = muted;
+  document.querySelectorAll('.reel .mute').forEach((b) => {
+    b.replaceChildren(svg(muted ? ICONS.muted : ICONS.sound, 24));
+    b.setAttribute('aria-pressed', String(!muted));
+  });
 }
 
-/** Pause the active video while the app is in the background. */
+function toggleMute() {
+  setMuted(!state.muted);
+  const video = state.reels.active?.querySelector('video');
+  if (video && !state.muted) video.play().catch(() => {});
+}
+
+/**
+ * Pause the active video while the app is in the background, and play it again on return
+ * only if it was playing (a video paused by hand stays paused). Also listens to the
+ * position reports of the YouTube player, for the resume.
+ */
 export function initReels() {
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) state.reels.active?.querySelector('video')?.pause();
-    else if (state.view === 'videos') state.reels.active?.querySelector('video')?.play().catch(() => {});
+    const slide = state.reels.active;
+    const video = slide?.querySelector('video');
+    if (document.hidden) {
+      if (slide) savePlayback(slide);
+      if (video) { video._resumeOnShow = !video.paused; video.pause(); }
+    } else if (state.view === 'videos' && video?._resumeOnShow) {
+      video._resumeOnShow = false;
+      video.play().catch(() => {});
+    }
+  });
+  window.addEventListener('message', (e) => {
+    if (e.origin !== YT_ORIGIN) return;
+    const slide = state.reels.active;
+    const iframe = slide?.querySelector('iframe');
+    if (!iframe || e.source !== iframe.contentWindow) return;
+    let data;
+    try { data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; }
+    const info = data?.event === 'infoDelivery' ? data.info : null;
+    if (!info) return;
+    if (Number.isFinite(info.currentTime)) slide._ytTime = info.currentTime;
+    if (Number.isFinite(info.duration)) slide._ytDuration = info.duration;
   });
 }

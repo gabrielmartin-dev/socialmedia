@@ -49,6 +49,9 @@ Barre d'onglets en bas, deux onglets :
 - Superposition : avatar, nom du compte, icône 🎥 de la plateforme d'origine, texte du post ou titre, temps relatif.
 - Vidéos Bluesky : lues directement (flux HLS). Vidéos YouTube : lecteur YouTube intégré (embed).
 - **Contrôles des vidéos HLS :** un tap met en pause ou relance avec une icône brève (❚❚ / ▶) ; un double-tap sur la moitié gauche ou droite recule ou avance de 10 s ; une fine barre de progression en bas ; flèches ← → au clavier. YouTube et TikTok gardent leur lecteur intégré tel quel.
+- **Reprise :** une vidéo Bluesky ou YouTube reprend là où on l'avait laissée (après un swipe, un profil ou un fil ouvert, un autre onglet, ou au lancement suivant), sauf si elle venait de commencer ou était presque finie. Positions gardées sur le téléphone (100 au plus).
+- **Arrière-plan :** une vidéo mise en pause à la main reste en pause au retour dans l'app.
+- **Chargement et erreurs :** un spinner pendant le chargement ; un flux qui casse est retenté 2 fois, puis « Vidéo indisponible » propose « Réessayer » et « Ouvrir l'original ». L'icône du son suit l'état réel (repli en muet si le navigateur refuse le son).
 - Menu ⋯ également disponible (mêmes actions que sur une carte).
 
 ### 2.5 Suivre et découvrir
