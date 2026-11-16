@@ -95,9 +95,12 @@ function feedImages(entry) {
   return out.sort((a, b) => b.width - a.width);
 }
 
+/** The feed's widest image; `small` when its width is known and under 300 px (a thumbnail). */
 function pickImage(entry, html) {
-  return feedImages(entry)[0]?.url || firstImgInHtml(html);
+  const best = feedImages(entry)[0];
+  return { url: best?.url || firstImgInHtml(html), small: !!best && best.width > 0 && best.width < SMALL_IMAGE_PX };
 }
+const SMALL_IMAGE_PX = 300;
 
 function linkOf(entry) {
   if (typeof entry.link === 'string') return entry.link;
@@ -139,7 +142,8 @@ export function parseFeed(xml) {
         guid: txt(e.guid) || txt(e.id) || linkOf(e),
         html,
         text: stripHtml(txt(e.description) || txt(e.summary) || html),
-        image: pickImage(e, html),
+        image: pickImage(e, html).url,
+        smallImage: pickImage(e, html).small,
         publishedAt: date && !Number.isNaN(Date.parse(date)) ? new Date(date).toISOString() : null,
         author: txt(e['dc:creator']) || txt(e.author?.name) || txt(e.author),
         categories: categoriesOf(e),
@@ -249,6 +253,7 @@ export function entryToArticle(entry, source) {
     text: truncate(cleanSummary(entry.text, entry.title), 1200),
     url,
     image: safeUrl(entry.image, url),
+    ...(entry.smallImage && entry.image ? { _smallImage: true } : {}), // a feed thumbnail: og:image is tried and replaces it
     publishedAt: entry.publishedAt,
     ...(author ? { author } : {}),
     ...(categories.length ? { categories } : {}),

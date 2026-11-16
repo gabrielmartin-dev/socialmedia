@@ -16,7 +16,8 @@
   },
   "dedup": {
     "similarity": 0.34,
-    "windowHours": 12
+    "windowHours": 24,
+    "minLeadSimilarity": 0.2
   },
   "scope": {
     "_comment": "Filtre hors sujet, appliqué seulement aux sources marquées \"generalist\" dans sources.json (franceinfo, Le Monde, AFP…). Un élément dont l'URL est dans une rubrique onTopic est gardé ; sinon il est écarté s'il a un signal hors sujet (rubrique de l'URL, catégorie du flux, mot-clé) et un score Politique + Social sous keepScore, ou si son score est sous minScore. Score = somme des poids des mots-clés des sujets listés dans « topics » (non plafonnée).",

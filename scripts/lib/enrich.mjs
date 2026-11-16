@@ -63,10 +63,10 @@ export async function fetchHead(url, { timeoutMs = 7000 } = {}) {
 export async function enrichArticles(items, { cache, maxFetches = 40, concurrency = 6, fetchPage = fetchHead } = {}) {
   const stats = { fromCache: 0, fetched: 0, found: 0 };
   const todo = items
-    .filter((it) => it.kind === 'article' && !it.image && it.url)
+    .filter((it) => it.kind === 'article' && (!it.image || it._smallImage) && it.url)
     .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
   const apply = (it, v) => {
-    if (v?.i) { it.image = v.i; stats.found++; }
+    if (v?.i) { it.image = v.i; delete it._smallImage; stats.found++; }
     if (v?.d && !it.text && v.d !== it.title) it.text = v.d;
   };
   const queue = [];
@@ -188,4 +188,18 @@ export async function resolveShortLinks(items, { cache, maxFetches = 60, concurr
     }
   }), concurrency);
   return stats;
+}
+
+/**
+ * A site that has no illustration for an article often serves its logo: an image carried by
+ * `min` articles or more of the same source is removed from them. Returns how many articles lost it.
+ */
+export function dropRepeatedImages(items, min = 3) {
+  const count = new Map();
+  const key = (it) => `${it.source?.id}\n${it.image}`;
+  const arts = items.filter((it) => it.kind === 'article' && it.image);
+  for (const it of arts) count.set(key(it), (count.get(key(it)) || 0) + 1);
+  let dropped = 0;
+  for (const it of arts) if (count.get(key(it)) >= min) { it.image = null; delete it._smallImage; dropped++; }
+  return dropped;
 }

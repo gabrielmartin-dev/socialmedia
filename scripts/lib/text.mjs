@@ -39,11 +39,18 @@ est sont sera ont avait etait va vont peut doit faut cela ceci celui celle ceux 
 the of and to in for on with is are video direct live exclusif exclusive info infos
 `.trim().split(/\s+/));
 
-/** Significant word tokens, for similarity comparisons. */
-export function tokens(s) {
-  return normalize(s)
-    .split(/[^a-z0-9]+/)
-    .filter((w) => w.length >= 3 && !STOPWORDS.has(w));
+/**
+ * Significant word tokens, for similarity comparisons. With `stem` (story matching): numbers
+ * of 2 digits or more are kept (« 49.3 » → 49, 3 is dropped, « 20 ans » → 20), a final
+ * s / x is removed from words of 5 letters or more and words are cut to 7 letters, so that
+ * « grève » = « grèves » and « manifestants » = « manifestation ».
+ */
+export function tokens(s, { stem = false } = {}) {
+  const words = normalize(s).split(/[^a-z0-9]+/);
+  if (!stem) return words.filter((w) => w.length >= 3 && !STOPWORDS.has(w));
+  return words
+    .filter((w) => (/^\d+$/.test(w) ? w.length >= 2 : w.length >= 3 && !STOPWORDS.has(w)))
+    .map((w) => (/^\d+$/.test(w) ? w : (w.length > 4 ? w.replace(/[sx]$/, '') : w).slice(0, 7)));
 }
 
 export function jaccard(a, b) {

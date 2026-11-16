@@ -79,3 +79,14 @@ export function isPaidLink(url, domains) {
   for (const d of domains) if (host === d || host.endsWith('.' + d)) return true;
   return false;
 }
+
+/**
+ * The article that leads a group card (and gets saved): a free one before a « parfois payant »
+ * one before a paid one; among equals, the one with an image, then the longest summary.
+ */
+export function groupLead(items) {
+  const rankOf = (i) => (paywallLabel(i) === 'Payant' ? 2 : paywallLabel(i) ? 1 : 0);
+  return [...items].sort((a, b) => rankOf(a) - rankOf(b)
+    || (b.image ? 1 : 0) - (a.image ? 1 : 0)
+    || (b.text?.length || 0) - (a.text?.length || 0))[0];
+}

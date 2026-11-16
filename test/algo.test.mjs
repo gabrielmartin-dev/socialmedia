@@ -177,3 +177,155 @@ test('ranking config is shipped to the client with sane values', () => {
   assert.equal(cfg.ranking.sharpness, 2);
   assert.ok(cfg.ranking.groupBoost > 0);
 });
+
+// ---------- lot 4: grouping ----------
+import { groupDuplicates } from '../scripts/lib/score.mjs';
+import { tokens, jaccard } from '../scripts/lib/text.mjs';
+import { groupLead } from '../public/paywall.js';
+import { leadItem } from '../public/saved.js';
+
+const mkArt = (id, src, title, hAgo = 1, extra = {}) => ({ id, kind: 'article', source: { id: src }, title, publishedAt: new Date(NOW - hAgo * 3600e3).toISOString(), ...extra });
+const sim = (a, b) => jaccard(tokens(a, { stem: true }), tokens(b, { stem: true }));
+
+test('stemmed tokens: plurals, numbers and word families match', () => {
+  assert.ok(sim('Retraites : des milliers de manifestants à Paris', 'Manifestation à Paris contre la réforme des retraites') >= 0.34);
+  assert.ok(tokens('Le 49.3 et 20 ans de grèves', { stem: true }).includes('49'));
+  assert.ok(tokens('Le 49.3 et 20 ans de grèves', { stem: true }).includes('20'));
+  assert.deepEqual(tokens('grève grèves', { stem: true }).slice(0, 2).length, 2);
+  assert.equal(new Set(tokens('grève grèves', { stem: true })).size, 1);
+  assert.ok(sim('Budget 2027 : ce que contient le projet de loi', 'Budget 2027 : la gauche dépose une motion de censure') < 0.34);
+  assert.deepEqual(tokens('Le gouvernement des grèves'), ['gouvernement', 'grèves'].map((w) => w.normalize('NFD').replace(/[̀-ͯ]/g, '')), 'default tokens unchanged');
+  const g = groupDuplicates([
+    mkArt('1', 'a', 'Retraites : des milliers de manifestants à Paris'),
+    mkArt('2', 'b', 'Manifestation à Paris contre la réforme des retraites'),
+  ]);
+  assert.equal(g.length, 1);
+  assert.equal(g[0].kind, 'group');
+});
+
+test('a chain A~B~C~D does not drag the ends together', () => {
+  const w = 'pomme poire prune cerise mangue citron orange raisin melon fraise'.split(' ');
+  const t = (a, b, c, d) => [w[a], w[b], w[c], w[d]].join(' ');
+  const arts = [mkArt('a', 's1', t(0, 1, 2, 3)), mkArt('b', 's2', t(2, 3, 4, 5)), mkArt('c', 's3', t(4, 5, 6, 7)), mkArt('d', 's4', t(6, 7, 8, 9))];
+  const opts = { similarity: 0.3, windowHours: 24 };
+  const chained = groupDuplicates(arts, opts);
+  assert.equal(chained.length, 1, 'without the check: one group of 4');
+  assert.equal(chained[0].items.length, 4);
+  const split = groupDuplicates(arts, { ...opts, minLeadSimilarity: 0.2 });
+  const group = split.find((e) => e.kind === 'group');
+  assert.deepEqual(group.items.map((i) => i.id).sort(), ['a', 'b', 'c']);
+  assert.equal(split.length, 2);
+  const close = groupDuplicates([
+    mkArt('x', 'sa', 'Gérard Depardieu présente ses excuses et renonce à son procès'),
+    mkArt('y', 'sb', 'Gérard Depardieu présente ses excuses, se désiste de son procès'),
+    mkArt('z', 'sc', 'Depardieu renonce à son procès en appel et présente ses excuses'),
+  ], { ...opts, minLeadSimilarity: 0.2 });
+  assert.equal(close.length, 1);
+  assert.equal(close[0].items.length, 3);
+});
+
+test('lead of a group card: free before sometimes-paid before paid, then image, then summary', () => {
+  const paid = mkArt('p', 'mp', 'Payant', 1, { image: 'https://x/i.jpg', source: { id: 'mp', paywall: true } });
+  const free = mkArt('f', 'sf', 'Gratuit', 1, { source: { id: 'sf' } });
+  const free2 = mkArt('f2', 'sg', 'Gratuit 2', 1, { source: { id: 'sg' }, image: 'https://x/j.jpg' });
+  const partial = mkArt('h', 'sh', 'Parfois', 1, { source: { id: 'sh', paywall: 'partial' }, image: 'https://x/k.jpg' });
+  assert.equal(groupLead([paid, free]).id, 'f');
+  assert.equal(groupLead([free, free2]).id, 'f2');
+  assert.equal(groupLead([paid, partial]).id, 'h');
+  assert.equal(groupLead([mkArt('s1', 'a', 'x', 1, { text: 'court' }), mkArt('s2', 'b', 'y', 1, { text: 'un résumé nettement plus long' })]).id, 's2');
+  assert.equal(leadItem({ kind: 'group', items: [paid, free] }).id, 'f', 'saved uses the same lead');
+});
+
+// ---------- lot 5: discover ----------
+import { rankSuggestions, activityNote, repostedBy, } from '../public/find.js';
+import { discoveredAccounts } from '../scripts/lib/discover.mjs';
+import { authorPosts } from '../scripts/lib/bluesky.mjs';
+import { topicScore, emptyPrefs, lessKeywords } from '../public/rank.js';
+
+test('suggestions: active and relevant first, then active off-topic, inactive last', () => {
+  const acc = (id) => ({ id, name: id });
+  const it = (id, src, kws) => ({ id, source: { id: src }, keywords: kws.map((k) => ({ k, w: 2, t: 'social' })) });
+  const items = [
+    ...[1, 2, 3, 4].map((i) => it('r' + i, 'relevant', ['grev'])),
+    ...[1, 2, 3, 4].map((i) => it('o' + i, 'offtopic', [])),
+  ];
+  const prefs = emptyPrefs();
+  const opts = { scoreOf: (x) => topicScore(x, prefs, 6), topicOf: (x) => (x.keywords.length ? 'social' : null) };
+  const ranked = rankSuggestions([acc('idle'), acc('offtopic'), acc('relevant')], items, opts);
+  assert.deepEqual(ranked.map((r) => r.account.id), ['relevant', 'offtopic', 'idle']);
+  assert.equal(ranked[0].n, 4);
+  assert.equal(ranked[0].topic, 'social');
+  assert.equal(ranked[2].n, 0);
+  assert.equal(activityNote(ranked[0], () => 'Social'), '4 posts récents · surtout Social');
+  assert.equal(activityNote(ranked[2], () => 'Social'), 'Aucun post récent');
+  // « Moins de [sujet] » lowers an account centred on that subject below the off-topic one
+  lessKeywords(prefs, { items: items.slice(0, 1), kind: 'group' });
+  for (let i = 0; i < 6; i++) lessKeywords(prefs, { kind: 'group', items: [items[0]] });
+  assert.ok(prefs.keywords.grev <= 0.2 + 1e-9);
+  const after = rankSuggestions([acc('offtopic'), acc('relevant')], items, opts);
+  assert.equal(after.length, 2);
+  assert.ok(after.find((r) => r.account.id === 'relevant').affinity < ranked[0].affinity);
+});
+
+test('discovery: reposted accounts counted once per distinct relayer', () => {
+  const ev = (by, handle, extra = {}) => ({ by, author: { handle, displayName: handle, ...extra } });
+  const events = [
+    ev('A', 'new.bsky.social'), ev('A', 'new.bsky.social'), ev('B', 'new.bsky.social', { avatar: 'https://a/b.jpg' }), ev('C', 'new.bsky.social'),
+    ev('A', 'once.bsky.social'),
+    ev('A', 'known.bsky.social'), ev('B', 'known.bsky.social'),
+    ev('A', 'bad.bsky.social', { avatar: 'javascript:alert(1)' }), ev('B', 'bad.bsky.social', { avatar: 'javascript:alert(1)' }),
+  ];
+  const out = discoveredAccounts(events, { exclude: new Set(['known.bsky.social']) });
+  assert.deepEqual(out.map((a) => a.id), ['bsky:new.bsky.social', 'bsky:bad.bsky.social']);
+  assert.deepEqual(out[0].by.sort(), ['A', 'B', 'C']);
+  assert.equal(out[0].avatar, 'https://a/b.jpg');
+  assert.equal(out[1].avatar, null, 'unsafe avatar dropped');
+  const many = Array.from({ length: 20 }, (_, i) => [ev('A', `u${i}.bsky.social`), ev('B', `u${i}.bsky.social`)]).flat();
+  assert.equal(discoveredAccounts(many).length, 12, 'capped at 12');
+  assert.equal(repostedBy(['Mathilde Panot', 'Manuel Bompard', 'X', 'Y']), 'Reposté par Mathilde Panot, Manuel Bompard +2');
+});
+
+test('authorPosts reports reposts and quoted accounts to onRepost', async () => {
+  const author = { did: 'did:plc:r', handle: 'other.bsky.social', displayName: 'Other' };
+  const mine = { did: 'did:plc:m', handle: 'me.bsky.social' };
+  const base = (id, a) => ({ uri: `at://${a.did}/app.bsky.feed.post/${id}`, cid: id, author: a, record: { text: 't', createdAt: new Date().toISOString() } });
+  const quoting = { ...base('q', mine), embed: { $type: 'app.bsky.embed.record#view', record: { uri: 'at://did:plc:z/app.bsky.feed.post/zz', author: { handle: 'quoted.bsky.social', displayName: 'Quoted' }, value: { text: 'x', createdAt: new Date().toISOString() } } } };
+  const client = { call: async () => ({ feed: [{ post: base('r', author), reason: { $type: 'app.bsky.feed.defs#reasonRepost' } }, { post: quoting }, { post: base('p', mine) }] }) };
+  const seen = [];
+  const posts = await authorPosts(client, { handle: 'me.bsky.social' }, 10, { onRepost: (a) => seen.push(a.handle) });
+  assert.equal(posts.length, 2, 'reposts are still dropped');
+  assert.deepEqual(seen.sort(), ['other.bsky.social', 'quoted.bsky.social']);
+});
+
+// ---------- lot 6: images ----------
+import { parseFeed, entryToArticle } from '../scripts/lib/rss.mjs';
+import { enrichArticles, dropRepeatedImages } from '../scripts/lib/enrich.mjs';
+import { ResolutionCache } from '../scripts/lib/cache.mjs';
+import { publicItem } from '../scripts/lib/archive.mjs';
+
+test('a logo carried by 3 articles or more of one source is removed, other sources untouched', () => {
+  const a = (id, src, image) => ({ id, kind: 'article', source: { id: src }, image });
+  const items = [a('1', 's', 'L'), a('2', 's', 'L'), a('3', 's', 'L'), a('4', 's', 'L'), a('5', 's', 'ok'), a('6', 't', 'L'), a('7', 't', 'L')];
+  assert.equal(dropRepeatedImages(items), 4);
+  assert.deepEqual(items.map((i) => i.image), [null, null, null, null, 'ok', 'L', 'L']);
+});
+
+test('a small feed thumbnail is replaced by og:image when one is found, kept otherwise', async () => {
+  const feed = (w) => `<?xml version="1.0"?><rss xmlns:media="http://search.yahoo.com/mrss/" version="2.0"><channel><title>T</title><item><title>Un titre assez long pour un article</title><link>https://ex.fr/a${w}</link><guid>a${w}</guid><media:thumbnail url="https://ex.fr/t${w}.jpg" width="${w}"/></item></channel></rss>`;
+  const article = (w) => entryToArticle(parseFeed(feed(w)).entries[0], { id: 's', name: 'S', site: 'https://ex.fr' });
+  const small = article(150); const big = article(800);
+  assert.equal(small._smallImage, true);
+  assert.equal(big._smallImage, undefined);
+  const pages = [];
+  const fetchPage = async (url) => { pages.push(url); return { html: `<head><meta property="og:image" content="${url}-og.jpg"></head>`, url }; };
+  const cache = new ResolutionCache('/nonexistent/x.json');
+  await enrichArticles([small, big], { cache, fetchPage });
+  assert.deepEqual(pages, ['https://ex.fr/a150'], 'only the small thumbnail triggers a page read');
+  assert.equal(small.image, 'https://ex.fr/a150-og.jpg');
+  assert.equal(small._smallImage, undefined);
+  assert.equal(big.image, 'https://ex.fr/t800.jpg');
+  const stuck = article(150);
+  await enrichArticles([stuck], { cache: new ResolutionCache('/nonexistent/y.json'), fetchPage: async (url) => ({ html: '<head></head>', url }) });
+  assert.equal(stuck.image, 'https://ex.fr/t150.jpg', 'nothing found: the small image stays');
+  assert.ok(!('_smallImage' in publicItem(stuck)), 'internal flag never published');
+});

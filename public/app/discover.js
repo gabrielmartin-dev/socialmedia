@@ -1,12 +1,12 @@
 // Découvrir tab: suggestions, subscriptions, Bluesky account search.
 
 import { searchAccounts } from '../bsky.js';
-import { relativeTime } from '../rank.js';
+import { relativeTime, topicScore } from '../rank.js';
 import { $, h, toast } from './dom.js';
 import { avatar } from './media.js';
 import { state, isFollowed, entriesFor, savePrefs, FEED_KEYS } from './store.js';
 import { normalize } from '../norm.js';
-import { searchItems } from '../find.js';
+import { searchItems, rankSuggestions, activityNote, repostedBy } from '../find.js';
 import { renderEntry } from './cards.js';
 import { actions } from './actions.js';
 import { setFollow } from './follow.js';
@@ -47,7 +47,7 @@ function weightNote(a) {
     }));
 }
 
-function accountRow(a) {
+function accountRow(a, note) {
   return h('div', { class: 'account' },
     h('button', { class: 'clickable', type: 'button', 'aria-label': `Voir le profil de ${a.name}`, onclick: () => actions.openProfile(a) }, avatar(a.avatar, a.name, { square: a.kind === 'media' })),
     h('div', { class: 'account-main' },
@@ -59,6 +59,8 @@ function accountRow(a) {
         followButton(a),
       ),
       weightNote(a),
+      note ? h('div', { class: 'account-note', text: note }) : null,
+      a.by?.length ? h('div', { class: 'account-note', text: repostedBy(a.by) }) : null,
       a.description ? h('div', { class: 'account-desc', text: a.description }) : null,
       a.lastTitle ? h('div', { class: 'account-last', text: `${relativeTime(a.lastAt)} · ${a.lastTitle}` }) : null,
     ),
@@ -137,9 +139,25 @@ export function renderDiscover() {
     const suggestions = [...state.accounts.values()].filter((a) => !isFollowed(a));
     const order = ['Médias', 'Personnalités', 'Tech', 'YouTube', 'TikTok'];
     const cats = [...new Set(suggestions.map((a) => a.category || 'Autres'))].sort((a, b) => (order.indexOf(a) + 99) % 99 - (order.indexOf(b) + 99) % 99);
+    // The suggested sources' items are in the data too (not shown): used to sort and describe the accounts.
+    const cap = state.data.actus?.scoreCap ?? 6;
+    const minScore = state.data.topics?.topicMinScore ?? 1;
+    const labelOf = (t) => state.data.topics?.topics?.[t]?.label;
+    const loaded = ['actus', 'tech', 'videos'].flatMap((k) => (state.data[k]?.entries || []).flatMap((e) => (e.kind === 'group' ? e.items : [e])));
+    const ranked = rankSuggestions(suggestions, loaded, {
+      scoreOf: (it) => topicScore(it, state.prefs, cap),
+      topicOf: (it) => {
+        const sums = new Map();
+        for (const k of it.keywords || []) sums.set(k.t, (sums.get(k.t) || 0) + k.w);
+        const best = [...sums].sort((a, b) => b[1] - a[1])[0];
+        return best && best[1] >= minScore ? best[0] : null;
+      },
+    });
+    const discovered = (state.data.accounts?.discovered || []).filter((a) => !isFollowed(a, { strict: true }) && !state.accounts.has(a.id));
     results.replaceChildren(
       ...(state.data.accounts ? [] : [emptyBlock('Les suggestions apparaîtront après la prochaine mise à jour automatique.')]),
-      ...cats.map((c) => section(`Suggestions · ${c}`, suggestions.filter((a) => (a.category || 'Autres') === c).map(accountRow), '')),
+      ...(discovered.length ? [section('Repostés par tes abonnements', discovered.map((a) => accountRow(a)), '')] : []),
+      ...cats.map((c) => section(`Suggestions · ${c}`, ranked.filter((r) => (r.account.category || 'Autres') === c).map((r) => accountRow(r.account, activityNote(r, labelOf))), '')),
       ...(state.data.accounts && !cats.length ? [emptyBlock('Plus aucune suggestion : tu suis déjà tout ce que la collecte connaît.')] : []),
     );
     return;

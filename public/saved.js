@@ -2,12 +2,14 @@
 // item is stored, so that it stays readable after it leaves the collector's 72 h window.
 // Pure functions: the list lives in localStorage (see app/store.js).
 
+import { groupLead } from './paywall.js';
+
 export const SAVED_MAX = 300;
 
-/** The item that gets saved for an entry: a group saves its lead article (the one with an image, else the first). */
+/** The item that gets saved for an entry: a group saves its lead article (a free one first, see groupLead). */
 export function leadItem(entry) {
   if (entry.kind !== 'group') return entry;
-  return entry.items.find((i) => i.image) || entry.items[0];
+  return groupLead(entry.items);
 }
 
 export const isSaved = (list, id) => list.some((i) => i.id === id);

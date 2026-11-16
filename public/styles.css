@@ -277,6 +277,7 @@ div.avatar.square { background: var(--bg-elev); }
 .account-names { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .account-names .handle { font-size: 14px; }
 .account-desc { margin-top: 4px; font-size: 15px; line-height: 20px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.account-note { margin-top: 4px; color: var(--muted); font-size: 13px; }
 .account-last { margin-top: 4px; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .follow-btn {
   flex: none; height: 34px; padding: 0 16px; border-radius: 999px;
