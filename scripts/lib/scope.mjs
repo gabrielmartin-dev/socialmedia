@@ -14,7 +14,7 @@
 // or when its topic score is below `minScore` (nothing says it is political or social).
 
 import { normalize, escapeRegex } from '../../public/norm.js';
-import { matchKeywords } from '../../public/topics.js';
+import { matchKeywords, matchText } from '../../public/topics.js';
 
 const wordRe = (raw) => {
   const prefix = raw.endsWith('*');
@@ -58,7 +58,7 @@ function sections(url) {
 export function outOfScope(item, scope, matchers) {
   const ext = item.external || {};
   const text = [item.title, item.text, ext.title, ext.description].filter(Boolean).join('\n');
-  const score = matchKeywords(text, matchers).reduce((s, m) => s + m.w, 0);
+  const score = matchKeywords(matchText(item), matchers).reduce((s, m) => s + m.w, 0);
   if (score >= scope.keepScore) return null;
 
   const url = item.kind === 'article' ? item.url : ext.url;

@@ -1,11 +1,12 @@
 // "Seen" impressions, persisted with a debounce and flushed when the page is hidden.
 // Storage and timers are injected so this can be unit-tested without a DOM.
 
-const FOUR_DAYS = 4 * 86400e3;
+// Longer than the 7-day window of Tech and Videos, so a seen article is not rediscovered.
+export const SEEN_TTL = 8 * 86400e3;
 
-/** Keeps only [timestamp, count] pairs newer than 4 days. */
+/** Keeps only [timestamp, count] pairs newer than SEEN_TTL (8 days). */
 export function pruneSeen(map, now = Date.now()) {
-  const cutoff = now - FOUR_DAYS;
+  const cutoff = now - SEEN_TTL;
   const out = {};
   for (const [id, v] of Object.entries(map || {})) if (Array.isArray(v) && v[0] > cutoff) out[id] = v;
   return out;

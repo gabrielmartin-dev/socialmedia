@@ -6,6 +6,7 @@ import fs from 'node:fs/promises';
 import { fetchSourceFeed, entryToArticle } from './lib/rss.mjs';
 import * as bsky from './lib/bluesky.mjs';
 import { compileTopics, matchKeywords } from './lib/score.mjs';
+import { matchText } from '../public/topics.js';
 import { compileScope, outOfScope } from './lib/scope.mjs';
 
 const readJson = async (p) => JSON.parse(await fs.readFile(new URL(`../${p}`, import.meta.url), 'utf8'));
@@ -36,7 +37,7 @@ for (const g of groups) {
   const rows = g.items.map((it) => {
     const ext = it.external || {};
     const text = [it.title, it.text, ext.title, ext.description].filter(Boolean).join('\n');
-    const kws = matchKeywords(text, matchers);
+    const kws = matchKeywords(matchText(it), matchers);
     return { it, reason: outOfScope(it, scope, matchers), score: kws.reduce((s, m) => s + m.w, 0), kws: kws.map((m) => m.k).join(', ') };
   });
   const d = rows.filter((r) => r.reason);

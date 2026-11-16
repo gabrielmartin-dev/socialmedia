@@ -75,10 +75,16 @@ export function diversify(list, gap = 2) {
  * - With opts.random (e.g. Math.random): "pour toi" mode, different on each call.
  * opts.seen: Set of ids already displayed, which are pushed down.
  */
+/** Hidden by id, or a group one of whose articles is hidden (a group's id changes as it grows). */
+export function isHidden(entry, hidden) {
+  if (hidden.has(entry.id)) return true;
+  return entry.kind === 'group' && entry.items.some((i) => hidden.has(i.id));
+}
+
 export function rank(entries, opts = {}, hidden = new Set()) {
   const { random, seen, lastVisit } = opts;
   const scored = entries
-    .filter((e) => !hidden.has(e.id))
+    .filter((e) => !isHidden(e, hidden))
     .map((e) => {
       let s = entryScore(e, opts);
       const n = seenCount(e, seen);
@@ -101,7 +107,7 @@ export function rank(entries, opts = {}, hidden = new Set()) {
  */
 export function mergeIntoTail(ranked, rendered, entries, opts = {}, hidden = new Set()) {
   const present = new Set(ranked.flatMap((e) => (e.kind === 'group' ? e.items.map((i) => i.id) : [e.id])));
-  const fresh = entries.filter((e) => !present.has(e.id) && !hidden.has(e.id));
+  const fresh = entries.filter((e) => !present.has(e.id) && !isHidden(e, hidden));
   if (!fresh.length) return null;
   const tail = rank([...ranked.slice(rendered), ...fresh], opts, hidden);
   return [...ranked.slice(0, rendered), ...tail];
@@ -155,9 +161,19 @@ export function applyMore(prefs, entry) {
   return () => undos.reverse().forEach((u) => u?.());
 }
 
-export function topicsOf(entry) {
+/**
+ * Topic ids of an entry. A topic needs, in at least one item, keywords of that topic
+ * weighing `minScore` together (a lone weak word such as « politique » is not enough).
+ */
+export function topicsOf(entry, minScore = 0) {
   const items = entry.kind === 'group' ? entry.items : [entry];
-  return [...new Set(items.flatMap((i) => (i.keywords || []).map((k) => k.t)))];
+  const out = new Set();
+  for (const i of items) {
+    const sums = new Map();
+    for (const k of i.keywords || []) sums.set(k.t, (sums.get(k.t) || 0) + k.w);
+    for (const [t, w] of sums) if (w >= minScore) out.add(t);
+  }
+  return [...out];
 }
 
 export function relativeTime(iso, now = Date.now()) {

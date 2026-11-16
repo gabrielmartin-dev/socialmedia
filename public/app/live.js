@@ -3,7 +3,7 @@
 
 import { mergeIntoTail } from '../rank.js';
 import { authorPosts } from '../bsky.js';
-import { compileTopics, matchKeywords } from '../topics.js';
+import { compileTopics, matchKeywords, matchText } from '../topics.js';
 import { unpackFeed } from '../pack.js';
 import { pool } from '../pool.js';
 import { $ } from './dom.js';
@@ -54,9 +54,9 @@ export function classifyLive(id, posts, topics, now = Date.now()) {
   const out = { actus: [], tech: [], videos: [] };
   for (const p of posts) {
     const age = now - Date.parse(p.publishedAt);
-    if (age < maxAgeMs(feed, topics)) out[feed].push({ ...p, keywords: matchKeywords(p.text, matchers[feed]) });
+    if (age < maxAgeMs(feed, topics)) out[feed].push({ ...p, keywords: matchKeywords(matchText(p), matchers[feed]) });
     if (p.video?.type === 'hls' && age < maxAgeMs('videos', topics)) {
-      out.videos.push({ ...p, kind: 'video', keywords: matchKeywords(p.text, matchers.actus) });
+      out.videos.push({ ...p, kind: 'video', keywords: matchKeywords(matchText(p), matchers.actus) });
     }
   }
   return out;

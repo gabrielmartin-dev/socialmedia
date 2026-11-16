@@ -64,6 +64,14 @@ jobs:
           BSKY_APP_PASSWORD: ${{ secrets.BSKY_APP_PASSWORD }}
           # Optionnel : instance RSSHub alternative pour TikTok.
           RSSHUB_BASE: ${{ vars.RSSHUB_BASE }}
+      # Mesures sur le vrai fil (classement, doublons, sujets, images), lues dans le journal.
+      - name: Diagnostic des algorithmes
+        continue-on-error: true
+        run: node scripts/algo-report.mjs
+      - name: Diagnostic du filtre de périmètre
+        if: github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        run: node scripts/scope-report.mjs --all
       - name: Sauvegarde du cache de résolutions
         if: ${{ !cancelled() }}
         uses: actions/cache/save@v4
