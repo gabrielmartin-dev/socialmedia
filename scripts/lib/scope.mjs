@@ -4,11 +4,13 @@
 // they are clearly on topic. Partisan and activist sources are never filtered.
 //
 // Signals, all deterministic (no LLM):
-//   - the section of the article URL (francetvinfo.fr/sante/…, lemonde.fr/sport/…),
+//   - the section of the article URL (francetvinfo.fr/sante/…, lemonde.fr/sport/…, or
+//     liberation.fr/politique/… on the other side),
 //   - the categories of the feed entry,
 //   - off-topic keywords in the title, summary or link card,
 //   - the topic score (sum of the weights of the matched Politique/Social keywords).
-// An item is dropped when it has an off-topic signal and a topic score below `keepScore`,
+// An item filed under a political section of its site (`onTopic`) is kept. Otherwise it is
+// dropped when it has an off-topic signal and a topic score below `keepScore`,
 // or when its topic score is below `minScore` (nothing says it is political or social).
 
 import { normalize, escapeRegex } from '../../public/norm.js';
@@ -25,9 +27,10 @@ const wordRe = (raw) => {
 export function compileScope(cfg = {}) {
   const off = cfg.offTopic || {};
   return {
-    minScore: cfg.minScore ?? 2,
+    minScore: cfg.minScore ?? 1.5,
     keepScore: cfg.keepScore ?? 4,
     sections: new Set((off.sections || []).map((s) => normalize(s))),
+    onSections: new Set((cfg.onTopic?.sections || []).map((s) => normalize(s))),
     categories: (off.categories || off.sections || []).map((c) => ({ k: c, re: wordRe(c.replace(/-/g, ' ')) })),
     keywords: (off.keywords || []).map((k) => ({ k: k.replace(/\*$/, ''), re: wordRe(k) })),
   };
@@ -59,7 +62,9 @@ export function outOfScope(item, scope, matchers) {
   if (score >= scope.keepScore) return null;
 
   const url = item.kind === 'article' ? item.url : ext.url;
-  const section = url ? sections(url).find((s) => scope.sections.has(s)) : null;
+  const parts = url ? sections(url) : [];
+  if (parts.some((s) => scope.onSections.has(s))) return null; // lemonde.fr/politique/…
+  const section = parts.find((s) => scope.sections.has(s));
   if (section) return `rubrique ${section}`;
   const cats = (item.categories || []).map(normalize);
   for (const c of scope.categories) if (cats.some((x) => c.re.test(x))) return `catégorie ${c.k}`;
