@@ -70,6 +70,8 @@ npm run dev         # http://localhost:8080
 
 `public/data/status.json` liste l'état de chaque source (ok ou erreur, nombre d'éléments).
 
+Le workflow « Vérification des sources » (`.github/workflows/check-sources.yml`, tous les jours vers 5 h, heure de Paris) relit le `status.json` en ligne, revérifie chaque source en échec depuis un runner et cherche un flux de remplacement (autodécouverte sur le site, chemins courants, recherche de compte Bluesky). Le rapport est tenu à jour dans une issue `sources-indisponibles`, fermée quand tout remarche ; une tâche Claude planifiée s'en sert pour corriger `config/sources.json` par une PR. Lancé à la main avec le champ « probe », il teste seulement les URL ou `@handles` donnés : `PROBE="https://exemple.fr/feed @compte.bsky.social" node scripts/check-sources.mjs` fait la même chose en local.
+
 ### Ce qu'il faut savoir en développant
 
 - **Garde-fou de collecte** : `npm run collect` sort en code 2 (et n'écrit rien) si plus de la moitié des sources échouent ou si moins de 30 éléments sont collectés (`settings.health` dans `config/sources.json`). Le workflow ne déploie alors pas : la version précédente reste en ligne.

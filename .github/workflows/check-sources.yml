@@ -1,0 +1,40 @@
+name: Vérification des sources
+
+# Tous les jours : revérifie les sources en échec dans la dernière collecte déployée,
+# cherche un flux de remplacement et tient à jour l'issue « sources-indisponibles ».
+# Une tâche Claude planifiée lit cette issue et corrige config/sources.json par une PR.
+# Lancement manuel avec « probe » : teste seulement les URL / @handles donnés (sans toucher à l'issue).
+on:
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+    inputs:
+      probe:
+        description: "URL de flux, de chaîne YouTube ou @handle Bluesky à tester (séparés par des espaces)"
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: check-sources
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Vérification
+        run: node scripts/check-sources.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROBE: ${{ inputs.probe }}

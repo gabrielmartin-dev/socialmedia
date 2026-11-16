@@ -170,7 +170,7 @@ const FEED_URL_TTL = 14 * 24 * 3600e3;
 // would otherwise cost the site page plus every guessed path, on every run.
 export const DISCOVERY_RETRY_MS = 24 * 3600e3;
 const GUESS_TIMEOUT_MS = 6000;
-const COMMON_PATHS = ['/feed', '/feed/', '/rss', '/rss.xml', '/feed.xml', '/atom.xml', '/spip.php?page=backend', '/index.xml', '/?format=feed&type=rss'];
+export const COMMON_PATHS = ['/feed', '/feed/', '/rss', '/rss.xml', '/feed.xml', '/atom.xml', '/spip.php?page=backend', '/index.xml', '/?format=feed&type=rss'];
 
 /**
  * Fetch a source's feed: configured URL first, then the feed URL remembered in `cache`
