@@ -82,33 +82,52 @@ export const isOwnLink = (post) => !!post.external?.url
  * `sameAs` in config/sources.json names the RSS source (lemediatv.bsky.social → lemedia).
  * A post by anyone else sharing the article is commentary and stays as it is.
  * The article borrows the card's image / description when its feed has none.
- * Returns { relays, unmatched } (an outlet's own links that matched no article, for the log).
+ * When the link matches no article (a short link that could not be followed), an outlet's
+ * own post is matched by its card title against that outlet's article titles.
+ * Returns { relays, byTitle, unmatched } (own links that matched nothing, for the log).
  */
 export function markRelays(items) {
   const byUrl = new Map();
+  const articles = [];
   for (const it of items) {
     delete it.relayOf;
     if (it.kind !== 'article') continue;
+    articles.push(it);
     const key = canonicalUrl(it.url);
     if (key && !byUrl.has(key)) byUrl.set(key, it);
   }
+  const sameOutlet = (post, art) => (post._sameAs && post._sameAs === art.source?.id)
+    || domainsMatch(post.source?.handle?.toLowerCase(), hostOf(art.source?.url || art.url));
+  // Fallback when the link cannot be matched (a short link that could not be followed):
+  // the card's title against the titles of the same outlet's articles.
+  const byTitle = (post) => {
+    const t = new Set(tokens(post.external.title || ''));
+    if (t.size < 3) return null;
+    let best = null; let bestScore = 0.8;
+    for (const art of articles) {
+      if (!sameOutlet(post, art)) continue;
+      const s = jaccard(t, new Set(tokens(art.title)));
+      if (s >= bestScore) { best = art; bestScore = s; }
+    }
+    return best;
+  };
   // Diagnostics for the collection log: an outlet's own link that matched no article.
   const unmatched = [];
-  let relays = 0;
+  let relays = 0; let byTitleCount = 0;
   for (const it of items) {
     if (it.platform !== 'bluesky' || !it.external?.url) continue;
-    const art = byUrl.get(canonicalUrl(it.external.url));
-    if (!art) {
-      if (isOwnLink(it)) unmatched.push(`@${it.source?.handle} → ${it.external.url}`);
-      continue;
+    let art = byUrl.get(canonicalUrl(it.external.url));
+    if (art && !sameOutlet(it, art)) continue;
+    if (!art && isOwnLink(it)) {
+      art = byTitle(it);
+      if (art) byTitleCount++;
+      else unmatched.push(`@${it.source?.handle} → ${it.external.url}`);
     }
-    const same = (it._sameAs && it._sameAs === art.source?.id)
-      || domainsMatch(it.source?.handle?.toLowerCase(), hostOf(art.source?.url || art.url));
-    if (!same) continue;
+    if (!art) continue;
     it.relayOf = art.id;
     relays++;
     if (!art.image && it.external.thumb) art.image = it.external.thumb;
     if (!art.text && it.external.description) art.text = it.external.description;
   }
-  return { relays, unmatched };
+  return { relays, byTitle: byTitleCount, unmatched };
 }

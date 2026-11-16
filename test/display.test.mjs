@@ -125,3 +125,41 @@ test('resolveShortLinks: an outlet\'s short link is followed once, then matches 
   assert.equal(followed.length, 1, 'remembered');
   assert.equal(again[1].external.url, 'https://www.mediapart.fr/journal/france/161126/un-titre?utm_source=bluesky');
 });
+
+test('followRedirects: Location header by hand, else an HTML redirect; failures are explained', async () => {
+  const { followRedirects, htmlRedirectTarget, resolveShortLinks } = await import('../scripts/lib/enrich.mjs');
+  const res = (status, { location, body = '' } = {}) => ({ status, headers: { get: (h) => (h === 'location' ? location ?? null : null) }, text: async () => body });
+  const routes = {
+    'https://l.example.fr/a': res(301, { location: '/b' }),
+    'https://l.example.fr/b': res(302, { location: 'https://www.example.fr/article/1' }),
+    'https://www.example.fr/article/1': res(200, { body: '<html>' }),
+    'https://l.example.fr/meta': res(200, { body: '<head><meta http-equiv="refresh" content="0; url=https://www.example.fr/article/2"></head>' }),
+    'https://l.example.fr/js': res(200, { body: '<script>window.location.href = "https://www.example.fr/article/3";</script>' }),
+    'https://l.example.fr/none': res(200, { body: '<p>rien</p>' }),
+    'https://l.example.fr/gone': res(403),
+  };
+  const fetchImpl = async (u) => routes[u];
+  assert.equal(await followRedirects('https://l.example.fr/a', { fetchImpl }), 'https://www.example.fr/article/1');
+  assert.equal(await followRedirects('https://l.example.fr/meta', { fetchImpl }), 'https://www.example.fr/article/2');
+  assert.equal(await followRedirects('https://l.example.fr/js', { fetchImpl }), 'https://www.example.fr/article/3');
+  await assert.rejects(followRedirects('https://l.example.fr/none', { fetchImpl }), /sans redirection/);
+  await assert.rejects(followRedirects('https://l.example.fr/gone', { fetchImpl }), /HTTP 403/);
+  assert.equal(htmlRedirectTarget('<link rel="canonical" href="/x/y">', 'https://www.example.fr/'), 'https://www.example.fr/x/y');
+
+  const items = [{ id: 'p', kind: 'post', platform: 'bluesky', source: { handle: 'example.fr' }, external: { url: 'https://l.example.fr/gone' } }];
+  const s = await resolveShortLinks(items, { cache: new ResolutionCache('/nonexistent/y.json'), follow: (u) => followRedirects(u, { fetchImpl }) });
+  assert.equal(s.resolved, 0);
+  assert.match(s.failure, /l\.example\.fr\/gone : HTTP 403/);
+});
+
+test('markRelays: an outlet\'s unresolved short link falls back to its card title', async () => {
+  const { markRelays } = await import('../scripts/lib/score.mjs');
+  const art = { id: 'a1', kind: 'article', title: 'Retraites : ce que contient vraiment la réforme', url: 'https://www.mediapart.fr/journal/1', source: { id: 'mediapart', url: 'https://www.mediapart.fr' } };
+  const other = { id: 'a2', kind: 'article', title: 'Retraites : ce que contient vraiment la réforme', url: 'https://www.blast-info.fr/x', source: { id: 'blast', url: 'https://www.blast-info.fr' } };
+  const own = { id: 'p1', kind: 'post', platform: 'bluesky', source: { handle: 'mediapart.fr' }, external: { url: 'https://l.mediapart.fr/kuR', title: 'Retraites : ce que contient vraiment la réforme' } };
+  const off = { id: 'p2', kind: 'post', platform: 'bluesky', source: { handle: 'mediapart.fr' }, external: { url: 'https://l.mediapart.fr/zz', title: 'Un tout autre sujet du jour' } };
+  const r = markRelays([other, art, own, off]);
+  assert.equal(own.relayOf, 'a1', 'the outlet\'s own article, not another outlet\'s with the same title');
+  assert.equal(off.relayOf, undefined);
+  assert.deepEqual([r.relays, r.byTitle, r.unmatched.length], [1, 1, 1]);
+});
