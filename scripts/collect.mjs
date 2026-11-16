@@ -11,6 +11,8 @@ import * as bsky from './lib/bluesky.mjs';
 import * as yt from './lib/youtube.mjs';
 import { compileTopics, annotate, groupDuplicates, markRelays } from './lib/score.mjs';
 import { ItemArchive, publicItem } from './lib/archive.mjs';
+import { enrichArticles } from './lib/enrich.mjs';
+import { quality } from './lib/quality.mjs';
 import { truncate } from './lib/text.mjs';
 import { sanitizeItem } from './lib/sanitize.mjs';
 import { safeUrl, canonicalUrl } from '../public/url.js';
@@ -30,9 +32,10 @@ const archive = new ItemArchive(path.join(CACHE_DIR, 'items.json'));
 const readJson = async (p) => JSON.parse(await fs.readFile(path.join(ROOT, p), 'utf8'));
 
 const status = [];
-const report = (type, name, ok, info) => {
-  status.push({ type, name, ok, ...(ok ? { count: info } : { error: String(info?.message || info) }) });
-  const line = ok ? `✔ ${type.padEnd(8)} ${name} (${info})` : `✘ ${type.padEnd(8)} ${name} — ${info?.message || info}`;
+const report = (type, name, ok, info, extra) => {
+  status.push({ type, name, ok, ...(ok ? { count: info, ...extra } : { error: String(info?.message || info) }) });
+  const q = extra?.quality ? ` · image ${extra.quality.withImage} %, texte ${extra.quality.avgText} car.${extra.quality.undated ? `, ${extra.quality.undated} sans date` : ''}` : '';
+  const line = ok ? `✔ ${type.padEnd(8)} ${name} (${info}${q})` : `✘ ${type.padEnd(8)} ${name} — ${info?.message || info}`;
   console.log(line);
 };
 
@@ -52,12 +55,13 @@ async function collectMedia(media, type = 'rss') {
       url: src.site || feed.feedUrl, handle: (src.site || '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''),
       description: feed.description, suggested: !!src.suggested, category: src.category || (type === 'tech' ? 'Tech' : 'Médias'),
     });
-    return feed.entries.filter((e) => e.link && e.title).map((e) => entryToArticle(e, source)).filter(Boolean)
+    const items = feed.entries.filter((e) => e.link && e.title).map((e) => entryToArticle(e, source)).filter(Boolean)
       .map((it) => ({ ...it, _origin: `${type === 'tech' ? 'tech' : 'media'}:${src.id}` }));
+    return { items, quality: quality(items) };
   }));
   const items = [];
   results.forEach((r, i) => {
-    if (r.ok) { items.push(...r.value); report(type, media[i].name, true, r.value.length); }
+    if (r.ok) { items.push(...r.value.items); report(type, media[i].name, true, r.value.items.length, { quality: r.value.quality }); }
     else report(type, media[i].name, false, r.error);
   });
   return items;
@@ -80,7 +84,7 @@ async function collectBluesky(cfg, settings) {
     // to a fresh resolution.
     const { resolved, result: items } = await cachedResolve(cache, `bsky:${acc.handle || acc.name}`,
       () => bsky.resolveAccount(client, acc),
-      { ttlMs: 12 * HOUR, use: (r) => bsky.authorPosts(client, r, settings.bskyPostsPerAccount) });
+      { ttlMs: 12 * HOUR, use: (r) => bsky.authorPosts(client, r, settings.bskyPostsPerAccount, { sinceMs: Date.now() - (acc.feed === 'tech' ? settings.techMaxAgeHours ?? 168 : settings.actusMaxAgeHours) * HOUR }) });
     return { resolved, items };
   }), 4);
   accounts.forEach((r, i) => {
@@ -243,15 +247,24 @@ async function main() {
 
   // This run's items, plus the previous runs' ones still in the window; then duplicates out.
   const origins = configuredOrigins(sources);
-  const build = (feed, fresh, maxAgeHours, topicMatchers, { relays = false } = {}) => {
+  // Articles without picture: og:image of the page, shared budget for Actus + Tech.
+  let pageBudget = settings.ogImageFetchesPerRun ?? 40;
+  const build = async (feed, fresh, maxAgeHours, topicMatchers, { articles = false } = {}) => {
     const items = freshAndUnique(archive.merge(feed, fresh, { maxAgeHours, origins }), maxAgeHours);
-    if (relays) markRelays(items);
+    if (articles) {
+      markRelays(items);
+      const e = await enrichArticles(items, { cache, maxFetches: pageBudget });
+      pageBudget = Math.max(0, pageBudget - e.fetched);
+      const arts = items.filter((i) => i.kind === 'article');
+      const withImage = arts.filter((i) => i.image).length;
+      console.log(`Images ${feed} : ${withImage}/${arts.length} articles illustrés · og:image ${e.found} trouvée(s) (${e.fetched} page(s) lue(s), ${e.fromCache} en cache)`);
+    }
     archive.set(feed, items);
     return items.map((i) => annotate(publicItem(i), topicMatchers));
   };
-  const actusItems = build('actus', [...articles, ...bluesky.posts], settings.actusMaxAgeHours, matchers, { relays: true });
-  const techItems = build('tech', [...techArticles, ...bluesky.tech], settings.techMaxAgeHours ?? 168, techMatchers, { relays: true });
-  const videoItems = build('videos', [...bluesky.videos, ...ytVideos, ...ttVideos], settings.videosMaxAgeHours, matchers);
+  const actusItems = await build('actus', [...articles, ...bluesky.posts], settings.actusMaxAgeHours, matchers, { articles: true });
+  const techItems = await build('tech', [...techArticles, ...bluesky.tech], settings.techMaxAgeHours ?? 168, techMatchers, { articles: true });
+  const videoItems = await build('videos', [...bluesky.videos, ...ytVideos, ...ttVideos], settings.videosMaxAgeHours, matchers);
   const relayed = [...actusItems, ...techItems].filter((i) => i.relayOf).length;
   console.log(`Archive : ${archive.loaded ? 'reprise du run précédent' : 'première collecte (aucune archive)'} · ${relayed} post(s) Bluesky relayant un article du même média`);
 

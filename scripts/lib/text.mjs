@@ -54,3 +54,34 @@ export function jaccard(a, b) {
   for (const x of A) if (B.has(x)) inter++;
   return inter / (A.size + B.size - inter);
 }
+
+// Endings that feeds append to every summary: WordPress / SPIP notices and « read more » links.
+const TRAILERS = [
+  /\s*The post\s.{1,300}?\sappeared first on\s.{1,200}$/is,
+  /\s*(?:L['’]article|Cet article|Le billet)\s.{1,300}?\s(?:est apparu en premier sur|a été publié en premier sur|est paru en premier sur)\s.{1,200}$/is,
+  // Only after the end of a sentence, and only a short tail: « Lire la suite des événements… » stays.
+  /(?<=[.…!?»)\]])\s*(?:Lire la suite|Lire l['’]article(?: complet)?|Lire plus|La suite|Continuer la lecture|Continue reading|Read more|Read the full (?:story|article)|Keep reading)\b[^\n]{0,40}$/i,
+];
+
+/**
+ * A feed's summary without its boilerplate: « The post … appeared first on … », « Lire la
+ * suite », « […] », the title repeated at the start, or Hacker News' « Article URL: … Points: … ».
+ * '' when nothing remains (or when the summary is only the title).
+ */
+export function cleanSummary(text, title = '') {
+  let t = String(text ?? '').trim();
+  if (!t) return '';
+  if (/^Article URL:\s*\S+/i.test(t) && /Comments URL:/i.test(t)) return '';
+  let prev;
+  do {
+    prev = t;
+    for (const re of TRAILERS) t = t.replace(re, '');
+    t = t.replace(/\s*(?:\[(?:…|\.\.\.)\]|\((?:…|\.\.\.)\)|\[\s*\]|→|>>)\s*$/u, (m) => (/[….]/.test(m) ? '…' : '')).trim();
+  } while (t !== prev);
+  const ti = String(title ?? '').trim();
+  if (ti) {
+    if (normalize(t) === normalize(ti)) return '';
+    if (normalize(t).startsWith(normalize(ti)) && t.length > ti.length + 20) t = t.slice(ti.length).replace(/^[\s:.\-–—|]+/, '');
+  }
+  return t === '…' ? '' : t;
+}

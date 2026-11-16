@@ -61,19 +61,34 @@ export async function resolveAccount(client, account) {
   return { handle: a.handle, did: a.did, displayName: a.displayName, avatar: a.avatar || null, verified: isVerified(a), description: a.description || '' };
 }
 
-export async function authorPosts(client, account, limit = 30) {
-  const { feed = [] } = await client.call('app.bsky.feed.getAuthorFeed', {
-    actor: account.did || account.handle,
-    limit,
-    filter: 'posts_no_replies',
-  });
-  return feed
-    .filter((f) => !f.reason) // drop reposts
-    .map((f) => {
+/**
+ * The account's last `limit` own posts. Reposts are dropped, so an account that reposts a lot
+ * would keep almost nothing from one page: up to `maxPages` pages are read to reach `limit`,
+ * stopping at the first page that reaches back before `sinceMs`.
+ */
+export async function authorPosts(client, account, limit = 30, { maxPages = 3, sinceMs = 0 } = {}) {
+  const out = [];
+  let cursor;
+  for (let page = 0; page < maxPages && out.length < limit; page++) {
+    const { feed = [], cursor: next } = await client.call('app.bsky.feed.getAuthorFeed', {
+      actor: account.did || account.handle,
+      limit,
+      filter: 'posts_no_replies',
+      cursor,
+    });
+    for (const f of feed) {
+      if (f.reason) continue; // drop reposts
       const item = postToItem(f.post);
       item.source.verified = account.verified || undefined;
-      return item;
-    });
+      out.push(item);
+    }
+    if (!next || !feed.length) break;
+    // Older pages would be outside the collection window anyway.
+    const oldest = Math.min(...feed.map((f) => Date.parse(f.post?.indexedAt || f.post?.record?.createdAt) || Infinity));
+    if (sinceMs && oldest < sinceMs) break;
+    cursor = next;
+  }
+  return out.slice(0, limit);
 }
 
 /** Search recent posts for a hashtag/term and keep only the ones with a video. */

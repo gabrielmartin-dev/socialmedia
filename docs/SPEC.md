@@ -108,10 +108,15 @@ Champs facultatifs d'une source dans `config/sources.json` : `paywall` et `lang`
 
 Pour chaque article, la collecte conserve l'auteur (`<dc:creator>`, `<author>`, nettoyé : un simple e-mail est écarté) et les catégories du flux (`<category>`, 4 au plus) lorsqu'ils existent.
 
+**Image et résumé.** L'image vient du flux (la plus large des `media:content`, sinon `enclosure`, sinon la première vraie image du HTML : pixels de suivi, gravatars, emojis et images de moins de 80 px écartés, `data-src` / `srcset` lus). Sans image dans le flux, la collecte lit le début de la page de l'article (`og:image` / `twitter:image`, et `og:description` si le flux n'a pas de résumé) : 40 pages au plus par run (`settings.ogImageFetchesPerRun`), réponse gardée 8 jours par URL (1 jour si rien n'est trouvé). Le résumé est nettoyé des formules de fin (« The post … appeared first on … », « L'article … est apparu en premier sur … », « Lire la suite », « Continue reading », « […] »), du titre répété en tête, et vidé pour Hacker News (« Article URL: … Points: … »).
+
+**Qualité par source.** `status.json` donne pour chaque flux RSS la part d'articles illustrés par le flux lui-même, la longueur moyenne du résumé et le nombre d'entrées sans date (`quality`) ; le journal de collecte aussi.
+
 ### 3.2 Bluesky — personnalités → Actus
 - **LFI** : Jean-Luc Mélenchon, Mathilde Panot, Manuel Bompard, Clémence Guetté, Éric Coquerel, Manon Aubry, Louis Boyard, Rima Hassan, Antoine Léaument, Thomas Portes.
 - **Journalistes** : David Dufresne, Rémy Buisine, Clément Lanot.
 - Les posts de ces comptes qui contiennent une vidéo vont **aussi** dans le feed Vidéos.
+- Les reposts sont écartés ; pour garder assez de posts originaux d'un compte qui reposte beaucoup, la collecte lit jusqu'à 3 pages de son fil (sans remonter avant la fenêtre).
 
 ### 3.3 Vidéos d'internautes (recherche Bluesky) → Vidéos
 Recherche des posts contenant une vidéo pour les hashtags : `#manif` `#manifestation` `#greve` `#grève` `#violencespolicieres` `#blocage` `#retraites` `#mobilisation`. La liste est extensible dans la config.

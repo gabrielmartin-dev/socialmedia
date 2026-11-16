@@ -3,7 +3,7 @@
 import { XMLParser } from 'fast-xml-parser';
 import crypto from 'node:crypto';
 import { fetchText } from './http.mjs';
-import { stripHtml, truncate, decodeEntities } from './text.mjs';
+import { stripHtml, truncate, decodeEntities, cleanSummary } from './text.mjs';
 import { safeUrl } from '../../public/url.js';
 import { detectPaywall, cleanPaidTitle } from '../../public/paywall.js';
 
@@ -46,29 +46,57 @@ export function hashId(...parts) {
   return crypto.createHash('sha1').update(parts.join('|')).digest('hex').slice(0, 16);
 }
 
-function firstImgInHtml(html) {
-  const m = /<img[^>]+src=["']([^"']+)["']/i.exec(String(html || ''));
-  return m ? decodeEntities(m[1]) : null;
+// Tracking pixels, avatars, emojis, share buttons…: never the picture of an article.
+const JUNK_IMAGE = /(pixel|tracking|feedburner|feeds\.feedblitz|gravatar\.com|\/emoji|smilies|wp-includes\/images|1x1|spacer|blank\.gif|\/share[-_]|\/badge|stats\.wordpress|doubleclick|\/avatar)/i;
+export const isJunkImage = (url) => !url || JUNK_IMAGE.test(url) || /^data:/i.test(url);
+
+const attr = (tag, name) => {
+  const m = new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i').exec(tag);
+  return m ? decodeEntities(m[1] ?? m[2] ?? m[3] ?? '') : null;
+};
+
+/** The first real picture of an HTML body: lazy-loaded sources, srcset, no 1×1 / tiny images. */
+export function firstImgInHtml(html) {
+  for (const [tag] of String(html || '').matchAll(/<img\b[^>]*>/gi)) {
+    const w = Number(attr(tag, 'width'));
+    const h = Number(attr(tag, 'height'));
+    if ((w && w < 80) || (h && h < 80)) continue;
+    const srcset = attr(tag, 'data-srcset') || attr(tag, 'srcset');
+    const fromSet = srcset ? srcset.split(',').map((c) => c.trim().split(/\s+/)[0]).filter(Boolean).pop() : null;
+    const url = attr(tag, 'data-src') || attr(tag, 'data-lazy-src') || attr(tag, 'data-original') || attr(tag, 'src') || fromSet;
+    const pick = url && !/^data:/i.test(url) ? url : fromSet;
+    if (pick && !isJunkImage(pick)) return pick;
+  }
+  return null;
+}
+
+/** media:content / media:thumbnail / media:group / enclosure images, the widest first. */
+function feedImages(entry) {
+  const out = [];
+  const add = (m, isThumb) => {
+    const url = m?.['@url'];
+    if (!url) return;
+    const type = m['@type'] || m['@medium'] || (isThumb ? 'image' : '');
+    if (!/image/.test(type) && !(type === '' && /\.(jpe?g|png|webp|avif|gif)(\?|$)/i.test(url))) return;
+    if (isJunkImage(url)) return;
+    out.push({ url, width: Number(m['@width']) || 0 });
+  };
+  arr(entry['media:content']).forEach((m) => add(m, false));
+  arr(entry['media:thumbnail']).forEach((m) => add(m, true));
+  const group = entry['media:group'];
+  if (group) {
+    arr(group['media:content']).forEach((m) => add(m, false));
+    arr(group['media:thumbnail']).forEach((m) => add(m, true));
+  }
+  for (const enc of arr(entry.enclosure)) {
+    if (enc?.['@url'] && /^image\//.test(enc['@type'] || '') && !isJunkImage(enc['@url'])) out.push({ url: enc['@url'], width: 0 });
+  }
+  // Stable sort: without widths, the feed's own order is kept.
+  return out.sort((a, b) => b.width - a.width);
 }
 
 function pickImage(entry, html) {
-  for (const key of ['media:content', 'media:thumbnail']) {
-    for (const m of arr(entry[key])) {
-      const url = m?.['@url'];
-      const type = m?.['@type'] || m?.['@medium'] || 'image';
-      if (url && /image/.test(type)) return url;
-      if (url && key === 'media:thumbnail') return url;
-    }
-  }
-  const group = entry['media:group'];
-  if (group) {
-    const t = arr(group['media:thumbnail'])[0]?.['@url'] || arr(group['media:content']).find((c) => /image/.test(c?.['@type'] || c?.['@medium'] || ''))?.['@url'];
-    if (t) return t;
-  }
-  for (const enc of arr(entry.enclosure)) {
-    if (enc?.['@url'] && /^image\//.test(enc['@type'] || '')) return enc['@url'];
-  }
-  return firstImgInHtml(html);
+  return feedImages(entry)[0]?.url || firstImgInHtml(html);
 }
 
 function linkOf(entry) {
@@ -214,7 +242,7 @@ export function entryToArticle(entry, source) {
       ...(source.paywall === true || source.paywall === 'partial' ? { paywall: source.paywall } : {}), ...(source.lang && source.lang !== 'fr' ? { lang: source.lang } : {}) },
     title: truncate(cleanPaidTitle(entry.title), 220),
     ...(paid ? { paywall: true } : {}),
-    text: truncate(entry.text && entry.text !== entry.title ? entry.text : '', 1200),
+    text: truncate(cleanSummary(entry.text, entry.title), 1200),
     url,
     image: safeUrl(entry.image, url),
     publishedAt: entry.publishedAt,
