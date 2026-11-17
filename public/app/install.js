@@ -1,59 +1,67 @@
-// Invitation to install the app: a discreet banner, shown once, that can be closed.
-// Android / Chrome: `beforeinstallprompt`. iOS Safari: instructions (no API exists there).
+// First-visit pop-up explaining how to install the app on the home screen (web app mode).
+// Shown once, closable, never in standalone mode.
+// Android / Chrome: native `beforeinstallprompt` when the browser offers it, else menu steps.
+// iOS: steps through the share menu (no install API exists there).
 
-import { $, h, toast } from './dom.js';
+import { h, toast } from './dom.js';
 import { store } from './store.js';
 import { installHint } from '../install.js';
-import { openInfoSheet } from './infosheet.js';
+import { openInfoSheet, closeInfoSheet } from './infosheet.js';
 
-const KEY = 'installHint'; // set as soon as the banner is shown: it never comes back
-const SHOW_AFTER_MS = 4000;
+const KEY = 'installGuide'; // set as soon as the pop-up is shown: it never comes back
+const SHOW_AFTER_MS = 1500; // let the feed appear first, and Chrome send its install prompt
 
 let deferred = null; // the browser's install prompt
 
 const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 
-function iosSteps() {
-  openInfoSheet('Ajouter à l’écran d’accueil',
-    h('ol', { class: 'info-steps' },
-      h('li', { text: 'Touche le bouton Partager (le carré avec une flèche) en bas de Safari.' }),
-      h('li', { text: 'Fais défiler et choisis « Sur l’écran d’accueil ».' }),
-      h('li', { text: 'Valide avec « Ajouter » : l’app s’ouvre ensuite en plein écran.' })),
-    h('p', { class: 'info-note', text: 'Installée, l’app garde aussi tes abonnements et tes enregistrés plus sûrement que dans un onglet Safari.' }));
+const steps = (...items) => h('ol', { class: 'info-steps' }, ...items.map((text) => h('li', { text })));
+
+const STEPS = {
+  ios: () => steps(
+    'Touche le bouton Partager (le carré avec une flèche vers le haut) en bas de Safari. S’il n’apparaît pas, touche d’abord « ⋯ ».',
+    'Fais défiler et choisis « Sur l’écran d’accueil ».',
+    'Valide avec « Ajouter », puis ouvre l’app depuis sa nouvelle icône.'),
+  'ios-other': () => steps(
+    'Touche le bouton Partager (le carré avec une flèche vers le haut), dans la barre d’adresse ou dans le menu.',
+    'Choisis « Sur l’écran d’accueil », puis « Ajouter ».',
+    'Tu ne le trouves pas ? Ouvre ce site dans Safari et fais pareil.'),
+  android: () => steps(
+    'Ouvre le menu du navigateur (les trois points ⋮ en haut à droite, ou ☰ en bas sur Samsung Internet).',
+    'Choisis « Installer l’application » ou « Ajouter à l’écran d’accueil ».',
+    'Valide, puis ouvre l’app depuis sa nouvelle icône.'),
+};
+
+async function promptInstall() {
+  closeInfoSheet();
+  if (!deferred) return;
+  const p = deferred;
+  deferred = null;
+  p.prompt();
+  const { outcome } = await p.userChoice.catch(() => ({}));
+  if (outcome === 'accepted') toast('App installée');
 }
 
-function showBanner(hint) {
-  const banner = $('#install-banner');
-  const close = () => { banner.hidden = true; };
-  banner.replaceChildren(
-    h('div', { class: 'install-text' },
-      h('strong', { text: 'Ajouter à l’écran d’accueil' }),
-      h('span', { text: hint === 'ios' ? 'Pour l’ouvrir en plein écran, comme une app.' : 'Pour l’ouvrir en plein écran, comme une app, même hors ligne.' })),
-    h('button', {
-      class: 'install-go', type: 'button', text: hint === 'ios' ? 'Comment ?' : 'Installer',
-      onclick: async () => {
-        if (hint === 'ios') { iosSteps(); close(); return; }
-        close();
-        if (!deferred) return;
-        deferred.prompt();
-        const { outcome } = await deferred.userChoice.catch(() => ({}));
-        deferred = null;
-        if (outcome === 'accepted') toast('App installée');
-      },
-    }),
-    h('button', { class: 'install-close', type: 'button', 'aria-label': 'Fermer', text: '✕', onclick: close }),
-  );
-  banner.hidden = false;
+function showGuide(hint) {
   store.set(KEY, 'shown');
+  openInfoSheet('Installe l’app sur ton écran d’accueil',
+    h('p', { class: 'info-lead', text: 'Elle s’ouvrira en plein écran, comme une vraie app, et gardera mieux tes abonnements et tes articles enregistrés qu’un onglet du navigateur.' }),
+    hint === 'prompt'
+      ? h('button', { class: 'info-action', type: 'button', text: 'Installer l’app', onclick: promptInstall })
+      : STEPS[hint](),
+    h('p', { class: 'info-note', text: 'Ce message ne s’affiche qu’une fois.' }));
 }
 
 export function initInstall() {
-  if (location.protocol === 'file:' || store.get(KEY, null)) return;
+  if (location.protocol === 'file:' || store.get(KEY, null) || isStandalone()) return;
   window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferred = e; });
-  window.addEventListener('appinstalled', () => { $('#install-banner').hidden = true; store.set(KEY, 'shown'); });
+  window.addEventListener('appinstalled', () => { store.set(KEY, 'shown'); closeInfoSheet(); });
   setTimeout(() => {
-    if (store.get(KEY, null)) return;
-    const hint = installHint({ userAgent: navigator.userAgent, standalone: isStandalone(), hasPrompt: !!deferred });
-    if (hint) showBanner(hint);
+    if (store.get(KEY, null) || !document.getElementById('info-sheet').hidden) return;
+    const hint = installHint({
+      userAgent: navigator.userAgent, standalone: isStandalone(), hasPrompt: !!deferred,
+      maxTouchPoints: navigator.maxTouchPoints || 0,
+    });
+    if (hint) showGuide(hint);
   }, SHOW_AFTER_MS);
 }
