@@ -42,20 +42,33 @@ async function promptInstall() {
   if (outcome === 'accepted') toast('App installée');
 }
 
-function showGuide(hint) {
+function showGuide(hint, { once = true } = {}) {
   store.set(KEY, 'shown');
   openInfoSheet('Installe l’app sur ton écran d’accueil',
     h('p', { class: 'info-lead', text: 'Elle s’ouvrira en plein écran, comme une vraie app, et gardera mieux tes abonnements et tes articles enregistrés qu’un onglet du navigateur.' }),
     hint === 'prompt'
       ? h('button', { class: 'info-action', type: 'button', text: 'Installer l’app', onclick: promptInstall })
       : STEPS[hint](),
-    h('p', { class: 'info-note', text: 'Ce message ne s’affiche qu’une fois.' }));
+    once ? h('p', { class: 'info-note', text: 'Ce message ne s’affiche qu’une fois (tu le retrouves dans les Paramètres).' }) : null);
+}
+
+/** « Installer l’app » of the settings page: the same guide, on demand. */
+export function openInstallGuide() {
+  if (isStandalone()) { toast('L’app est déjà installée sur ton écran d’accueil'); return; }
+  const hint = installHint({
+    userAgent: navigator.userAgent, standalone: false, hasPrompt: !!deferred,
+    maxTouchPoints: navigator.maxTouchPoints || 0,
+  });
+  if (!hint) { toast('Ouvre ce site sur ton téléphone pour l’installer'); return; }
+  showGuide(hint, { once: false });
 }
 
 export function initInstall() {
-  if (location.protocol === 'file:' || store.get(KEY, null) || isStandalone()) return;
+  if (location.protocol === 'file:' || isStandalone()) return;
+  // Kept even after the pop-up was shown: the settings page offers the same install button.
   window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferred = e; });
   window.addEventListener('appinstalled', () => { store.set(KEY, 'shown'); closeInfoSheet(); });
+  if (store.get(KEY, null)) return;
   setTimeout(() => {
     if (store.get(KEY, null) || !document.getElementById('info-sheet').hidden) return;
     const hint = installHint({

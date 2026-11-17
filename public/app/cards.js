@@ -120,7 +120,8 @@ const inFullscreen = (box) => !!(document.fullscreenElement || box._video?.webki
 const inlineObserver = () => (inlineObs ||= new IntersectionObserver((entries) => {
   for (const e of entries) {
     const box = e.target;
-    if (e.isIntersecting && e.intersectionRatio >= 0.6 && state.view !== 'videos') startInline(box);
+    // « Lire les vidéos automatiquement » off: the ▶ stays until the video is tapped.
+    if (e.isIntersecting && e.intersectionRatio >= 0.6 && state.view !== 'videos' && state.settings.autoplay) startInline(box);
     else if (!inFullscreen(box)) stopInline(box); // the full screen player takes the video out of the page
   }
 }, { threshold: [0, 0.6] }));
