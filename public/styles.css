@@ -27,6 +27,7 @@
   --topbar-h: 52px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --vp-gap: 0px; /* see app/viewport.js */
   --bars-t: .28s cubic-bezier(.2, .8, .2, 1); /* bars sliding away / back on scroll */
   color-scheme: dark;
 }
@@ -143,6 +144,10 @@ body.videos-mode .topbar { transform: translateY(-110%); }
    first/last reel or a page left scrolled from Actus could pull the whole page up on iOS,
    leaving a black band under the tab bar. */
 html:has(body.videos-mode), body.videos-mode { overflow: hidden; overscroll-behavior: none; }
+/* iOS home-screen app: in Vidéos the viewport can stop short of the screen's bottom edge,
+   leaving a black band under the tab bar. Push the tab bar and the reels down into it. */
+body.videos-mode .tabbar { bottom: calc(-1 * var(--vp-gap)); }
+body.videos-mode #view-videos { bottom: calc(var(--tabbar-total) - var(--vp-gap)); }
 
 /* "Nouveaux posts" pill */
 .new-pill {

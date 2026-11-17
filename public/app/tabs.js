@@ -9,6 +9,7 @@ import { stopAllInline } from './cards.js';
 import { refresh } from './refresh.js';
 import { updatePill } from './fresh.js';
 import { showBars } from './bars.js';
+import { remeasureGap } from './viewport.js';
 
 const TITLES = { actus: 'Actus', tech: 'Tech', videos: 'Vidéos', discover: 'Découvrir' };
 
@@ -37,6 +38,7 @@ export function switchView(view) {
   document.body.classList.toggle('videos-mode', view === 'videos');
   $('#title').textContent = TITLES[view];
   updatePill();
+  remeasureGap();
   if (view === 'videos') {
     window.scrollTo({ top: 0 }); // the feed's scroll position must not shift the fixed reels
     stopAllInline();
