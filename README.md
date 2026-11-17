@@ -23,6 +23,12 @@ Tes abonnements sont enregistrés sur ton téléphone.
 - **Suggestions :** ce sont les sources marquées `"suggested": true` dans `config/sources.json`. Elles sont collectées, mais n'apparaissent dans tes feeds qu'une fois suivies.
 - **Comptes Bluesky trouvés par la recherche :** l'app récupère leurs posts directement à chaque ouverture ou refresh.
 
+### Paramètres et retours
+
+La roue ⚙ en haut à droite ouvre les **Paramètres** : thème (sombre, clair ou automatique), taille du texte, lecture automatique des vidéos, articles payants, remise à zéro du tri et des posts masqués, export / restauration d'une sauvegarde, et « Tout effacer ». Tout reste sur le téléphone.
+
+**Envoyer un retour** (depuis les Paramètres) envoie le message à un formulaire [Formspree](https://formspree.io), qui le transfère par email. L'identifiant du formulaire est `FEEDBACK_FORM_ID` dans `public/settings.js`.
+
 ## Mise en ligne (une seule fois)
 
 1. **Fusionner la branche dans `main`.** Les tâches planifiées de GitHub ne tournent que sur la branche par défaut.

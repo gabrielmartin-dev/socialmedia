@@ -15,6 +15,7 @@ import { initRefresh, refresh, showLoaded } from './app/refresh.js';
 import { initFresh, checkForNew, renderStatusBar } from './app/fresh.js';
 import { initInfoSheet } from './app/infosheet.js';
 import { initInstall } from './app/install.js';
+import { initSettings } from './app/settings.js';
 import { switchView } from './app/tabs.js';
 
 actions.openProfile = openProfile;
@@ -48,6 +49,7 @@ initTabs();
 initRefresh();
 initInfoSheet();
 initInstall();
+initSettings();
 initFresh({ apply: (data) => { applyData(data); showLoaded(); } });
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {

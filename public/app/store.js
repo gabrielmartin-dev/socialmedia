@@ -4,6 +4,7 @@ import { emptyPrefs, topicsOf, newSince } from '../rank.js';
 import { latestGeneratedAt } from '../freshness.js';
 import { createSeenTracker, pruneOpened } from '../seen.js';
 import { addSaved, removeSaved, isSaved, sanitizeSaved } from '../saved.js';
+import { sanitizeSettings, SETTINGS_KEY } from '../settings.js';
 import { actions } from './actions.js';
 
 // ---------- Storage (never throws) ----------
@@ -47,6 +48,8 @@ export const state = {
   },
   reels: { ranked: [], rendered: 0, active: null, built: false },
   muted: true,
+  // Paramètres: theme, text size, autoplay of the videos in the feeds (see ../settings.js).
+  settings: sanitizeSettings(store.get(SETTINGS_KEY, null)),
   // Bookmarks (« Enregistrés »): full items, most recent first.
   saved: sanitizeSaved(store.get('saved', [])),
   // Articles opened in this browser (id → timestamp): their title is dimmed.
@@ -76,6 +79,10 @@ export function saveFollows() {
 export function setHidePaid(on) {
   state.hidePaid = !!on;
   store.set('hidePaid', state.hidePaid);
+}
+
+export function saveSettings() {
+  store.set(SETTINGS_KEY, state.settings);
 }
 
 export function savePrefs() {
