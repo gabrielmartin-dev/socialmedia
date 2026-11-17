@@ -127,7 +127,6 @@ img { display: block; }
   background: var(--bg);
   border-bottom: 1px solid var(--border);
   transition: transform var(--bars-t);
-  will-change: transform;
 }
 .topbar-left { min-width: 0; }
 .topbar-actions { display: flex; align-items: center; }
@@ -140,6 +139,10 @@ img { display: block; }
 .icon-btn:active { background: var(--press); }
 .icon-btn.spinning svg { animation: spin 0.9s linear infinite; }
 body.videos-mode .topbar { transform: translateY(-110%); }
+/* Vidéos: the page itself never scrolls (only the reels do). Without this, a swipe past the
+   first/last reel or a page left scrolled from Actus could pull the whole page up on iOS,
+   leaving a black band under the tab bar. */
+html:has(body.videos-mode), body.videos-mode { overflow: hidden; overscroll-behavior: none; }
 
 /* "Nouveaux posts" pill */
 .new-pill {
@@ -562,7 +565,6 @@ button.reel-author { text-align: left; }
   display: flex; background: var(--bg);
   border-top: 1px solid var(--border);
   transition: transform var(--bars-t);
-  will-change: transform;
 }
 .tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; color: var(--muted); font-size: 10px; line-height: 12px; }
 .tab svg { width: 24px; height: 24px; }
