@@ -113,6 +113,7 @@ async function collectBluesky(cfg, settings) {
       id: 'bsky:' + resolved.handle, name: resolved.displayName || acc.name, avatar: resolved.avatar, kind: 'bluesky',
       feed: feedName, url: `https://bsky.app/profile/${resolved.handle}`, handle: '@' + resolved.handle,
       description: resolved.description, suggested: !!acc.suggested, category: acc.category || (feedName === 'tech' ? 'Tech' : 'Personnalités'),
+      ...(acc.generalist ? { generalist: true } : {}),
     });
     for (const it of items) if (it.kind === 'video') videos.push(it);
     // Every post (videos included) also appears in its text feed.
@@ -331,12 +332,15 @@ async function main() {
   // not collected, only offered in Découvrir).
   const configured = new Set([...bluesky.configured, ...[...directory.values()].map((a) => String(a.handle || '').replace(/^@/, '').toLowerCase())]);
   const discovered = discoveredAccounts(bluesky.reposted, { exclude: configured });
-  console.log(`Découverte : ${bluesky.reposted.length} repost(s) ou citation(s) relevé(s), ${discovered.length} compte(s) relayé(s) par au moins 2 abonnements`);
+  // « Voir plus » in Découvrir: the accounts relayed by a single followed account (most recent signal kept).
+  const shown = new Set(discovered.map((a) => a.id));
+  const moreDiscovered = discoveredAccounts(bluesky.reposted, { exclude: configured, minBy: 1, max: 60 }).filter((a) => !shown.has(a.id));
+  console.log(`Découverte : ${bluesky.reposted.length} repost(s) ou citation(s) relevé(s), ${discovered.length} compte(s) relayé(s) par au moins 2 abonnements, ${moreDiscovered.length} de plus par 1`);
   const accounts = [...directory.values()].map((a) => {
     const last = lastPost.get(a.id);
     return { ...a, lastTitle: last ? truncate(last.title || last.text || '', 140) : '', lastAt: last?.publishedAt || null };
   });
-  await fs.writeFile(path.join(OUT, 'accounts.json'), JSON.stringify({ generatedAt: meta.generatedAt, accounts, discovered }));
+  await fs.writeFile(path.join(OUT, 'accounts.json'), JSON.stringify({ generatedAt: meta.generatedAt, accounts, discovered, moreDiscovered }));
   await fs.writeFile(path.join(OUT, 'topics.json'), JSON.stringify(topicsForClient(topicsCfg, settings)));
   await fs.writeFile(path.join(OUT, 'status.json'), JSON.stringify({ generatedAt: meta.generatedAt, sources: status }, null, 2));
 

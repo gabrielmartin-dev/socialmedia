@@ -55,6 +55,21 @@ export async function authorPage(handle, { limit = 25, cursor, ...opts } = {}) {
   return { items: feed.filter((f) => !f.reason).map(({ post }) => postToLiveItem(post)), cursor: next || null };
 }
 
+/**
+ * Authors an account recently reposted or quoted (« Rafraîchir les suggestions » in Découvrir),
+ * as { handle, displayName, avatar }, one entry per repost or quote.
+ */
+export async function recentlyRelayed(handle, { limit = 50, ...opts } = {}) {
+  const { feed = [] } = await call('app.bsky.feed.getAuthorFeed', { actor: handle, limit, filter: 'posts_no_replies' }, opts);
+  const out = [];
+  for (const f of feed) {
+    if (f.reason) { if (f.post?.author) out.push(f.post.author); continue; }
+    const q = postToItem(f.post).quote;
+    if (q?.handle) out.push({ handle: q.handle, displayName: q.name, avatar: q.avatar });
+  }
+  return out;
+}
+
 export async function authorPosts(handle, limit = 25, opts) {
   return (await authorPage(handle, { limit, ...opts })).items;
 }

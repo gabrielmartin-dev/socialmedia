@@ -371,6 +371,10 @@ div.avatar.square { background: var(--bg-elev); }
 .subtabs button.active { color: var(--text); font-weight: 800; }
 .subtabs button.active::after { content: ""; position: absolute; left: 20%; right: 20%; bottom: 0; height: 4px; border-radius: 4px; background: var(--accent); }
 .disc-empty .empty-btn { margin-top: 12px; }
+.disc-actions { padding: 12px 14px 4px; }
+.disc-actions .empty-btn { margin: 0; }
+.disc-section .disc-actions { padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.disc-actions .empty-btn:disabled { color: var(--muted); }
 
 /* ---------- Profile ---------- */
 body.profile-mode .topbar { transform: translateY(-110%); }

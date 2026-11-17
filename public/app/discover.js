@@ -1,12 +1,14 @@
 // Découvrir tab: suggestions, subscriptions, Bluesky account search.
 
-import { searchAccounts } from '../bsky.js';
+import { searchAccounts, recentlyRelayed } from '../bsky.js';
 import { relativeTime, topicScore } from '../rank.js';
 import { $, h, toast } from './dom.js';
 import { avatar } from './media.js';
 import { state, isFollowed, entriesFor, savePrefs, FEED_KEYS } from './store.js';
 import { normalize } from '../norm.js';
-import { searchItems, rankSuggestions, activityNote, repostedBy } from '../find.js';
+import { searchItems, rankSuggestions, activityNote, repostedBy, pickRelayers } from '../find.js';
+import { discoveredAccounts } from '../discovery.js';
+import { pool } from '../pool.js';
 import { renderEntry } from './cards.js';
 import { actions } from './actions.js';
 import { setFollow } from './follow.js';
@@ -72,6 +74,42 @@ function section(title, rows, empty) {
     h('h2', { text: title }),
     rows.length ? rows : h('div', { class: 'disc-empty', text: empty }),
   );
+}
+
+// « Voir plus » under « Repostés par tes abonnements », and the accounts found by « Rafraîchir ».
+let showMore = false;
+const fresh = { accounts: null, loading: false, used: new Set() };
+
+const bare = (handle) => String(handle || '').replace(/^@/, '').toLowerCase();
+
+/** Followed Bluesky accounts whose reposts are worth scanning (generalist media excluded, like the collector). */
+function relayers() {
+  return followedAccounts().filter((a) => a.kind === 'bluesky' && a.handle && !a.generalist);
+}
+
+/**
+ * « Rafraîchir les suggestions »: reads the latest reposts and quotes of a few followed accounts
+ * (others at each press) and keeps the authors not followed nor already suggested.
+ */
+async function refreshSuggestions(known) {
+  if (fresh.loading) return;
+  const picked = pickRelayers(relayers(), fresh.used, 8);
+  if (!picked.length) { toast('Suis des comptes Bluesky pour avoir des suggestions'); return; }
+  fresh.loading = true;
+  renderDiscover();
+  const events = [];
+  await pool(picked.map((a) => async () => {
+    try {
+      for (const author of await recentlyRelayed(bare(a.handle))) events.push({ by: a.name, author });
+    } catch { /* offline or account gone: skip it */ }
+  }), 4);
+  const exclude = new Set([...known, ...followedAccounts().map((a) => bare(a.handle))].filter(Boolean));
+  const found = discoveredAccounts(events, { exclude, minBy: 1, max: 30 })
+    .filter((a) => !state.accounts.has(a.id) && !isFollowed(a, { strict: true }));
+  fresh.loading = false;
+  fresh.accounts = found;
+  if (state.view === 'discover' && tab === 'suggestions') renderDiscover();
+  if (!found.length) toast(events.length ? 'Rien de nouveau cette fois : réessaie pour lire d’autres comptes' : 'Impossible de joindre Bluesky pour le moment');
 }
 
 // Sections of the tab: Abonnements (default), Suggestions, Enregistrés.
@@ -153,10 +191,31 @@ export function renderDiscover() {
         return best && best[1] >= minScore ? best[0] : null;
       },
     });
-    const discovered = (state.data.accounts?.discovered || []).filter((a) => !isFollowed(a, { strict: true }) && !state.accounts.has(a.id));
+    const notFollowed = (a) => !isFollowed(a, { strict: true }) && !state.accounts.has(a.id);
+    const discovered = (state.data.accounts?.discovered || []).filter(notFollowed);
+    const more = (state.data.accounts?.moreDiscovered || []).filter(notFollowed);
+    const known = [...state.data.accounts?.discovered || [], ...state.data.accounts?.moreDiscovered || [], ...state.accounts.values()].map((a) => bare(a.handle));
+    const freshShown = (fresh.accounts || []).filter(notFollowed);
+    const refreshBtn = h('button', {
+      class: 'empty-btn ghost disc-refresh', type: 'button', disabled: fresh.loading,
+      text: fresh.loading ? 'Recherche de nouveaux comptes…' : '↻ Nouvelles suggestions',
+      onclick: () => refreshSuggestions(known),
+    });
+    const reposted = [...discovered, ...(showMore ? more : [])];
+    const moreBtn = more.length ? h('button', {
+      class: 'empty-btn ghost disc-more', type: 'button',
+      text: showMore ? 'Voir moins' : `Voir plus (${more.length})`,
+      onclick: () => { showMore = !showMore; renderDiscover(); },
+    }) : null;
     results.replaceChildren(
+      h('div', { class: 'disc-actions' }, refreshBtn),
       ...(state.data.accounts ? [] : [emptyBlock('Les suggestions apparaîtront après la prochaine mise à jour automatique.')]),
-      ...(discovered.length ? [section('Repostés par tes abonnements', discovered.map((a) => accountRow(a)), '')] : []),
+      ...(fresh.accounts ? [section('Nouvelles suggestions', freshShown.map((a) => accountRow(a)), fresh.loading ? '' : 'Rien de nouveau pour l’instant.')] : []),
+      ...(reposted.length || moreBtn ? [h('section', { class: 'disc-section' },
+        h('h2', { text: 'Repostés par tes abonnements' }),
+        reposted.map((a) => accountRow(a)),
+        moreBtn ? h('div', { class: 'disc-actions' }, moreBtn) : null,
+      )] : []),
       ...cats.map((c) => section(`Suggestions · ${c}`, ranked.filter((r) => (r.account.category || 'Autres') === c).map((r) => accountRow(r.account, activityNote(r, labelOf))), '')),
       ...(state.data.accounts && !cats.length ? [emptyBlock('Plus aucune suggestion : tu suis déjà tout ce que la collecte connaît.')] : []),
     );
