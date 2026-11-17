@@ -65,3 +65,18 @@ export function activityNote({ n, topic }, topicLabel) {
   const label = topic ? topicLabel(topic) : null;
   return `${n} post${n > 1 ? 's' : ''} récent${n > 1 ? 's' : ''}${label ? ` · surtout ${label}` : ''}`;
 }
+
+/**
+ * Up to `n` relayers for « Rafraîchir les suggestions », at random, the ones not used yet first
+ * (`used`: ids already scanned, updated in place; cleared once every account has been used), so
+ * that each press scans other accounts and brings other suggestions.
+ */
+export function pickRelayers(accounts, used, n = 8, rand = Math.random) {
+  let fresh = accounts.filter((a) => !used.has(a.id));
+  if (fresh.length < Math.min(n, accounts.length)) { used.clear(); fresh = accounts.slice(); }
+  const pool = fresh.slice();
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  const picked = pool.slice(0, n);
+  for (const a of picked) used.add(a.id);
+  return picked;
+}

@@ -237,7 +237,7 @@ test('lead of a group card: free before sometimes-paid before paid, then image, 
 });
 
 // ---------- lot 5: discover ----------
-import { rankSuggestions, activityNote, repostedBy, } from '../public/find.js';
+import { rankSuggestions, activityNote, repostedBy, pickRelayers } from '../public/find.js';
 import { discoveredAccounts } from '../scripts/lib/discover.mjs';
 import { authorPosts } from '../scripts/lib/bluesky.mjs';
 import { topicScore, emptyPrefs, lessKeywords } from '../public/rank.js';
@@ -283,6 +283,25 @@ test('discovery: reposted accounts counted once per distinct relayer', () => {
   const many = Array.from({ length: 20 }, (_, i) => [ev('A', `u${i}.bsky.social`), ev('B', `u${i}.bsky.social`)]).flat();
   assert.equal(discoveredAccounts(many).length, 12, 'capped at 12');
   assert.equal(repostedBy(['Mathilde Panot', 'Manuel Bompard', 'X', 'Y']), 'Reposté par Mathilde Panot, Manuel Bompard +2');
+});
+
+test('discovery: minBy 1 gives the longer « Voir plus » list', () => {
+  const ev = (by, handle) => ({ by, author: { handle } });
+  const events = [ev('A', 'two.bsky.social'), ev('B', 'two.bsky.social'), ev('A', 'one.bsky.social')];
+  assert.deepEqual(discoveredAccounts(events).map((a) => a.id), ['bsky:two.bsky.social']);
+  assert.deepEqual(discoveredAccounts(events, { minBy: 1 }).map((a) => a.id), ['bsky:two.bsky.social', 'bsky:one.bsky.social']);
+});
+
+test('refresh: each press scans accounts not used yet, then starts over', () => {
+  const accounts = Array.from({ length: 10 }, (_, i) => ({ id: 'a' + i }));
+  const used = new Set();
+  const first = pickRelayers(accounts, used, 4).map((a) => a.id);
+  const second = pickRelayers(accounts, used, 4).map((a) => a.id);
+  assert.equal(first.length, 4);
+  assert.ok(second.every((id) => !first.includes(id)), 'second press reads other accounts');
+  const third = pickRelayers(accounts, used, 4);
+  assert.equal(third.length, 4, 'only 2 unused left: the cycle restarts with a full pick');
+  assert.equal(pickRelayers([], new Set(), 4).length, 0);
 });
 
 test('authorPosts reports reposts and quoted accounts to onRepost', async () => {
