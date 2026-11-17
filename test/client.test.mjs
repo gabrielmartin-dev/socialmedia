@@ -340,15 +340,22 @@ test('searchItems: accent- and case-insensitive, every word must match, title ma
 // ---------- Install invitation ----------
 import { installHint, isIosSafari } from '../public/install.js';
 
-test('installHint: prompt on Android Chrome, instructions on iOS Safari, nothing once installed', () => {
+test('installHint: prompt when offered, steps on iOS and Android, nothing once installed or on a computer', () => {
   const iosSafari = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
   const iosChrome = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/120.0 Mobile/15E148 Safari/604.1';
+  const ipadOs = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
   const android = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36';
+  const desktop = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
   assert.equal(isIosSafari(iosSafari), true);
   assert.equal(isIosSafari(iosChrome), false);
   assert.equal(installHint({ userAgent: android, hasPrompt: true }), 'prompt');
-  assert.equal(installHint({ userAgent: android, hasPrompt: false }), null, 'no prompt event: nothing to offer');
+  assert.equal(installHint({ userAgent: android, hasPrompt: false }), 'android', 'no prompt yet: menu steps');
   assert.equal(installHint({ userAgent: iosSafari }), 'ios');
+  assert.equal(installHint({ userAgent: iosChrome }), 'ios-other');
+  assert.equal(installHint({ userAgent: ipadOs, maxTouchPoints: 5 }), 'ios', 'iPadOS presents itself as a Mac');
+  assert.equal(installHint({ userAgent: ipadOs, maxTouchPoints: 0 }), null, 'a real Mac');
+  assert.equal(installHint({ userAgent: desktop }), null);
+  assert.equal(installHint({ userAgent: desktop, hasPrompt: true }), 'prompt');
   assert.equal(installHint({ userAgent: iosSafari, standalone: true }), null);
   assert.equal(installHint({ userAgent: android, hasPrompt: true, standalone: true }), null);
   assert.equal(installHint(), null);
