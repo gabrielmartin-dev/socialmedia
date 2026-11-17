@@ -27,6 +27,7 @@
   --topbar-h: 52px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --bars-t: .28s cubic-bezier(.2, .8, .2, 1); /* bars sliding away / back on scroll */
   color-scheme: dark;
 }
 
@@ -125,7 +126,8 @@ img { display: block; }
   display: flex; align-items: center; justify-content: space-between;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
-  transition: transform .2s ease;
+  transition: transform var(--bars-t);
+  will-change: transform;
 }
 .topbar-left { min-width: 0; }
 .topbar-actions { display: flex; align-items: center; }
@@ -148,6 +150,23 @@ body.videos-mode .topbar { transform: translateY(-110%); }
 }
 .new-pill[hidden] { display: none; }
 body.videos-mode .new-pill { top: calc(var(--safe-top) + 14px); }
+.new-pill { transition: top var(--bars-t); }
+
+/* ---------- Bars hidden while scrolling down (like X) ----------
+   The top bar slides up under a strip that keeps the iPhone status bar readable,
+   the topic chips go with it, the search bar of Découvrir sticks under the status bar,
+   and the tab bar slides down. Opaque backgrounds only (no blur, see PR #31/#33). */
+body:not(.videos-mode):not(.profile-mode)::after {
+  content: ""; position: fixed; inset: 0 0 auto 0; height: var(--safe-top);
+  background: var(--bg); z-index: 21; pointer-events: none;
+}
+body.bars-hidden:not(.videos-mode):not(.profile-mode) .topbar { transform: translateY(calc(-1 * var(--topbar-h) - 1px)); }
+body.bars-hidden .chips { transform: translateY(calc(-100% - var(--topbar-h))); }
+body.bars-hidden .search-wrap { transform: translateY(calc(-1 * var(--topbar-h))); }
+body.bars-hidden .tabbar { transform: translateY(100%); }
+body.bars-hidden:not(.videos-mode) .new-pill { top: calc(var(--safe-top) + 10px); }
+body.bars-hidden .toast { bottom: calc(var(--safe-bottom) + 16px); }
+@media (prefers-reduced-motion: reduce) { :root { --bars-t: 0s; } }
 @keyframes pill-in { from { opacity: 0; transform: translate(-50%, -12px); } }
 
 /* ---------- Views ---------- */
@@ -304,7 +323,7 @@ div.avatar.square { background: var(--bg-elev); }
 
 /* Topic filter chips (Actus, Tech) */
 .chips { display: flex; gap: 8px; padding: 8px 14px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--border);
-  position: sticky; top: calc(var(--topbar-h) + var(--safe-top)); z-index: 6; background: var(--bg); }
+  position: sticky; top: calc(var(--topbar-h) + var(--safe-top)); z-index: 6; background: var(--bg); transition: transform var(--bars-t); }
 .chips::-webkit-scrollbar { display: none; }
 .chips[hidden] { display: none; }
 .chip { flex: none; height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-strong); font-size: 14px; font-weight: 600; }
@@ -322,7 +341,7 @@ div.avatar.square { background: var(--bg-elev); }
 .info-list li small { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; overflow-wrap: anywhere; }
 
 /* ---------- Découvrir ---------- */
-.search-wrap { padding: 8px 14px; border-bottom: 1px solid var(--border); position: sticky; top: calc(var(--topbar-h) + var(--safe-top)); background: var(--bg); z-index: 5; }
+.search-wrap { padding: 8px 14px; border-bottom: 1px solid var(--border); position: sticky; top: calc(var(--topbar-h) + var(--safe-top)); background: var(--bg); z-index: 5; transition: transform var(--bars-t); }
 #discover-search {
   width: 100%; height: 42px; border-radius: 999px; border: 1px solid transparent;
   background: var(--field); color: var(--text); padding: 0 16px; font: inherit; font-size: 16px; outline: none;
@@ -538,6 +557,8 @@ button.reel-author { text-align: left; }
   padding-bottom: var(--tabbar-pad);
   display: flex; background: var(--bg);
   border-top: 1px solid var(--border);
+  transition: transform var(--bars-t);
+  will-change: transform;
 }
 .tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; color: var(--muted); font-size: 10px; line-height: 12px; }
 .tab svg { width: 24px; height: 24px; }

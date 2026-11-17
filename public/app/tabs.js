@@ -8,6 +8,7 @@ import { buildReels, activateReel, deactivateReel } from './reels.js';
 import { stopAllInline } from './cards.js';
 import { refresh } from './refresh.js';
 import { updatePill } from './fresh.js';
+import { showBars } from './bars.js';
 
 const TITLES = { actus: 'Actus', tech: 'Tech', videos: 'Vidéos', discover: 'Découvrir' };
 
@@ -23,6 +24,7 @@ export function switchView(view) {
     return;
   }
   if (isFeed(state.view)) state.feeds[state.view].scroll = window.scrollY;
+  showBars();
   if (view !== 'discover') $('#discover-search').blur();
   document.body.classList.remove('profile-mode');
   state.view = view;
