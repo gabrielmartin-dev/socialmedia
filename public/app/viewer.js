@@ -1,4 +1,4 @@
-// Image viewer (fullscreen, swipe between images, back gesture closes).
+// Image viewer (fullscreen, swipe between images, swipe up/down or back gesture closes).
 
 import { h, svg, ICONS, scrollBehavior } from './dom.js';
 import { trapFocus } from './focus.js';
@@ -42,15 +42,17 @@ export function openViewer(gallery, index = 0, url = null) {
     const dir = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
     if (dir) { e.preventDefault(); track.scrollBy({ left: dir * track.clientWidth, behavior: scrollBehavior() }); }
   });
+  const bar = h('div', { class: 'viewer-bar' },
+    h('button', { class: 'viewer-btn', 'aria-label': 'Fermer', text: '✕', onclick: () => closeViewer() }),
+    counter,
+    url ? h('a', { class: 'viewer-btn', href: url, target: '_blank', rel: 'noopener', 'aria-label': 'Ouvrir la source' }, svg(ICONS.open, 20)) : h('span'),
+  );
   viewer.el = h('div', { class: 'viewer', role: 'dialog', 'aria-modal': 'true', 'aria-label': "Visionneuse d'images" },
     track,
-    h('div', { class: 'viewer-bar' },
-      h('button', { class: 'viewer-btn', 'aria-label': 'Fermer', text: '✕', onclick: () => closeViewer() }),
-      counter,
-      url ? h('a', { class: 'viewer-btn', href: url, target: '_blank', rel: 'noopener', 'aria-label': 'Ouvrir la source' }, svg(ICONS.open, 20)) : h('span'),
-    ),
+    bar,
     caption,
   );
+  swipeToClose(viewer.el, track, [bar, caption]);
   document.body.append(viewer.el);
   document.body.classList.add('no-scroll');
   viewer.open = true;
@@ -69,4 +71,82 @@ export function closeViewer(viaHistory = true) {
   viewer.el = null;
   document.body.classList.remove('no-scroll');
   if (viaHistory && history.state?.viewer) { viewer.popPending = true; history.back(); }
+}
+
+// ---- Swipe up or down to close, like on X ----
+// The image follows the finger and the black background fades out; past a distance (or with a
+// quick flick) the viewer closes, otherwise the image springs back. Horizontal swipes stay with
+// the native scroll of the track (gallery), and pinch-zoom is left alone.
+
+const DIST = 110; // px: release past this distance closes
+const FLICK = 0.5; // px/ms: a quick flick closes even if short
+const LOCK = 10; // px of movement before deciding between vertical drag and horizontal scroll
+
+/** True when a vertical drag released at `dy` px with `speed` px/ms should close the viewer. */
+export function shouldDismiss(dy, speed) {
+  return Math.abs(dy) > DIST || (Math.abs(dy) > 30 && Math.abs(speed) > FLICK && Math.sign(speed) === Math.sign(dy));
+}
+
+function swipeToClose(root, track, chrome) {
+  let drag = null; // { id, x, y, dy, vertical, t, v }
+  let suppressClick = false;
+  const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const zoomed = () => (window.visualViewport?.scale || 1) > 1.01;
+
+  const paint = (dy, animate) => {
+    const ms = animate && !reduced() ? 200 : 0;
+    const ratio = Math.min(Math.abs(dy) / (root.clientHeight * 0.5 || 1), 1);
+    track.style.transition = ms ? `transform ${ms}ms ease-out` : '';
+    root.style.transition = ms ? `background-color ${ms}ms ease-out` : '';
+    track.style.transform = dy ? `translateY(${dy}px) scale(${1 - ratio * 0.12})` : '';
+    root.style.backgroundColor = dy ? `rgba(0,0,0,${1 - ratio * 0.85})` : '';
+    for (const el of chrome) {
+      el.style.transition = ms ? `opacity ${ms}ms ease-out` : '';
+      el.style.opacity = dy ? String(Math.max(0, 1 - ratio * 3)) : '';
+    }
+  };
+
+  const end = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const d = drag;
+    drag = null;
+    if (!d.vertical) return;
+    suppressClick = true;
+    setTimeout(() => { suppressClick = false; }, 400);
+    if (e.type !== 'pointercancel' && shouldDismiss(d.dy, d.v)) {
+      const el = root;
+      paint(Math.sign(d.dy || 1) * root.clientHeight, true);
+      root.style.backgroundColor = 'rgba(0,0,0,0)';
+      setTimeout(() => { if (viewer.el === el) closeViewer(); }, reduced() ? 0 : 200);
+    } else paint(0, true);
+  };
+
+  track.addEventListener('pointerdown', (e) => {
+    // Touch and pen only: a mouse drag would turn every click into a gesture.
+    if (e.pointerType === 'mouse' || !e.isPrimary || zoomed()) { drag = null; return; }
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, dy: 0, vertical: false, t: e.timeStamp, v: 0 };
+  });
+  track.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.x;
+    const dy = e.clientY - drag.y;
+    if (!drag.vertical) {
+      if (Math.abs(dx) < LOCK && Math.abs(dy) < LOCK) return;
+      // Mostly horizontal: let the gallery scroll and forget this pointer.
+      if (Math.abs(dy) < Math.abs(dx) * 1.2 || zoomed()) { drag = null; return; }
+      drag.vertical = true;
+      try { track.setPointerCapture(e.pointerId); } catch {}
+    }
+    const dt = Math.max(e.timeStamp - drag.t, 1);
+    drag.v = 0.8 * ((dy - drag.dy) / dt) + 0.2 * drag.v; // smoothed speed
+    drag.t = e.timeStamp;
+    drag.dy = dy;
+    paint(dy, false);
+  });
+  track.addEventListener('pointerup', end);
+  track.addEventListener('pointercancel', end);
+  // A second finger (pinch) cancels the drag.
+  track.addEventListener('touchstart', (e) => { if (e.touches.length > 1 && drag) { if (drag.vertical) paint(0, true); drag = null; } }, { passive: true });
+  // The tap that ends a drag must not count as "tap outside the image".
+  track.addEventListener('click', (e) => { if (suppressClick) { e.stopPropagation(); suppressClick = false; } }, true);
 }
