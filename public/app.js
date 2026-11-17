@@ -18,6 +18,7 @@ import { initInstall } from './app/install.js';
 import { initSettings } from './app/settings.js';
 import { switchView } from './app/tabs.js';
 import { initBars } from './app/bars.js';
+import { initViewport } from './app/viewport.js';
 
 actions.openProfile = openProfile;
 actions.openSheet = openSheet;
@@ -52,6 +53,7 @@ initInfoSheet();
 initInstall();
 initSettings();
 initBars();
+initViewport();
 initFresh({ apply: (data) => { applyData(data); showLoaded(); } });
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
