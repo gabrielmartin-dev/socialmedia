@@ -38,6 +38,7 @@ export function switchView(view) {
   $('#title').textContent = TITLES[view];
   updatePill();
   if (view === 'videos') {
+    window.scrollTo({ top: 0 }); // the feed's scroll position must not shift the fixed reels
     stopAllInline();
     if (!state.reels.built) buildReels();
     const first = [...$('#videos-list').children].find((el) => {
