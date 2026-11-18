@@ -7,7 +7,7 @@ import { loadHls } from './hls.js';
 import { formatTime } from './reelcontrols.js';
 import { state, isOpened, markOpened } from './store.js';
 import { actions } from './actions.js';
-import { voteButtons, markDisliked } from './votes.js';
+import { voteButtons } from './votes.js';
 import { clampAspect, truncateText, domainOf } from './util.js';
 import { relativeTime, topicsOf } from '../rank.js';
 import { exactTime } from '../freshness.js';
@@ -309,7 +309,7 @@ function openedArticle(card, id) {
 
 function cardShell(entry, avatarNode, mainChildren, url) {
   const opened = entry.kind === 'article' && isOpened(entry.id);
-  return markDisliked(h('article', {
+  return h('article', {
     class: 'tweet' + (entry.kind === 'group' ? ' group' : '') + (opened ? ' opened' : ''),
     dataset: { id: entry.id },
     onclick: (e) => {
@@ -336,7 +336,7 @@ function cardShell(entry, avatarNode, mainChildren, url) {
       onclick: (e) => { e.stopPropagation(); actions.openProfile(entry.source); },
     }, avatarNode)
     : h('div', { class: 'tweet-avatar' }, avatarNode),
-  h('div', { class: 'tweet-main' }, ...mainChildren)), entry.id);
+  h('div', { class: 'tweet-main' }, ...mainChildren));
 }
 
 function articleCard(item, votes) {

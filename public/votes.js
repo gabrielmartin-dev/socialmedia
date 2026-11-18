@@ -56,7 +56,7 @@ export function revertVote(prefs, applied) {
   for (const [k, f] of Object.entries(applied?.k || {})) scale(prefs.keywords, k, 1 / f, BOUNDS.keyword);
 }
 
-/** Ids hidden by a dislike: the post, and the articles of a group (its id changes when a media joins). */
+/** Ids left out of the next refreshes after a dislike (the card on screen stays): the post, and the articles of a group (its id changes when a media joins). */
 export const dislikedIds = (entry) => [entry.id, ...(entry.kind === 'group' ? entry.items.map((i) => i.id) : [])];
 
 const okFactors = (o) => o && typeof o === 'object' && !Array.isArray(o)

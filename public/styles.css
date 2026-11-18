@@ -455,7 +455,6 @@ button.reel-author { text-align: left; }
 .vote[aria-pressed="true"] { color: var(--accent); }
 .vote[aria-pressed="true"]:last-child { color: #f4212e; }
 .group-foot { display: flex; align-items: center; }
-.tweet.disliked > .tweet-avatar, .tweet.disliked > .tweet-main > :not(.card-foot, .tweet-actions, .group-foot) { opacity: .45; }
 .reel-votes { display: flex; flex-direction: column; gap: 14px; margin: 0; }
 .reel-btn.vote { width: 46px; height: 46px; border-radius: 50%; color: #fff; }
 .reel-btn.vote[aria-pressed="true"] { color: #fff; background: var(--accent); }

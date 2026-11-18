@@ -1,7 +1,7 @@
 // 👍 / 👎 buttons of the cards (feeds, profile, saved list) and of the videos.
 // A tap changes the preferences and re-ranks what comes next at once (retune); tapping the same
-// button again takes the vote back. 👎 also keeps that post from coming back after a refresh,
-// and dims it where it is (it does not jump off the screen under the finger).
+// button again takes the vote back. 👎 also keeps that post from coming back after a refresh;
+// what is on screen does not change (the post stays where it is, as it is).
 
 import { setVote } from '../votes.js';
 import { h, svg, toast } from './dom.js';
@@ -26,7 +26,6 @@ function paint(id) {
     down.setAttribute('aria-pressed', String(v < 0));
     up.replaceChildren(svg(v > 0 ? ICON.upOn : ICON.up, box._size));
     down.replaceChildren(svg(v < 0 ? ICON.downOn : ICON.down, box._size));
-    box.closest('.tweet')?.classList.toggle('disliked', v < 0);
   }
 }
 
@@ -58,6 +57,3 @@ export function voteButtons(entry, { reel = false } = {}) {
   down.append(svg(v < 0 ? ICON.downOn : ICON.down, size));
   return box;
 }
-
-/** Dims a card / video that was disliked before (called when it is built). */
-export const markDisliked = (node, id) => { if (voteOf(id) < 0) node.classList.add('disliked'); return node; };
