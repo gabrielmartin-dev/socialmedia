@@ -29,6 +29,12 @@
       "sections": ["international", "monde", "europe", "ameriques", "etats-unis", "asie-pacifique", "afrique", "proche-orient", "moyen-orient"],
       "minScore": 3
     },
+    "right": {
+      "_comment": "Contenus centrés sur la droite et l'extrême droite. blockedSources (nom affiché ou handle) : écartés partout, dans tous les fils. terms : appliqués seulement aux vidéos trouvées par hashtag et aux sources généralistes ; un élément est écarté quand un de ces termes est dans son titre (ou le début du post), sauf si ce titre parle d'une lutte (un des keepTerms : grève, manif, antifascisme…, ex. « Manifestation contre le RN » ; le vocabulaire social seul, retraites ou chômage, ne suffit pas : le plan retraites du RN en est plein). Les comptes et chaînes suivis gardent leurs posts (un député de gauche qui attaque Le Pen reste). Syntaxe des termes : comme les mots-clés des sujets (=RN sensible à la casse, * = préfixe).",
+      "blockedSources": ["Droite TV", "droite-tv.bsky.social"],
+      "terms": ["bardella", "le pen", "lepen", "zemmour", "marion marechal", "retailleau", "ciotti", "wauquiez", "sarkozy", "philippot", "dupont-aignan", "knafo", "louis aliot", "rassemblement national", "=RN", "front national", "reconquete", "les republicains", "=LR", "=UDR", "extreme droite", "cnews", "europe 1", "=JDD", "journal du dimanche", "valeurs actuelles", "boulevard voltaire", "pascal praud", "hanouna"],
+      "keepTerms": ["grev*", "manif", "manifs", "manifestation*", "manifestant*", "mobilisation*", "cortege*", "intersyndicale", "blocage*", "antifa", "antifascis*", "contre le rn", "contre l'extreme droite", "face a l'extreme droite", "barrage"]
+    },
     "onTopic": {
       "sections": ["politique", "elections", "election-presidentielle-2027", "social", "manifestations", "blocage-des-lycees", "pouvoir-achat", "retraite", "logement"]
     },

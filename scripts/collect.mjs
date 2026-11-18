@@ -15,12 +15,12 @@ import { enrichArticles, resolveShortLinks, dropRepeatedImages } from './lib/enr
 import { discoveredAccounts } from './lib/discover.mjs';
 import { quality } from './lib/quality.mjs';
 import { truncate } from './lib/text.mjs';
-import { freshAndUnique } from './lib/dedupe.mjs';
+import { freshAndUnique, uniqueVideos, capTagVideos } from './lib/dedupe.mjs';
 import { safeUrl, canonicalUrl } from '../public/url.js';
 import { checkRun } from './lib/health.mjs';
 import { packFeed } from '../public/pack.js';
 import { topicsForClient } from './lib/client-config.mjs';
-import { compileScope, generalistOrigins, sourceMinScores, filterScope } from './lib/scope.mjs';
+import { compileScope, generalistOrigins, sourceMinScores, filterScope, compileRight, filterRight, isTagItem } from './lib/scope.mjs';
 import { ResolutionCache, cachedResolve, DAY, HOUR } from './lib/cache.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -249,9 +249,21 @@ async function main() {
   const scope = compileScope(topicsCfg.scope);
   const generalist = generalistOrigins(sources, blueskyOrigin);
   const minScores = sourceMinScores(sources);
+  // Right-wing content (Bardella, le RN, CNews…, and blocked accounts): out of every source.
+  const right = compileRight(topicsCfg.scope?.right);
   const build = async (feed, fresh, maxAgeHours, topicMatchers, { articles = false } = {}) => {
-    const all = freshAndUnique(archive.merge(feed, fresh, { maxAgeHours, origins }), maxAgeHours);
-    const { kept: items, dropped } = feed === 'tech' ? { kept: all, dropped: [] } : filterScope(all, { scope, matchers, generalist, minScores });
+    let all = freshAndUnique(archive.merge(feed, fresh, { maxAgeHours, origins }), maxAgeHours);
+    if (feed === 'videos') {
+      const n = all.length;
+      all = capTagVideos(uniqueVideos(all), settings.tagVideosPerAccount ?? 3, isTagItem);
+      if (all.length < n) console.log(`Vidéos : ${n - all.length} doublon(s) ou vidéo(s) hashtag en trop d'un même compte écartée(s)`);
+    }
+    const { kept: inScope, dropped } = feed === 'tech' ? { kept: all, dropped: [] } : filterScope(all, { scope, matchers, generalist, minScores });
+    const { kept: items, dropped: rightDropped } = feed === 'tech' ? { kept: inScope, dropped: [] } : filterRight(inScope, { right, generalist });
+    if (rightDropped.length) {
+      console.log(`Droite ${feed} : ${rightDropped.length} élément(s) écarté(s), par exemple :`);
+      for (const { item, reason } of rightDropped.slice(0, 15)) console.log(`  [${reason}] ${item.source?.name} · ${(item.title || item.text || '').replace(/\s+/g, ' ').slice(0, 90)}`);
+    }
     if (dropped.length) {
       const n = all.filter((i) => generalist.has(i._origin)).length;
       console.log(`Hors sujet ${feed} : ${dropped.length}/${n} élément(s) de sources généralistes écarté(s), par exemple :`);

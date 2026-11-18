@@ -14,7 +14,7 @@
 // or when its topic score is below `minScore` (nothing says it is political or social).
 
 import { normalize, escapeRegex } from '../../public/norm.js';
-import { matchKeywords, matchText } from '../../public/topics.js';
+import { matchKeywords, matchText, compileTopics } from '../../public/topics.js';
 
 const wordRe = (raw) => {
   const prefix = raw.endsWith('*');
@@ -106,6 +106,69 @@ export function filterScope(items, { scope, matchers, generalist, minScores = ne
   const dropped = [];
   for (const it of items) {
     const reason = generalist.has(it._origin) ? outOfScope(it, scope, matchers, { minScore: minScores.get(it._origin) || 0 }) : null;
+    if (reason) dropped.push({ item: it, reason });
+    else kept.push(it);
+  }
+  return { kept, dropped };
+}
+
+// ---------- Right / far-right content ----------
+// Gabriel follows the news from the left: content centered on right-wing and far-right figures,
+// parties or outlets (Bardella, le RN, CNews…) is not wanted from the sources that were not picked
+// for their line: hashtag searches (anyone can post #retraites) and generalist media. The
+// accounts and channels he follows keep their posts (a left MP attacking Le Pen stays). An item is
+// « centered » on them when one of the `terms` is in its headline (title, or the first lines of
+// a post); it is kept anyway when its headline is about a struggle (one of `keepTerms`: a strike,
+// a demonstration, antifascism…), e.g. « Manifestation contre le RN ». Social vocabulary alone
+// (retraites, chômage) is not enough: the RN's own pension plan is full of it.
+// `blockedSources` (display name or handle) are dropped altogether, in every feed.
+
+const HEADLINE_CHARS = 200;
+
+/** Title of the item, or the beginning of a post and the title of its link card. */
+export function headline(item) {
+  if (item.title?.trim()) return item.title;
+  return [String(item.text || '').slice(0, HEADLINE_CHARS), item.external?.title].filter(Boolean).join('\n');
+}
+
+const sourceKey = (s) => normalize(String(s || '').replace(/^@/, '').replace(/^(bsky|yt):/, ''));
+
+/** Compiles the `scope.right` block of config/topics.json. */
+export function compileRight(cfg = {}) {
+  const compile = (list) => compileTopics({ topics: { t: { feed: 'actus', keywords: Object.fromEntries((list || []).map((k) => [k, 1])) } } }, 'actus');
+  return {
+    sources: new Set((cfg.blockedSources || []).map(sourceKey)),
+    matchers: compile(cfg.terms),
+    keep: compile(cfg.keepTerms),
+  };
+}
+
+/**
+ * Why `item` is right-wing content to drop (« source Droite TV », « droite : bardella »), or null.
+ * `open`: the item comes from a hashtag search or a generalist source (the terms only apply there).
+ */
+export function rightReason(item, right, { open = true } = {}) {
+  const src = item.source || {};
+  if ([src.name, src.handle, src.id].some((x) => x && right.sources.has(sourceKey(x)))) return `source ${src.name || src.handle}`;
+  if (!open) return null;
+  const head = headline(item);
+  const hits = matchKeywords(head, right.matchers);
+  if (!hits.length || matchKeywords(head, right.keep).length) return null;
+  return `droite : ${hits.map((h) => h.k).join(', ')}`;
+}
+
+/** Items found by a hashtag search, whoever posted them. */
+export const isTagItem = (it) => !!it.tag || String(it._origin || '').startsWith('tag:');
+
+/**
+ * Drops right-wing content: blocked accounts everywhere, centered items from hashtag searches
+ * and generalist sources. Returns { kept, dropped: [{ item, reason }] }.
+ */
+export function filterRight(items, { right, generalist = new Set() }) {
+  const kept = [];
+  const dropped = [];
+  for (const it of items) {
+    const reason = rightReason(it, right, { open: isTagItem(it) || generalist.has(it._origin) });
     if (reason) dropped.push({ item: it, reason });
     else kept.push(it);
   }
