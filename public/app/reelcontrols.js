@@ -54,8 +54,10 @@ export function attachControls(slide, video) {
     update();
     raf = !video.paused && video.isConnected ? requestAnimationFrame(tick) : 0;
   };
-  video.addEventListener('timeupdate', update);
-  video.addEventListener('playing', () => { if (!raf) raf = requestAnimationFrame(tick); });
+  // `video._signal`: the element is reused for the next videos, these listeners end with this one.
+  const opts = video._signal ? { signal: video._signal } : undefined;
+  video.addEventListener('timeupdate', update, opts);
+  video.addEventListener('playing', () => { if (!raf) raf = requestAnimationFrame(tick); }, opts);
 
   // Dragging the bar: the time follows the finger, the video jumps there when released.
   let target = null;
@@ -110,11 +112,11 @@ export function attachControls(slide, video) {
     }
     last = { t: now, side, wasPaused: video.paused };
     toggle();
-  });
+  }, opts);
   video.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowLeft') { e.preventDefault(); seek(-1); }
     else if (e.key === 'ArrowRight') { e.preventDefault(); seek(1); }
-  });
+  }, opts);
   video.setAttribute('aria-label', 'Lecture / pause (flèches : reculer / avancer de 10 secondes)');
   return [bar, time, flash];
 }
