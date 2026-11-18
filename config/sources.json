@@ -2,6 +2,7 @@
   "settings": {
     "actusMaxAgeHours": 72,
     "videosMaxAgeHours": 168,
+    "tagVideosPerAccount": 3,
     "techMaxAgeHours": 168,
     "bskyPostsPerAccount": 30,
     "bskySearchLimit": 100, "ogImageFetchesPerRun": 40,

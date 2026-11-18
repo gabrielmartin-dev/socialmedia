@@ -35,3 +35,38 @@ export function freshAndUnique(items, maxAgeHours) {
   }
   return [...map.values()].sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
 }
+
+const sameText = (it) => String(it.title || it.text || '').toLowerCase().replace(/https?:\/\/\S+/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim().slice(0, 140);
+
+/**
+ * Videos feed: one copy of a video. An account that posts the same video twice (same video
+ * file, or the same text: a re-upload) keeps only its newest post. `items` newest first.
+ */
+export function uniqueVideos(items) {
+  const keys = new Set();
+  return items.filter((it) => {
+    const src = it.video?.src ? `v:${it.video.src}` : null;
+    const t = sameText(it);
+    const txt = t.length >= 20 ? `t:${it.source?.id}:${t}` : null;
+    if ((src && keys.has(src)) || (txt && keys.has(txt))) return false;
+    if (src) keys.add(src);
+    if (txt) keys.add(txt);
+    return true;
+  });
+}
+
+/**
+ * Videos found by hashtag: at most `max` per account (its newest), so that one account posting
+ * thirty #retraites clips does not fill the Vidéos tab. `isTag(item)` tells the hashtag items;
+ * the others are untouched. `items` newest first.
+ */
+export function capTagVideos(items, max, isTag) {
+  if (!(max > 0)) return items;
+  const count = new Map();
+  return items.filter((it) => {
+    if (!isTag(it)) return true;
+    const n = (count.get(it.source?.id) || 0) + 1;
+    count.set(it.source?.id, n);
+    return n <= max;
+  });
+}
