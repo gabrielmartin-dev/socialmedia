@@ -12,23 +12,28 @@ import { trapFocus } from './focus.js';
 import { setFollow } from './follow.js';
 import { takeOff, entriesOfSource, itemsMatching } from './remove.js';
 import { actions } from './actions.js';
+import { retune } from './retune.js';
 
 let sheetEntry = null;
 let releaseFocus = null;
 
 const topicLabel = (id) => state.data.topics?.topics?.[id]?.label || id;
 
-/** Preferences changed: the other screens are re-ranked when shown; the one on screen is left alone. */
-function prefsChanged() {
+/**
+ * Preferences changed: what the user has not reached yet on this screen is ranked again right
+ * away (retune); the other screens are rebuilt when shown.
+ */
+function prefsChanged(opts) {
   savePrefs();
   FEED_KEYS.forEach((k) => { if (k !== state.view) state.feeds[k].dirty = true; });
   if (state.view !== 'videos') state.reels.built = false;
+  retune(opts);
 }
 
 /** Applies a preference change and offers to revert it. `change()` returns the undo function. */
-function withUndo(message, change) {
+function withUndo(message, change, opts) {
   const undo = change();
-  prefsChanged();
+  prefsChanged(opts);
   toast(message, { action: { label: 'Annuler', run: () => { undo(); prefsChanged(); toast('Annulé'); } } });
 }
 
@@ -115,16 +120,16 @@ export function initSheet() {
   }));
 
   $('#sheet-more').addEventListener('click', onEntry((entry) => {
-    withUndo('Tu verras plus de ça au prochain rafraîchissement', () => applyMore(state.prefs, entry));
+    withUndo('C’est noté : plus de ça dans la suite du fil', () => applyMore(state.prefs, entry));
   }));
 
   $('#sheet-less-source').addEventListener('click', onEntry((entry) => {
-    withUndo(`Tu verras moins de ${entry.source.name} au prochain rafraîchissement`, () => lessSource(state.prefs, entry.source.id));
+    withUndo(`C’est noté : beaucoup moins de ${entry.source.name}, dès maintenant`, () => lessSource(state.prefs, entry.source.id), { lessSource: entry.source.id });
   }));
 
   $('#sheet-less-topic').addEventListener('click', onEntry((entry) => {
     const topics = topicsOf(entry, state.data.topics?.topicMinScore ?? 1).map(topicLabel);
-    withUndo(`Tu verras moins de ${topics.join(' et ') || 'ce sujet'} au prochain rafraîchissement`, () => lessKeywords(state.prefs, entry));
+    withUndo(`C’est noté : moins de ${topics.join(' et ') || 'ce sujet'}, dès maintenant`, () => lessKeywords(state.prefs, entry));
   }));
 
   $('#sheet-hide').addEventListener('click', onEntry((entry) => {

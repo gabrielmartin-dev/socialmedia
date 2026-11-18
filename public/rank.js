@@ -1,7 +1,8 @@
 // Ranking logic shared by the app (and unit tests). No DOM here.
 //
-// score = √(1 + topicScore) × sourceWeight × freshness × engagement × seen × new
+// score = √(1 + topicScore) × keywordPrefs × sourceWeight × freshness × engagement × seen × new
 // topicScore = min(cap, Σ keywordWeight × localKeywordFactor)
+// keywordPrefs = Π localKeywordFactor of the item's keywords, clamped (« Moins / Plus de ce sujet »)
 // freshness  = 0.5 ^ (ageHours / halfLife)
 // engagement = 1 + 0.25 × log10(1 + likes + 2 × reposts)   (Bluesky only; or relative to the author's usual level)
 // seen       = 0.2 ^ (number of sessions in which the item was displayed, max 3)
@@ -12,7 +13,10 @@
 // the order changes on every refresh; then a diversity pass avoids the same
 // source twice in a row.
 
-export const LESS = { sourceFactor: 0.5, sourceFloor: 0.1, keywordFactor: 0.7, keywordFloor: 0.2 };
+// One tap must show: a source at 0.35 holds 0.35² ≈ 1/8 of its tickets once sharpened (sharpness 2).
+export const LESS = { sourceFactor: 0.35, sourceFloor: 0.05, keywordFactor: 0.6, keywordFloor: 0.2 };
+/** Bounds of the product of the keyword preferences of one item. */
+export const KEYWORD_PREFS = { min: 0.15, max: 1 / 0.15 };
 
 export function emptyPrefs() {
   return { sources: {}, keywords: {} };
@@ -22,6 +26,21 @@ export function topicScore(item, prefs, cap = 6) {
   let sum = 0;
   for (const k of item.keywords || []) sum += k.w * (prefs.keywords[k.k] ?? 1);
   return Math.min(cap, sum);
+}
+
+/**
+ * « Moins de ce sujet » must move the item, not only its topic score (which is under a square
+ * root and capped): the preferences of its distinct keywords are multiplied, within bounds.
+ */
+export function keywordPrefFactor(item, prefs) {
+  let f = 1;
+  const done = new Set();
+  for (const k of item.keywords || []) {
+    if (done.has(k.k)) continue;
+    done.add(k.k);
+    f *= prefs.keywords[k.k] ?? 1;
+  }
+  return Math.min(KEYWORD_PREFS.max, Math.max(KEYWORD_PREFS.min, f));
 }
 
 /**
@@ -46,7 +65,7 @@ export function itemScore(item, { now = Date.now(), halfLife = 6, cap = 6, prefs
   const src = prefs.sources[item.source?.id] ?? 1;
   const engagement = engagementFactor(item.stats, relativeEngagement);
   // Square root keeps topics important without letting one hot post crush the rest.
-  return Math.sqrt(1 + topicScore(item, prefs, cap)) * src * freshness * engagement;
+  return Math.sqrt(1 + topicScore(item, prefs, cap)) * keywordPrefFactor(item, prefs) * src * freshness * engagement;
 }
 
 export const SEEN_FACTOR = 0.2;
@@ -222,4 +241,26 @@ export function relativeTime(iso, now = Date.now()) {
   const d = Math.round(h / 24);
   if (d < 7) return `${d} j`;
   return new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+}
+
+/**
+ * Pushes the entries matching `pred` back to position `n` at least, then one every `gap`
+ * entries (after « Moins de [source] », the next screens must not show it again, and not in a
+ * row either). The others keep their order. Returns a new array.
+ */
+export function pushBack(list, pred, n, gap = 4) {
+  const moved = list.filter(pred);
+  if (!moved.length) return list.slice();
+  const rest = list.filter((e) => !pred(e));
+  const out = rest.slice(0, n);
+  let j = out.length;
+  moved.forEach((m, idx) => {
+    if (idx > 0) {
+      const between = rest.slice(j, j + gap);
+      out.push(...between);
+      j += between.length;
+    }
+    out.push(m);
+  });
+  return [...out, ...rest.slice(j)];
 }
