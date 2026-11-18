@@ -29,4 +29,7 @@ export function initViewport() {
   window.visualViewport?.addEventListener('resize', remeasureGap);
   window.addEventListener('orientationchange', remeasureGap);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) remeasureGap(); });
+  // Out of the iPhone's own video player or full screen, the viewport may have changed.
+  document.addEventListener('webkitendfullscreen', remeasureGap, true);
+  document.addEventListener('fullscreenchange', remeasureGap);
 }

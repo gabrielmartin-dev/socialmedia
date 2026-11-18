@@ -11,9 +11,12 @@ let lastY = 0;
 let run = 0;     // distance travelled in the current direction (signed)
 let ticking = false;
 
+/** Vidéos never hides its bars: the tab bar is the only way out of that screen. */
+const keepBars = () => state.view === 'videos' || document.body.classList.contains('videos-mode');
+
 /** Shows (or hides) the bars. */
 export function setBarsHidden(hidden) {
-  document.body.classList.toggle('bars-hidden', hidden);
+  document.body.classList.toggle('bars-hidden', hidden && !keepBars());
 }
 
 /** Shows the bars and restarts the tracking from the current position (view change, jump). */
@@ -29,7 +32,7 @@ function update() {
   const dy = y - lastY;
   lastY = y;
   const body = document.body;
-  if (state.view === 'videos' || body.classList.contains('no-scroll')) { run = 0; setBarsHidden(false); return; }
+  if (keepBars() || body.classList.contains('no-scroll')) { run = 0; setBarsHidden(false); return; }
   // iOS rubber band past the end of the page: ignore the bounce.
   const max = document.documentElement.scrollHeight - window.innerHeight;
   if (y > max + 1) return;
@@ -49,4 +52,15 @@ export function initBars() {
   }, { passive: true });
   // The search field needs its bar: keep things in place while typing.
   document.addEventListener('focusin', (e) => { if (e.target.matches?.('input, textarea')) showBars(); });
+  // Back in Vidéos after anything that can leave the page in an odd state (app in the
+  // background, the iPhone's own video player, full screen): bars shown, page at the top.
+  const settle = () => {
+    if (!keepBars()) return;
+    setBarsHidden(false);
+    if (window.scrollY) window.scrollTo({ top: 0 });
+  };
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) settle(); });
+  window.addEventListener('pageshow', settle);
+  document.addEventListener('fullscreenchange', settle);
+  document.addEventListener('webkitendfullscreen', settle, true); // doesn't bubble: capture
 }
