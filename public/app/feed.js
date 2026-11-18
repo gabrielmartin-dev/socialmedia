@@ -106,6 +106,26 @@ export function appendFeed(key) {
   renderFooter(key); // the end-of-feed marker appears with the last card
 }
 
+/**
+ * Re-orders what the user has not reached yet with `reorder(upcoming)`: the cards still below the
+ * screen (rendered in advance) and the rest of the feed. What is on screen or above stays put.
+ */
+export function reorderFeedTail(key, reorder) {
+  const feed = state.feeds[key];
+  const list = $(`#${key}-list`);
+  const cards = [...list.children].filter((el) => el.classList.contains('tweet') && !el.classList.contains('removing'));
+  let keep = cards.findIndex((el) => el.getBoundingClientRect().top >= window.innerHeight);
+  if (keep < 0) keep = cards.length;
+  keep = Math.min(keep, feed.rendered);
+  for (const card of cards.slice(keep)) {
+    seenObserver().unobserve(card);
+    card.remove();
+  }
+  feed.ranked = [...feed.ranked.slice(0, keep), ...reorder(feed.ranked.slice(keep))];
+  feed.rendered = keep;
+  appendFeed(key);
+}
+
 export function renderFooter(key) {
   const f = $(`#${key}-footer`);
   const feed = state.feeds[key];

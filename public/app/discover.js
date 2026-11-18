@@ -39,12 +39,16 @@ function weightNote(a) {
       type: 'button', text: 'Rétablir',
       onclick: () => {
         const previous = w;
+        // The feeds are ranked again with the new weight when shown (after « Annuler » too).
+        const changed = () => {
+          savePrefs();
+          FEED_KEYS.forEach((k) => { state.feeds[k].dirty = true; });
+          state.reels.built = false;
+          renderDiscover();
+        };
         delete state.prefs.sources[a.id];
-        savePrefs();
-        FEED_KEYS.forEach((k) => { state.feeds[k].dirty = true; });
-        state.reels.built = false;
-        renderDiscover();
-        toast(`${a.name} : poids rétabli`, { action: { label: 'Annuler', run: () => { state.prefs.sources[a.id] = previous; savePrefs(); renderDiscover(); } } });
+        changed();
+        toast(`${a.name} : poids rétabli`, { action: { label: 'Annuler', run: () => { state.prefs.sources[a.id] = previous; changed(); } } });
       },
     }));
 }

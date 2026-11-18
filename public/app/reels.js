@@ -390,9 +390,14 @@ export function deactivateReel() {
 /** Takes a slide off the list. Returns { item, index } to give back to restoreReel, or null. */
 export function removeReel(id) {
   const slide = document.querySelector(`.reel[data-id="${CSS.escape(id)}"]`);
-  if (!slide) return null;
-  const next = slide.nextElementSibling;
   const index = state.reels.ranked.findIndex((i) => i.id === id);
+  if (!slide) {
+    // Not rendered yet (further down the list): it must not show up later either.
+    if (index < state.reels.rendered) return null;
+    const [item] = state.reels.ranked.splice(index, 1);
+    return { item, index, unrendered: true };
+  }
+  const next = slide.nextElementSibling;
   const item = slide._item;
   if (state.reels.active === slide) deactivateReel();
   if (preloaded === slide) dropPreload();
@@ -405,7 +410,12 @@ export function removeReel(id) {
 }
 
 /** Puts a removed slide back where it was and shows it again. */
-export function restoreReel({ item, index }) {
+export function restoreReel({ item, index, unrendered }) {
+  if (unrendered) {
+    state.reels.ranked.splice(Math.min(Math.max(index, state.reels.rendered), state.reels.ranked.length), 0, item);
+    if (state.reels.rendered < state.reels.ranked.length) $('#videos-list').querySelector('.reel.end')?.remove();
+    return;
+  }
   const list = $('#videos-list');
   const at = Math.min(index, state.reels.ranked.length);
   state.reels.ranked.splice(at, 0, item);
@@ -414,6 +424,27 @@ export function restoreReel({ item, index }) {
   list.insertBefore(slide, list.children[at] || null);
   reelObserver().observe(slide);
   slide.scrollIntoView({ block: 'start' });
+}
+
+/**
+ * Re-orders the videos that come after the one on screen (rendered in advance or not) with
+ * `reorder(upcoming)`, so that a « Moins de ça » / « Plus de ça » shows from the next swipe.
+ */
+export function reorderUpcoming(reorder) {
+  const list = $('#videos-list');
+  const slides = [...list.querySelectorAll('.reel')].filter((el) => el._item);
+  let current = slides.indexOf(state.reels.active);
+  if (current < 0) current = slides.findIndex((el) => el.getBoundingClientRect().bottom > window.innerHeight / 2);
+  const keep = Math.max(0, current + 1);
+  for (const slide of slides.slice(keep)) {
+    if (preloaded === slide) dropPreload();
+    reelObserver().unobserve(slide);
+    slide.remove();
+  }
+  list.querySelector('.reel.end')?.remove();
+  state.reels.ranked = [...state.reels.ranked.slice(0, keep), ...reorder(state.reels.ranked.slice(keep))];
+  state.reels.rendered = keep;
+  appendReels();
 }
 
 /** Sound on / off for the HLS reels; the icon always tells the truth. */
