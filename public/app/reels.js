@@ -12,6 +12,7 @@ import { actions } from './actions.js';
 import { PLATFORM_LABELS } from './util.js';
 import { linkify } from './cards.js';
 import { getPosition, savePosition } from './resume.js';
+import { voteButtons } from './votes.js';
 
 const REELS_CHUNK = 5;
 const YT_ORIGIN = 'https://www.youtube-nocookie.com';
@@ -80,6 +81,7 @@ function reelSlide(item) {
     h('div', { class: 'reel-side' },
       fullBtn,
       muteBtn,
+      voteButtons(item, { reel: true }),
       h('a', { class: 'reel-btn', href: item.url, target: '_blank', rel: 'noopener', 'aria-label': "Ouvrir l'original" }, svg(ICONS.open, 22)),
       h('button', { class: 'reel-btn', 'aria-label': 'Options', onclick: (e) => { e.stopPropagation(); actions.openSheet(item); } }, svg(ICONS.more, 24)),
     ),

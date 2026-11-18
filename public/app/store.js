@@ -5,6 +5,7 @@ import { latestGeneratedAt } from '../freshness.js';
 import { createSeenTracker, pruneOpened } from '../seen.js';
 import { addSaved, removeSaved, isSaved, sanitizeSaved } from '../saved.js';
 import { sanitizeSettings, SETTINGS_KEY } from '../settings.js';
+import { sanitizeVotes, VOTES_KEY } from '../votes.js';
 import { actions } from './actions.js';
 
 // ---------- Storage (never throws) ----------
@@ -35,6 +36,8 @@ export const state = {
   live: { actus: [], tech: [], videos: [] },
   prefs: Object.assign(emptyPrefs(), store.get('prefs', {})),
   hidden: new Set(store.get('hidden', [])),
+  // 👍 / 👎 given to posts (id → vote and what it changed in `prefs`, see ../votes.js).
+  votes: sanitizeVotes(store.get(VOTES_KEY, {})),
   // « Masquer les articles payants »: paid articles are left out of Actus and Tech.
   hidePaid: store.get('hidePaid', false) === true,
   // Timestamp of the previous visit: newer posts get a boost.
@@ -93,6 +96,7 @@ export function saveSettings() {
 export function savePrefs() {
   store.set('prefs', state.prefs);
   store.set('hidden', [...state.hidden].slice(-800));
+  store.set(VOTES_KEY, sanitizeVotes(state.votes));
 }
 
 // strict: an account missing from the directory (e.g. a Bluesky search result, someone who

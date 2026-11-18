@@ -64,7 +64,7 @@ function onBack() {
 
 /** One post of the conversation. Tapping it opens its own thread (unless it is the current one). */
 function postNode(item, cls) {
-  const card = renderEntry(item);
+  const card = renderEntry(item, { votes: false });
   card.classList.add(...cls.split(' '));
   return card;
 }
