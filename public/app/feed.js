@@ -6,6 +6,7 @@ import { $, h, toast } from './dom.js';
 import { renderEntry } from './cards.js';
 import { actions } from './actions.js';
 import { maxAgeMs } from './live.js';
+import { restoredRanking, restoredCount } from './restore.js';
 import { state, FEED_KEYS, entriesFor, inTopicFilter, rankOpts, savePrefs, seenTracker, markSeen, setHidePaid } from './store.js';
 
 const ACTUS_CHUNK = 15;
@@ -32,12 +33,14 @@ export function renderFeed(key) {
   // « Masquer les articles payants »: they are left out, and the footer says how many.
   feed.paidHidden = 0;
   if (state.hidePaid) ({ entries, removed: feed.paidHidden } = withoutPaid(entries));
-  feed.ranked = data ? rank(entries, rankOpts(data), state.hidden) : [];
+  feed.ranked = data ? restoredRanking(key, rank(entries, rankOpts(data), state.hidden)) : [];
   renderChips(key);
   feed.rendered = 0;
   feed.dirty = false;
   if (!feed.ranked.length) list.append(emptyState(key, data));
   appendFeed(key);
+  // After a reload, everything that was on screen is rendered again so its place exists.
+  while (feed.rendered < Math.min(restoredCount(key), feed.ranked.length)) appendFeed(key);
   renderFooter(key);
 }
 
