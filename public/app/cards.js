@@ -7,6 +7,7 @@ import { loadHls } from './hls.js';
 import { formatTime } from './reelcontrols.js';
 import { state, isOpened, markOpened } from './store.js';
 import { actions } from './actions.js';
+import { voteButtons, markDisliked } from './votes.js';
 import { clampAspect, truncateText, domainOf } from './util.js';
 import { relativeTime, topicsOf } from '../rank.js';
 import { exactTime } from '../freshness.js';
@@ -308,7 +309,7 @@ function openedArticle(card, id) {
 
 function cardShell(entry, avatarNode, mainChildren, url) {
   const opened = entry.kind === 'article' && isOpened(entry.id);
-  return h('article', {
+  return markDisliked(h('article', {
     class: 'tweet' + (entry.kind === 'group' ? ' group' : '') + (opened ? ' opened' : ''),
     dataset: { id: entry.id },
     onclick: (e) => {
@@ -335,17 +336,17 @@ function cardShell(entry, avatarNode, mainChildren, url) {
       onclick: (e) => { e.stopPropagation(); actions.openProfile(entry.source); },
     }, avatarNode)
     : h('div', { class: 'tweet-avatar' }, avatarNode),
-  h('div', { class: 'tweet-main' }, ...mainChildren));
+  h('div', { class: 'tweet-main' }, ...mainChildren)), entry.id);
 }
 
-function articleCard(item) {
+function articleCard(item, votes) {
   const dom = domainOf(item.url);
   return cardShell(item, avatar(item.source.avatar, item.source.name, { square: true }), [
     tweetHead(item, { name: item.source.name, handle: dom, publishedAt: item.publishedAt, url: item.url }),
     h('div', { class: 'tweet-text title' }, item.title),
     item.text ? dimText(item.text) : null,
     item.image ? linkCard(item.url, { thumb: item.image, title: '' }, { article: true }) : null,
-    articleFoot(item, dom),
+    articleFoot(item, dom, votes),
     badgeRow(item),
   ], item.url);
 }
@@ -354,29 +355,32 @@ function articleCard(item) {
  * « ↗ Lire sur mediapart.fr · 🔒 Payant »: says that the card is a web article (it opens the
  * site, there is no thread to read here), and whether the site will ask for a subscription.
  */
-function articleFoot(item, dom) {
+function articleFoot(item, dom, votes) {
   const label = paywallLabel(item);
   return h('div', { class: 'card-foot' },
     h('a', { class: 'open-link', href: item.url, target: '_blank', rel: 'noopener' },
       svg(ICONS.open, 15), h('span', { text: `Lire sur ${dom || 'le site'}` })),
-    label ? lockBadge(label) : null);
+    label ? lockBadge(label) : null,
+    votes ? voteButtons(item) : null);
 }
 
 /**
  * « 💬 12 réponses · Voir le fil » under a Bluesky post: the visible difference with an article
  * (which opens a website). Opens the thread; the whole card does too, this is the keyboard path.
  */
-function threadButton(item) {
-  if (item.platform !== 'bluesky' || !postUri(item.url)) return null;
+function threadButton(item, votes) {
+  const vb = votes ? voteButtons(item) : null;
+  if (item.platform !== 'bluesky' || !postUri(item.url)) return vb && h('div', { class: 'tweet-actions' }, vb);
   const n = item.stats?.replies || 0;
   return h('div', { class: 'tweet-actions' },
     h('button', {
       class: 'thread-btn', type: 'button', 'aria-label': n ? `Voir le fil, ${n} réponse${n > 1 ? 's' : ''}` : 'Voir le fil',
       onclick: (e) => { e.stopPropagation(); actions.openThread(item); },
-    }, svg(ICONS.reply, 18), h('span', { text: n ? `${n} réponse${n > 1 ? 's' : ''} · Voir le fil` : 'Voir le fil' })));
+    }, svg(ICONS.reply, 18), h('span', { text: n ? `${n} réponse${n > 1 ? 's' : ''} · Voir le fil` : 'Voir le fil' })),
+    vb);
 }
 
-function postCard(item) {
+function postCard(item, votes) {
   let media = null;
   if (item.video && item.video.type !== 'hls') {
     media = h('a', { class: 'media ext-video', href: item.url, target: '_blank', rel: 'noopener', style: `aspect-ratio:${clampAspect(item.video.aspect, 16 / 9)}` },
@@ -390,12 +394,12 @@ function postCard(item) {
     tweetText(item),
     media,
     item.quote ? quoteCard(item.quote) : null,
-    threadButton(item),
+    threadButton(item, votes),
     badgeRow(item),
   ], item.url);
 }
 
-function groupCard(entry) {
+function groupCard(entry, votes) {
   const items = entry.items;
   const lead = groupLead(items);
   const newest = items.reduce((a, b) => (Date.parse(a.publishedAt) > Date.parse(b.publishedAt) ? a : b));
@@ -414,16 +418,19 @@ function groupCard(entry) {
           h('div', { text: i.title }),
         ),
       ))),
-    h('button', { class: 'group-toggle', type: 'button', 'aria-expanded': 'false', dataset: { count: items.length }, text: `Voir les ${items.length} articles`, onclick: (e) => {
-      e.stopPropagation();
-      const card = e.currentTarget.closest('.tweet');
-      setGroupOpen(card, !card.classList.contains('open'));
-    } }),
+    h('div', { class: 'group-foot' },
+      h('button', { class: 'group-toggle', type: 'button', 'aria-expanded': 'false', dataset: { count: items.length }, text: `Voir les ${items.length} articles`, onclick: (e) => {
+        e.stopPropagation();
+        const card = e.currentTarget.closest('.tweet');
+        setGroupOpen(card, !card.classList.contains('open'));
+      } }),
+      votes ? voteButtons(entry) : null),
   ]);
 }
 
-export function renderEntry(entry) {
-  if (entry.kind === 'group') return groupCard(entry);
-  if (entry.kind === 'article') return articleCard(entry);
-  return postCard(entry);
+/** `votes: false` leaves out the 👍 / 👎 buttons (the posts of a conversation). */
+export function renderEntry(entry, { votes = true } = {}) {
+  if (entry.kind === 'group') return groupCard(entry, votes);
+  if (entry.kind === 'article') return articleCard(entry, votes);
+  return postCard(entry, votes);
 }

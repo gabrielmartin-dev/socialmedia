@@ -440,7 +440,26 @@ button.reel-author { text-align: left; }
 .thread-title { font-size: 20px; font-weight: 800; }
 .thread-section { padding: 14px 16px 10px; font-size: 15px; font-weight: 700; color: var(--muted); border-bottom: 1px solid var(--border); }
 .thread-status { padding: 18px 16px; color: var(--muted); text-align: center; }
-.tweet-actions { margin-top: 10px; }
+.tweet-actions { margin-top: 10px; display: flex; align-items: center; }
+
+/* The article row stays on one line with the votes: a long site name is cut (…) instead. */
+.card-foot:has(.votes) { flex-wrap: nowrap; }
+.card-foot:has(.votes) .open-link { min-width: 0; }
+.card-foot:has(.votes) .open-link svg, .card-foot .pay-badge, .votes { flex: none; }
+.card-foot:has(.votes) .open-link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 👍 / 👎 at the right of the card's last row (no extra row for articles, posts with a thread, groups) */
+.votes { margin-left: auto; display: inline-flex; align-items: center; gap: 2px; margin-right: -6px; }
+.vote { width: 34px; height: 32px; border-radius: 16px; display: grid; place-items: center; color: var(--muted); }
+.vote:active { background: rgba(29, 155, 240, .15); }
+.vote[aria-pressed="true"] { color: var(--accent); }
+.vote[aria-pressed="true"]:last-child { color: #f4212e; }
+.group-foot { display: flex; align-items: center; }
+.tweet.disliked > .tweet-avatar, .tweet.disliked > .tweet-main > :not(.card-foot, .tweet-actions, .group-foot) { opacity: .45; }
+.reel-votes { display: flex; flex-direction: column; gap: 14px; margin: 0; }
+.reel-btn.vote { width: 46px; height: 46px; border-radius: 50%; color: #fff; }
+.reel-btn.vote[aria-pressed="true"] { color: #fff; background: var(--accent); }
+.reel-btn.vote[aria-pressed="true"]:last-child { background: #f4212e; }
 .thread-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; margin-left: -6px; padding: 0 8px; border-radius: 16px; color: var(--muted); font-size: 14px; }
 .thread-btn:active { background: rgba(29, 155, 240, .15); color: var(--accent); }
 .thread-btn { color: var(--accent); font-weight: 600; }

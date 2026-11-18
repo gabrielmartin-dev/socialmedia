@@ -3,7 +3,7 @@
 // again with the new preferences. What is on screen does not move.
 
 import { rank, pushBack } from '../rank.js';
-import { state, isFeed, rankOpts } from './store.js';
+import { state, isFeed, rankOpts, FEED_KEYS, savePrefs } from './store.js';
 import { reorderFeedTail } from './feed.js';
 import { reorderUpcoming } from './reels.js';
 
@@ -25,4 +25,15 @@ export function retune({ lessSource = null } = {}) {
   };
   if (isFeed(view) && state.data[view]) reorderFeedTail(view, reorder(state.data[view]));
   else if (view === 'videos' && state.reels.built && state.data.videos) reorderUpcoming(reorder(state.data.videos));
+}
+
+/**
+ * Preferences changed (⋯ menu, 👍 / 👎): saved, what the user has not reached yet on this screen
+ * is ranked again right away; the other screens are rebuilt when shown.
+ */
+export function prefsChanged(opts) {
+  savePrefs();
+  FEED_KEYS.forEach((k) => { if (k !== state.view) state.feeds[k].dirty = true; });
+  if (state.view !== 'videos') state.reels.built = false;
+  retune(opts);
 }

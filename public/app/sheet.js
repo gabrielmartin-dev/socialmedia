@@ -7,28 +7,17 @@ import { hasPaid, isPaid } from '../paywall.js';
 import { exactTime } from '../freshness.js';
 import { safeUrl } from '../url.js';
 import { $, toast } from './dom.js';
-import { state, isFollowed, isFeed, FEED_KEYS, savePrefs, accountFromSource, isSavedItem, setSaved, markOpened, setHidePaid } from './store.js';
+import { state, isFollowed, isFeed, savePrefs, accountFromSource, isSavedItem, setSaved, markOpened, setHidePaid } from './store.js';
 import { trapFocus } from './focus.js';
 import { setFollow } from './follow.js';
 import { takeOff, entriesOfSource, itemsMatching } from './remove.js';
 import { actions } from './actions.js';
-import { retune } from './retune.js';
+import { prefsChanged } from './retune.js';
 
 let sheetEntry = null;
 let releaseFocus = null;
 
 const topicLabel = (id) => state.data.topics?.topics?.[id]?.label || id;
-
-/**
- * Preferences changed: what the user has not reached yet on this screen is ranked again right
- * away (retune); the other screens are rebuilt when shown.
- */
-function prefsChanged(opts) {
-  savePrefs();
-  FEED_KEYS.forEach((k) => { if (k !== state.view) state.feeds[k].dirty = true; });
-  if (state.view !== 'videos') state.reels.built = false;
-  retune(opts);
-}
 
 /** Applies a preference change and offers to revert it. `change()` returns the undo function. */
 function withUndo(message, change, opts) {
