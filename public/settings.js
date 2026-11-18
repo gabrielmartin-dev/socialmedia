@@ -38,7 +38,7 @@ export const BACKUP_KEYS = {
 };
 // Erased by « Tout effacer » on top of the backup keys (history of what was seen, last visit).
 // The install pop-up key is kept: it must not come back.
-export const RESET_KEYS = [...Object.keys(BACKUP_KEYS), 'seen2', 'lastVisit', 'lastGenerated', 'feedbackDraft'];
+export const RESET_KEYS = [...Object.keys(BACKUP_KEYS), 'seen2', 'lastVisit', 'lastGenerated', 'feedbackDraft', 'reelsMuted'];
 
 export const BACKUP_APP = 'timeline-perso';
 

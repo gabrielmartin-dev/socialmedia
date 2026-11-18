@@ -7,7 +7,7 @@ import { avatar } from './media.js';
 import { makeButton } from './focus.js';
 import { attachControls } from './reelcontrols.js';
 import { loadHls } from './hls.js';
-import { state, entriesFor, rankOpts, markSeen } from './store.js';
+import { state, entriesFor, rankOpts, markSeen, saveMuted } from './store.js';
 import { actions } from './actions.js';
 import { PLATFORM_LABELS } from './util.js';
 import { linkify } from './cards.js';
@@ -255,8 +255,9 @@ async function playHls(slide, hlsSrc, v) {
   }
   try { await video.play(); } catch {
     if (state.reels.active !== slide || !video.isConnected) return;
-    // Unmuted autoplay refused: retry muted, and say so on the sound button.
-    if (!state.muted) setMuted(true);
+    // Unmuted autoplay refused (iPhone without a recent tap): play muted for now, say so on the
+    // sound button, but keep the choice: the next tap gives the sound back (see initReels).
+    if (!state.muted) { video.muted = true; showMuteIcon(slide, true); }
     video.play().catch(() => {
       loading(false);
       slide.querySelector('.reel-play')?.classList.remove('auto');
@@ -416,22 +417,45 @@ export function restoreReel({ item, index }) {
   slide.scrollIntoView({ block: 'start' });
 }
 
-/** Sound on / off for the HLS reels; the icon always tells the truth. */
-function setMuted(muted) {
-  state.muted = muted;
-  const video = state.reels.active?.querySelector('video:not(.reel-pre)');
-  if (video) video.muted = muted;
-  document.querySelectorAll('.reel .mute').forEach((b) => {
+/** Sound icon of one slide (or of every slide): it tells what the video really does. */
+function showMuteIcon(scope, muted) {
+  scope.querySelectorAll('.mute').forEach((b) => {
     b.replaceChildren(svg(muted ? ICONS.muted : ICONS.sound, 24));
     b.setAttribute('aria-pressed', String(!muted));
   });
 }
 
+/** Sound on / off for the reels, remembered for the next videos and the next visits. */
+function setMuted(muted) {
+  state.muted = muted;
+  saveMuted();
+  const video = state.reels.active?.querySelector('video:not(.reel-pre)');
+  if (video) video.muted = muted;
+  showMuteIcon(document.querySelector('#videos-list') || document, muted);
+}
+
+/**
+ * Sound chosen but refused by the browser (autoplay rules): the first tap or key press in the
+ * Vidéos tab gives it back, without changing the choice.
+ */
+function restoreSound() {
+  if (state.muted || state.view !== 'videos') return;
+  const slide = state.reels.active;
+  const video = slide?.querySelector('video:not(.reel-pre)');
+  if (video?.muted) {
+    video.muted = false;
+    showMuteIcon(slide, false);
+    if (!video.paused) video.play().catch(() => { video.muted = true; showMuteIcon(slide, true); });
+  }
+}
+
 function toggleMute() {
-  setMuted(!state.muted);
+  // The icon may show « muted » while the choice is « sound » (refused autoplay): follow the icon.
+  const video = state.reels.active?.querySelector('video:not(.reel-pre)');
+  const shownMuted = video ? video.muted : state.muted;
+  setMuted(!shownMuted);
   const slide = state.reels.active;
   if (slide?.querySelector('iframe')) { ytCommand(slide, state.muted ? 'mute' : 'unMute'); return; }
-  const video = slide?.querySelector('video');
   if (video && !state.muted) video.play().catch(() => {});
 }
 
@@ -454,6 +478,10 @@ export function initReels() {
     }
   });
   document.addEventListener('fullscreenchange', onFullscreenChange);
+  // Taps that count as a user gesture for the browser (a mute button tap is handled by toggleMute).
+  for (const type of ['touchend', 'click', 'keydown']) {
+    document.addEventListener(type, (e) => { if (!e.target?.closest?.('.mute')) restoreSound(); }, { capture: true, passive: true });
+  }
   window.addEventListener('message', (e) => {
     if (e.origin !== YT_ORIGIN) return;
     const slide = state.reels.active;
