@@ -51,7 +51,7 @@ export const state = {
   },
   reels: { ranked: [], rendered: 0, active: null, built: false },
   // Sound of the Vidéos tab: the last choice is kept for the next videos and the next visits.
-  muted: store.get('reelsMuted', true) !== false,
+  muted: store.get('reelsMuted', false) === true, // sound on by default (only Vidéos; feed videos stay muted)
   // Paramètres: theme, text size, autoplay of the videos in the feeds (see ../settings.js).
   settings: sanitizeSettings(store.get(SETTINGS_KEY, null)),
   // Bookmarks (« Enregistrés »): full items, most recent first.
