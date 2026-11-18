@@ -13,3 +13,7 @@ export function truncateText(s, n) { return s.length > n ? s.slice(0, n - 1).tri
 export function domainOf(url) {
   try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
 }
+
+/** Desktop layout (side bar, centred column, right column): same query as styles.css. */
+export const WIDE_QUERY = '(min-width: 720px) and (min-height: 520px)';
+export const isWide = () => !!globalThis.matchMedia?.(WIDE_QUERY).matches;
