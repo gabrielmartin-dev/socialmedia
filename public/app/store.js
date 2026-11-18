@@ -47,7 +47,8 @@ export const state = {
     tech: { ranked: [], rendered: 0, dirty: false, scroll: 0, topic: null },
   },
   reels: { ranked: [], rendered: 0, active: null, built: false },
-  muted: true,
+  // Sound of the Vidéos tab: the last choice is kept for the next videos and the next visits.
+  muted: store.get('reelsMuted', true) !== false,
   // Paramètres: theme, text size, autoplay of the videos in the feeds (see ../settings.js).
   settings: sanitizeSettings(store.get(SETTINGS_KEY, null)),
   // Bookmarks (« Enregistrés »): full items, most recent first.
@@ -79,6 +80,10 @@ export function saveFollows() {
 export function setHidePaid(on) {
   state.hidePaid = !!on;
   store.set('hidePaid', state.hidePaid);
+}
+
+export function saveMuted() {
+  store.set('reelsMuted', state.muted);
 }
 
 export function saveSettings() {
