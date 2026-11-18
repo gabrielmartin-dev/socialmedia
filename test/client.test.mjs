@@ -256,21 +256,22 @@ test('more then less (and the reverse) cancel out: the weight is dropped, not le
 
 test('undo restores exactly the previous weights (including "no weight")', () => {
   const p = emptyPrefs();
-  p.sources.s1 = 0.5;
+  const w = LESS.sourceFactor; // one « Moins de ça » already
+  p.sources.s1 = w;
   const undo = lessSource(p, 's1');
-  assert.equal(p.sources.s1, 0.25);
+  assert.ok(Math.abs(p.sources.s1 - w * LESS.sourceFactor) < 1e-12);
   undo();
-  assert.equal(p.sources.s1, 0.5);
+  assert.equal(p.sources.s1, w);
   const e = art('a', K);
   const undoKw = lessKeywords(p, e);
   assert.ok(p.keywords.grev < 1 && p.keywords.budget < 1);
   undoKw();
   assert.deepEqual(p.keywords, {});
   const undoAll = applyMore(p, e);
-  assert.equal(p.sources.s1, undefined, '0.5 × 2 is back to the default weight');
+  assert.equal(p.sources.s1, undefined, 'one « Plus de ça » cancels one « Moins de ça »');
   assert.ok(p.keywords.grev > 1);
   undoAll();
-  assert.equal(p.sources.s1, 0.5);
+  assert.equal(p.sources.s1, w);
   assert.deepEqual(p.keywords, {});
 });
 
@@ -435,4 +436,25 @@ test('progress bar: position clamped to the bar, times like 1:15 or 1:02:05', ()
   assert.equal(formatTime(75.9), '1:15');
   assert.equal(formatTime(3725), '1:02:05');
   assert.equal(formatTime(NaN), '0:00');
+});
+
+import { pushBack, keywordPrefFactor, KEYWORD_PREFS, itemScore } from '../public/rank.js';
+
+test('pushBack: a reduced source leaves the next screens, then comes back spaced out', () => {
+  const list = [...'aXbXcdefghijXk'];
+  assert.equal(pushBack(list, (x) => x === 'X', 3, 2).join(''), 'abcXdeXfgXhijk');
+  assert.equal(pushBack([...'XXab'], (x) => x === 'X', 5).join(''), 'abXX');
+  assert.deepEqual(pushBack(['a', 'b'], () => false, 3), ['a', 'b']);
+});
+
+test('« Moins de ce sujet » moves the item itself, within bounds', () => {
+  const now = Date.now();
+  const it = { id: 'x', source: { id: 's' }, publishedAt: new Date(now).toISOString(), keywords: [{ k: 'grev', w: 2, t: 'social' }, { k: 'budget', w: 1, t: 'social' }] };
+  const p = emptyPrefs();
+  const before = itemScore(it, { now, prefs: p });
+  lessKeywords(p, it);
+  assert.ok(itemScore(it, { now, prefs: p }) < before * 0.4, 'one tap divides the score by more than 2.5');
+  for (let i = 0; i < 20; i++) lessKeywords(p, it);
+  assert.ok(keywordPrefFactor(it, p) >= KEYWORD_PREFS.min);
+  assert.equal(keywordPrefFactor({ keywords: [] }, p), 1);
 });
