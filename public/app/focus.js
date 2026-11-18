@@ -14,15 +14,15 @@ export function nextFocusIndex(count, current, backwards) {
 }
 
 /** Makes a non-button element behave like a button for keyboard and assistive technology users. */
-export function makeButton(el, handler) {
+export function makeButton(el, handler, opts) {
   el.setAttribute('role', 'button');
   el.tabIndex = 0;
-  el.addEventListener('click', handler);
+  el.addEventListener('click', handler, opts);
   el.addEventListener('keydown', (e) => {
     if (e.target !== el || !isActivationKey(e.key)) return;
     e.preventDefault();
     handler(e);
-  });
+  }, opts);
 }
 
 const visible = (el) => !el.hidden && el.getClientRects().length > 0;

@@ -15,6 +15,7 @@ import { getPosition, savePosition } from './resume.js';
 
 const REELS_CHUNK = 5;
 const YT_ORIGIN = 'https://www.youtube-nocookie.com';
+const TIKTOK_ORIGIN = 'https://www.tiktok.com';
 /** Automatic new attempts on a broken stream before showing the error. */
 const MAX_RETRIES = 2;
 const HLS_MIME = 'application/vnd.apple.mpegurl';
@@ -54,7 +55,7 @@ function reelSlide(item) {
   }
   const kind = item.platform === 'youtube' ? ((v.aspect ?? 16 / 9) < 1 ? ' · Short' : ' · Vidéo longue') : '';
 
-  const muteBtn = v.type === 'hls' || v.type === 'youtube'
+  const muteBtn = v.type === 'hls' || v.type === 'youtube' || v.type === 'tiktok'
     ? h('button', { class: 'reel-btn mute', 'aria-label': 'Son', 'aria-pressed': String(!state.muted), onclick: (e) => { e.stopPropagation(); toggleMute(); } }, svg(state.muted ? ICONS.muted : ICONS.sound, 24))
     : null;
 
@@ -199,9 +200,9 @@ async function playHls(slide, hlsSrc, v) {
   // Spinner while the stream loads or stalls; none while paused.
   const loading = (on) => slide.classList.toggle('buffering', on);
   loading(true);
-  video.addEventListener('waiting', () => loading(true));
-  video.addEventListener('playing', () => loading(false));
-  video.addEventListener('pause', () => loading(false));
+  video.addEventListener('waiting', () => loading(true), { signal: video._signal });
+  video.addEventListener('playing', () => loading(false), { signal: video._signal });
+  video.addEventListener('pause', () => loading(false), { signal: video._signal });
 
   let retries = 0;
   const fail = () => {
@@ -214,18 +215,18 @@ async function playHls(slide, hlsSrc, v) {
 
   const native = video.canPlayType(HLS_MIME);
   if (native) {
-    if (pre) { /* src already set, position already applied */ } else if (start) video.addEventListener('loadedmetadata', () => { video.currentTime = start; }, { once: true });
+    if (pre) { /* src already set, position already applied */ } else if (start) video.addEventListener('loadedmetadata', () => { video.currentTime = start; }, { once: true, signal: video._signal });
     video.addEventListener('error', () => {
       if (state.reels.active !== slide || !video.isConnected) return;
       if (retries++ >= MAX_RETRIES) { fail(); return; }
       const at = video.currentTime || start;
       setTimeout(() => {
         if (state.reels.active !== slide || !video.isConnected) return;
-        if (at) video.addEventListener('loadedmetadata', () => { video.currentTime = at; }, { once: true });
+        if (at) video.addEventListener('loadedmetadata', () => { video.currentTime = at; }, { once: true, signal: video._signal });
         video.src = hlsSrc;
         video.play().catch(() => {});
       }, 1000 * retries);
-    });
+    }, { signal: video._signal });
     if (!pre) video.src = hlsSrc;
   } else {
     try {
@@ -244,8 +245,8 @@ async function playHls(slide, hlsSrc, v) {
         if (!pre?.hls) { hls.loadSource(hlsSrc); hls.attachMedia(video); }
         slide._hls = hls;
       } else {
-        if (start) video.addEventListener('loadedmetadata', () => { video.currentTime = start; }, { once: true });
-        video.addEventListener('error', fail);
+        if (start) video.addEventListener('loadedmetadata', () => { video.currentTime = start; }, { once: true, signal: video._signal });
+        video.addEventListener('error', fail, { signal: video._signal });
         video.src = hlsSrc;
       }
     } catch {
@@ -265,7 +266,59 @@ async function playHls(slide, hlsSrc, v) {
   }
 }
 
-const newVideo = () => h('video', { playsinline: true, 'webkit-playsinline': true, loop: true, preload: 'auto' });
+// ---------- Reused <video> elements ----------
+// On iPhone a <video> may only play with sound once it has been started from a tap, element by
+// element: a new element for each video would start muted again after every swipe. So a few
+// elements are reused from one video to the next, and all of them are unlocked by the first tap.
+const POOL_SIZE = 3;
+const allVideos = [];
+const idleVideos = [];
+
+function createVideo() {
+  const video = h('video', { playsinline: true, 'webkit-playsinline': true, loop: true, preload: 'auto' });
+  allVideos.push(video);
+  return video;
+}
+
+/** A video element for a new use; the listeners added with `video._signal` die with this use. */
+function newVideo() {
+  const video = idleVideos.pop() || createVideo();
+  video._ac?.abort();
+  video._ac = new AbortController();
+  video._signal = video._ac.signal;
+  video.className = '';
+  video.preload = 'auto';
+  return video;
+}
+
+/** Gives a video element back once its reel is left. */
+function releaseVideo(video) {
+  video._ac?.abort();
+  video._ac = null;
+  video.pause();
+  video.removeAttribute('src');
+  video.removeAttribute('poster');
+  video.load();
+  video.remove();
+  video.muted = true;
+  video._resumeOnShow = false;
+  if (!idleVideos.includes(video) && idleVideos.length < POOL_SIZE) idleVideos.push(video);
+}
+
+/** Called during a tap: from now on these elements may play with sound (iPhone rule). */
+function unlockVideos() {
+  // A touch that ends a scroll is not a tap: wait for a real one (where the browser tells).
+  if (navigator.userActivation && !navigator.userActivation.isActive) return;
+  while (allVideos.length < POOL_SIZE) idleVideos.push(createVideo());
+  for (const video of allVideos) {
+    if (video._unlocked) continue;
+    video._unlocked = true;
+    if (!video.paused) continue; // already playing: the tap itself counts
+    const p = video.play();
+    video.pause();
+    p?.catch?.(() => {});
+  }
+}
 
 let preloaded = null; // the slide whose video is being prepared in advance
 
@@ -287,8 +340,8 @@ async function preloadReel(slide) {
   if (video.canPlayType(HLS_MIME)) {
     // Native HLS buffers as much as it likes with preload=auto: only the start here.
     video.preload = 'metadata';
-    if (start) video.addEventListener('loadedmetadata', () => { video.currentTime = start; }, { once: true });
-    video.addEventListener('error', () => { pre.failed = true; });
+    if (start) video.addEventListener('loadedmetadata', () => { video.currentTime = start; }, { once: true, signal: video._signal });
+    video.addEventListener('error', () => { pre.failed = true; }, { signal: video._signal });
     video.src = src;
     return;
   }
@@ -307,9 +360,7 @@ async function preloadReel(slide) {
 
 function destroyPreload(pre) {
   pre.hls?.destroy();
-  pre.video.removeAttribute('src');
-  pre.video.load();
-  pre.video.remove();
+  releaseVideo(pre.video);
 }
 
 /** Forgets the video prepared in advance, if any. */
@@ -355,6 +406,14 @@ function ytCommand(slide, func) {
   slide?.querySelector('iframe')?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args: [] }), YT_ORIGIN);
 }
 
+/** Sound on / off in the embedded player of `slide` (YouTube or TikTok). */
+function iframeSound(slide, on) {
+  const iframe = slide?.querySelector('iframe');
+  if (!iframe) return;
+  if (slide._item?.video?.type === 'tiktok') iframe.contentWindow?.postMessage({ type: on ? 'unMute' : 'mute', 'x-tiktok-player': true }, TIKTOK_ORIGIN);
+  else ytCommand(slide, on ? 'unMute' : 'mute');
+}
+
 /** Broken stream: message with a new attempt and the link to the original. */
 function showError(slide) {
   slide.querySelectorAll('.reel-error, .reel-loading').forEach((el) => el.remove());
@@ -376,14 +435,14 @@ export function deactivateReel() {
   const slide = state.reels.active;
   if (!slide) return;
   savePlayback(slide);
-  slide._ytTime = slide._ytDuration = slide._ytState = null;
-  slide._ytReady = slide._ytResume = false;
+  slide._ytTime = slide._ytDuration = slide._ytState = slide._playerMuted = null;
+  slide._ytReady = slide._ytResume = slide._soundRetried = false;
   slide.classList.remove('active', 'has-iframe', 'buffering', 'scrubbing');
   slide._hls?.destroy();
   slide._hls = null;
   slide.querySelectorAll('video:not(.reel-pre), iframe, .reel-progress, .reel-time, .reel-flash, .reel-loading, .reel-error').forEach((el) => {
-    if (el.tagName === 'VIDEO') { el.pause(); el.removeAttribute('src'); el.load(); }
-    el.remove();
+    if (el.tagName === 'VIDEO') releaseVideo(el);
+    else el.remove();
   });
   state.reels.active = null;
 }
@@ -472,22 +531,34 @@ function setMuted(muted) {
 function restoreSound() {
   if (state.muted || state.view !== 'videos') return;
   const slide = state.reels.active;
+  if (slide?._playerMuted) { iframeSound(slide, true); return; }
   const video = slide?.querySelector('video:not(.reel-pre)');
   if (video?.muted) {
     video.muted = false;
     showMuteIcon(slide, false);
     if (!video.paused) video.play().catch(() => { video.muted = true; showMuteIcon(slide, true); });
+    soundRestoredAt = Date.now();
   }
 }
+let soundRestoredAt = 0;
 
 function toggleMute() {
   // The icon may show « muted » while the choice is « sound » (refused autoplay): follow the icon.
-  const video = state.reels.active?.querySelector('video:not(.reel-pre)');
-  const shownMuted = video ? video.muted : state.muted;
-  setMuted(!shownMuted);
   const slide = state.reels.active;
-  if (slide?.querySelector('iframe')) { ytCommand(slide, state.muted ? 'mute' : 'unMute'); return; }
+  const video = slide?.querySelector('video:not(.reel-pre)');
+  const shownMuted = video ? video.muted : (slide?._playerMuted ?? state.muted);
+  setMuted(!shownMuted);
+  if (slide?.querySelector('iframe')) { iframeSound(slide, !state.muted); return; }
   if (video && !state.muted) video.play().catch(() => {});
+}
+
+/** What the embedded player says about its sound: the icon follows, the choice follows the user's own taps. */
+function onPlayerMuted(slide, muted) {
+  const was = slide._playerMuted;
+  slide._playerMuted = muted;
+  showMuteIcon(slide, muted);
+  // Sound turned on in the player's own controls: that is a choice too.
+  if (!muted && was === true && state.muted) setMuted(false);
 }
 
 /**
@@ -511,15 +582,24 @@ export function initReels() {
   document.addEventListener('fullscreenchange', onFullscreenChange);
   // Taps that count as a user gesture for the browser (a mute button tap is handled by toggleMute).
   for (const type of ['touchend', 'click', 'keydown']) {
-    document.addEventListener(type, (e) => { if (!e.target?.closest?.('.mute')) restoreSound(); }, { capture: true, passive: true });
+    document.addEventListener(type, (e) => {
+      unlockVideos();
+      if (!e.target?.closest?.('.mute')) restoreSound();
+      // That tap was for the sound: it does not also pause the video.
+      if (type === 'click' && Date.now() - soundRestoredAt < 800 && e.target?.tagName === 'VIDEO') {
+        soundRestoredAt = 0;
+        e.stopPropagation();
+      }
+    }, { capture: true, passive: true });
   }
   window.addEventListener('message', (e) => {
-    if (e.origin !== YT_ORIGIN) return;
+    if (e.origin !== YT_ORIGIN && e.origin !== TIKTOK_ORIGIN) return;
     const slide = state.reels.active;
     const iframe = slide?.querySelector('iframe');
     if (!iframe || e.source !== iframe.contentWindow) return;
     let data;
     try { data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; }
+    if (e.origin === TIKTOK_ORIGIN) { onTikTokMessage(slide, data); return; }
     // Player ready: apply the sound setting (the embed always starts muted).
     if ((data?.event === 'onReady' || data?.event === 'initialDelivery') && !slide._ytReady) {
       slide._ytReady = true;
@@ -530,11 +610,26 @@ export function initReels() {
     if (Number.isFinite(info.currentTime)) slide._ytTime = info.currentTime;
     if (Number.isFinite(info.duration)) slide._ytDuration = info.duration;
     if (Number.isFinite(info.playerState)) slide._ytState = info.playerState;
-    // The icon follows what the player really does (it may refuse the sound).
     if (typeof info.muted === 'boolean') {
-      const btn = slide.querySelector('.mute');
-      btn?.replaceChildren(svg(info.muted ? ICONS.muted : ICONS.sound, 24));
-      btn?.setAttribute('aria-pressed', String(!info.muted));
+      // The unMute sent at « ready » can arrive before the video starts and be lost: once more
+      // when it plays.
+      if (info.muted && !state.muted && slide._ytState === 1 && !slide._soundRetried) {
+        slide._soundRetried = true;
+        ytCommand(slide, 'unMute');
+      }
+      onPlayerMuted(slide, info.muted);
     }
   });
+}
+
+/** Messages of the TikTok player: ready (apply the sound setting) and sound changes. */
+function onTikTokMessage(slide, data) {
+  if (!data?.['x-tiktok-player']) return;
+  if (data.type === 'onPlayerReady') {
+    slide._playerMuted = true; // started with muted=1
+    if (!state.muted) iframeSound(slide, true);
+    else showMuteIcon(slide, true);
+  } else if (data.type === 'onMute' && typeof data.value === 'boolean') {
+    onPlayerMuted(slide, data.value);
+  }
 }
