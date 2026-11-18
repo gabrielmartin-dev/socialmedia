@@ -174,3 +174,32 @@ export function filterRight(items, { right, generalist = new Set() }) {
   }
   return { kept, dropped };
 }
+
+// ---------- Hashtag videos that are not about France's struggles ----------
+// A hashtag search catches anyone: #manifestation is also the English « manifesting » of the law
+// of attraction (affirmations, high vibes…). A hashtag video is dropped when it carries one of
+// `blockedWords` (hashtags included), or when its text (hashtags left out) reads as English.
+
+const EN = new Set('the you your is are and of to that this what with for it be we our my will can choose today'.split(' '));
+const FR = new Set('le la les des de du et est un une en au aux pour que qui dans sur pas avec ce cette sont nous vous il elle on'.split(' '));
+
+/** 'en' when the words (hashtags, links and mentions left out) are mostly English, else null. */
+export function looksEnglish(text) {
+  const words = normalize(String(text || '').replace(/https?:\/\/\S+|[#@]\S+/g, ' ')).split(/[^a-z']+/).filter(Boolean);
+  let en = 0;
+  let fr = 0;
+  for (const w of words) { if (EN.has(w)) en++; if (FR.has(w)) fr++; }
+  return en >= 2 && en > fr;
+}
+
+export function compileTagVideos(cfg = {}) {
+  return { blocked: (cfg.blockedWords || []).map((k) => ({ k: k.replace(/\*$/, ''), re: wordRe(k) })) };
+}
+
+/** Why a hashtag video is off topic (« mot-clé lawofattraction », « en anglais »), or null. */
+export function tagVideoReason(item, cfg) {
+  const text = normalize([item.title, item.text].filter(Boolean).join('\n')).replace(/#/g, ' ');
+  for (const b of cfg.blocked) if (b.re.test(text)) return `mot-clé ${b.k}`;
+  if (looksEnglish([item.title, item.text].filter(Boolean).join('\n'))) return 'en anglais';
+  return null;
+}

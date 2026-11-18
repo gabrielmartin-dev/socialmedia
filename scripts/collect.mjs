@@ -20,7 +20,7 @@ import { safeUrl, canonicalUrl } from '../public/url.js';
 import { checkRun } from './lib/health.mjs';
 import { packFeed } from '../public/pack.js';
 import { topicsForClient } from './lib/client-config.mjs';
-import { compileScope, generalistOrigins, sourceMinScores, filterScope, compileRight, filterRight, isTagItem } from './lib/scope.mjs';
+import { compileScope, generalistOrigins, sourceMinScores, filterScope, compileRight, filterRight, isTagItem, compileTagVideos, tagVideoReason } from './lib/scope.mjs';
 import { ResolutionCache, cachedResolve, DAY, HOUR } from './lib/cache.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -251,9 +251,16 @@ async function main() {
   const minScores = sourceMinScores(sources);
   // Right-wing content (Bardella, le RN, CNews…, and blocked accounts): out of every source.
   const right = compileRight(topicsCfg.scope?.right);
+  const tagVideos = compileTagVideos(topicsCfg.scope?.tagVideos);
   const build = async (feed, fresh, maxAgeHours, topicMatchers, { articles = false } = {}) => {
     let all = freshAndUnique(archive.merge(feed, fresh, { maxAgeHours, origins }), maxAgeHours);
     if (feed === 'videos') {
+      const off = all.filter((i) => isTagItem(i) && tagVideoReason(i, tagVideos));
+      if (off.length) {
+        console.log(`Vidéos hashtag hors sujet : ${off.length} écartée(s), par exemple :`);
+        for (const i of off.slice(0, 10)) console.log(`  [${tagVideoReason(i, tagVideos)}] ${i.source?.name} · ${(i.text || '').replace(/\s+/g, ' ').slice(0, 90)}`);
+        all = all.filter((i) => !off.includes(i));
+      }
       const n = all.length;
       all = capTagVideos(uniqueVideos(all), settings.tagVideosPerAccount ?? 3, isTagItem);
       if (all.length < n) console.log(`Vidéos : ${n - all.length} doublon(s) ou vidéo(s) hashtag en trop d'un même compte écartée(s)`);

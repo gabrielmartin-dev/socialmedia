@@ -69,3 +69,22 @@ test('videos: at most N hashtag videos per account, followed channels untouched'
   ];
   assert.deepEqual(capTagVideos(items, 3, (i) => !!i.tag).map((i) => i.id), [1, 2, 3, 6, 7, 8, 9]);
 });
+
+import { compileTagVideos, tagVideoReason, looksEnglish } from '../scripts/lib/scope.mjs';
+const tagCfg = compileTagVideos(topics.scope.tagVideos);
+
+test('hashtag videos: English « manifestation » (law of attraction) is dropped', () => {
+  assert.match(tagVideoReason(tagVideo('#manifestation #affirmations #lawofattraction #dailyaffirmations #manifesting'), tagCfg) || '', /^mot-clé/);
+  assert.equal(tagVideoReason(tagVideo('🧠 The mind shapes your reality. 💬 What thought will you choose to shape your day? #Manifestation'), tagCfg), 'en anglais');
+  assert.ok(tagVideoReason(tagVideo("🙌🏼 Today's #manifestation #factoftheday is that the energy you emit into the universe shapes your reality."), tagCfg));
+});
+
+test('hashtag videos: French protest videos stay, even with hashtags only', () => {
+  for (const t of [
+    '#manif #toulouse #17novembre',
+    'Clowns partout, police nulle part, avec "J\'ai deux passions" en fond sonore. #fanfare #clown #france #grenoble #manif #manifestation #protest #greve',
+    'À 12 h 10, le cortège de la manifestation passe par les voies sur berges à Angers.',
+    'Manifestation en cours au Mans ! #snes #fsu #lutte #greve',
+  ]) assert.equal(tagVideoReason(tagVideo(t), tagCfg), null, t);
+  assert.equal(looksEnglish('Les manifestants passent sous un drapeau. #protest'), false);
+});
