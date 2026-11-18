@@ -11,9 +11,9 @@ const SHELL = [
   './', 'index.html', 'styles.css', 'manifest.webmanifest',
   'app.js',
   'app/actions.js', 'app/bars.js', 'app/cards.js', 'app/discover.js', 'app/dom.js', 'app/feed.js', 'app/focus.js', 'app/follow.js', 'app/fresh.js', 'app/hls.js',
-  'app/infosheet.js', 'app/install.js', 'app/live.js', 'app/media.js', 'app/profile.js', 'app/reelcontrols.js', 'app/reels.js', 'app/refresh.js', 'app/remove.js', 'app/resume.js', 'app/retune.js', 'app/settings.js', 'app/sheet.js', 'app/store.js',
+  'app/infosheet.js', 'app/install.js', 'app/live.js', 'app/media.js', 'app/profile.js', 'app/reelcontrols.js', 'app/reels.js', 'app/refresh.js', 'app/remove.js', 'app/restore.js', 'app/resume.js', 'app/retune.js', 'app/settings.js', 'app/sheet.js', 'app/store.js',
   'app/tabs.js', 'app/thread.js', 'app/util.js', 'app/viewer.js', 'app/viewport.js',
-  'boot.js', 'bsky.js', 'bskypost.js', 'discovery.js', 'find.js', 'freshness.js', 'install.js', 'norm.js', 'pack.js', 'paywall.js', 'pool.js', 'rank.js', 'saved.js', 'seen.js', 'settings.js', 'topics.js', 'url.js',
+  'boot.js', 'bsky.js', 'bskypost.js', 'discovery.js', 'find.js', 'freshness.js', 'install.js', 'norm.js', 'pack.js', 'paywall.js', 'pool.js', 'rank.js', 'saved.js', 'seen.js', 'settings.js', 'snapshot.js', 'topics.js', 'url.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
 ];
 
