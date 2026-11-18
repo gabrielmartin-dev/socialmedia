@@ -286,7 +286,8 @@ div.avatar.square { background: var(--bg-elev); }
 .quote { display: block; margin-top: 12px; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
 .quote-head { display: flex; align-items: center; gap: 4px; padding: 10px 12px 0; font-size: calc(15px * var(--fs)); min-width: 0; }
 .quote-head .avatar { width: 22px; height: 22px; font-size: 11px; margin-right: 2px; flex: none; }
-.quote-text { padding: 2px 12px 10px; font-size: calc(15px * var(--fs)); line-height: calc(20px * var(--fs)); white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+.quote-text { margin: 2px 12px 10px; font-size: calc(15px * var(--fs)); line-height: calc(20px * var(--fs)); max-height: calc(20px * var(--fs) * 6); white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+/* Marges plutôt que padding : avec overflow hidden, Safari laissait déborder la 7e ligne dans le padding (ligne coupée à moitié). max-height verrouille 6 lignes entières. */
 .quote .media { margin: 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; }
 
 /* Group card */
