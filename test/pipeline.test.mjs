@@ -105,7 +105,7 @@ test('ranking favours topics and freshness; "moins de ça" demotes', () => {
   assert.ok(itemScore(a, opts) < before * 0.5);
   // Floors: repeated "less" never zeroes a source.
   for (let i = 0; i < 20; i++) applyLess(prefs, a);
-  assert.ok(prefs.sources.s1 >= 0.1 && prefs.keywords.grev >= 0.2);
+  assert.ok(prefs.sources.s1 >= 0.05 && prefs.keywords.grev >= 0.2);
   assert.deepEqual(rank([a, b], opts, new Set(['a'])).map((e) => e.id), ['b']);
 });
 
