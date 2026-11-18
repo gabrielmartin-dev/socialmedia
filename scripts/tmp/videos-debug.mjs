@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
-const d = JSON.parse(readFileSync('public/data/videos.json', 'utf8'));
+import { unpackFeed } from '../../public/pack.js';
+const d = unpackFeed(JSON.parse(readFileSync('public/data/videos.json', 'utf8')));
 const items = d.items || d.entries || d;
 console.log('keys', Object.keys(d), 'n', items.length);
 const by = new Map();
