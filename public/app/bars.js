@@ -2,6 +2,7 @@
 // chips) up and the tab bar down; the slightest scroll up brings them back.
 
 import { state } from './store.js';
+import { isWide } from './util.js';
 
 const DOWN = 24; // px scrolled down before hiding (avoids flicker on small jitters)
 const UP = 6;    // px scrolled up before showing again
@@ -11,8 +12,9 @@ let lastY = 0;
 let run = 0;     // distance travelled in the current direction (signed)
 let ticking = false;
 
-/** Vidéos never hides its bars: the tab bar is the only way out of that screen. */
-const keepBars = () => state.view === 'videos' || document.body.classList.contains('videos-mode');
+/** Vidéos never hides its bars: the tab bar is the only way out of that screen. Neither does
+ *  the desktop layout: its side bar and header never get in the way of the column. */
+const keepBars = () => state.view === 'videos' || document.body.classList.contains('videos-mode') || isWide();
 
 /** Shows (or hides) the bars. */
 export function setBarsHidden(hidden) {

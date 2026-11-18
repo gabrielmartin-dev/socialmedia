@@ -741,3 +741,124 @@ body.no-scroll { overflow: hidden; }
 @media (prefers-color-scheme: light) {
   :root[data-theme="auto"] body::before { content: ""; position: fixed; inset: 0 0 auto 0; height: var(--safe-top); background: #000; z-index: 60; }
 }
+
+/* ---------- Desktop (side bar, centred column, right column) ----------
+   Phones keep the layout above untouched: everything below only exists on a large screen
+   (same query as WIDE_QUERY in app/util.js). Height too, so a phone held sideways stays
+   in the phone layout. */
+.side-brand, .side-link, .sidecol, .reel-nav { display: none; }
+
+@media (min-width: 720px) and (min-height: 520px) {
+  :root {
+    --side-w: 88px;
+    --col-w: 600px;
+    --right-gap: 0px;
+    --right-w: 0px;
+    --frame-w: calc(var(--side-w) + var(--col-w) + var(--right-gap) + var(--right-w));
+    --frame-left: max(0px, calc((100vw - var(--frame-w)) / 2));
+    --col-left: calc(var(--frame-left) + var(--side-w));
+    --tabbar-total: 0px; /* nothing at the bottom of the screen any more */
+  }
+  body.videos-mode { --tabbar-total: 0px; }
+
+  /* Side bar: the tab bar, standing up on the left. */
+  .tabbar, body.videos-mode .tabbar, body.bars-hidden .tabbar {
+    inset: 0 auto 0 var(--frame-left); width: var(--side-w); height: auto;
+    padding: 4px 12px 16px; transform: none;
+    flex-direction: column; align-items: center; gap: 4px;
+    border-top: 0;
+  }
+  body.videos-mode .tabbar::after { height: 0; } /* no iOS band to cover here */
+  .side-brand { display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 12px; font-weight: 800; font-size: 20px; }
+  .side-brand img { border-radius: 8px; }
+  .side-brand span { display: none; }
+  .tab, .side-link {
+    flex: none; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 18px;
+    width: 52px; height: 52px; padding: 0; border-radius: 999px;
+    color: var(--text); font-size: 20px; line-height: 24px;
+  }
+  .tab svg, .side-link svg { width: 26px; height: 26px; flex: none; }
+  .tab span, .side-link span { display: none; }
+  .tab.active { font-weight: 800; }
+  .tab.active svg { color: var(--accent); }
+  /* Paramètres open: its link is the current one, not the tab it was opened from. */
+  body:has(#view-settings.active) .tab.active { font-weight: 400; }
+  body:has(#view-settings.active) .tab.active svg { color: inherit; }
+  body:has(#view-settings.active) .side-link[data-action="settings"] { font-weight: 800; }
+  body:has(#view-settings.active) .side-link[data-action="settings"] svg { color: var(--accent); }
+  .tab:hover, .side-link:hover { background: var(--press); }
+
+  /* Centred column, 600 px like the phone layout, between two borders. */
+  main {
+    margin-left: var(--col-left); width: var(--col-w); min-height: 100vh;
+    border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+  }
+  .topbar, .profile-top { left: var(--col-left); right: auto; width: var(--col-w); }
+  .topbar { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+  #saved-btn, #settings-btn { display: none; } /* in the side bar */
+  .new-pill, .toast { left: calc(var(--col-left) + var(--col-w) / 2); }
+  .toast { bottom: 24px; }
+  .tweet { cursor: pointer; }
+  .tweet:hover { background: var(--bg-hover); }
+
+  /* Menus and pop-ups: centred dialogs instead of sheets sliding up from the bottom. */
+  .sheet {
+    inset: 0; margin: auto; width: calc(100% - 48px); max-width: 440px; height: fit-content; max-height: 85vh;
+    border-radius: 16px; padding-bottom: 12px; animation: dialog-in .16s ease-out;
+  }
+  .sheet-handle { visibility: hidden; height: 0; margin-bottom: 4px; }
+  .sheet-btn:hover { background: var(--bg-elev); }
+
+  /* Vidéos: a player centred in the space of the column (and of the right column, hidden
+     there), the side bar always available, ↑ ↓ to change video. */
+  #view-videos { inset: 0 var(--frame-left) 0 var(--col-left); }
+  .reels { max-width: 720px; margin: 0 auto; }
+  .reel-nav { display: flex; flex-direction: column; gap: 12px; position: absolute; right: 16px; top: 16px; z-index: 6; }
+  .reel-nav-btn {
+    width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+    background: rgba(255,255,255,.12); color: #fff;
+  }
+  .reel-nav-btn:hover { background: rgba(255,255,255,.24); }
+  .reel-progress { height: 14px; }
+  .reel-progress:hover .reel-progress-track { height: 6px; }
+  .reel-btn:hover { background: rgba(255,255,255,.2); }
+}
+
+@keyframes dialog-in { from { opacity: 0; transform: scale(.96); } }
+
+/* Wide screens: right column (search, suggestions). */
+@media (min-width: 1100px) and (min-height: 520px) {
+  :root { --right-gap: 28px; --right-w: 350px; }
+  .sidecol {
+    display: flex; flex-direction: column; gap: 16px;
+    position: fixed; top: 0; bottom: 0; left: calc(var(--col-left) + var(--col-w) + var(--right-gap)); width: var(--right-w);
+    padding: 8px 0 24px; overflow-y: auto; scrollbar-width: none;
+  }
+  body.videos-mode .sidecol { display: none; }
+  body:has(#view-discover.active) .side-search { display: none; } /* Découvrir has its own */
+  .side-search {
+    position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 10px;
+    height: 44px; padding: 0 16px; border-radius: 999px; background: var(--field); color: var(--muted);
+    border: 1px solid transparent; box-shadow: 0 0 0 8px var(--bg);
+  }
+  .side-search:focus-within { border-color: var(--accent); background: var(--bg); color: var(--accent); }
+  .side-search input { flex: 1; min-width: 0; height: 100%; border: 0; background: none; color: var(--text); font: inherit; font-size: 15px; outline: none; }
+  .side-box { border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .side-box[hidden] { display: none; }
+  .side-box h2 { font-size: 20px; font-weight: 800; margin: 0; padding: 12px 16px; }
+  .side-box .account { border-bottom: 0; padding: 10px 16px; }
+  .side-box .account:hover { background: var(--bg-hover); }
+  .side-box .account-desc, .side-box .account-last, .side-box .account-weight, .side-box .account-note { display: none; }
+  .side-more { display: block; width: 100%; text-align: left; padding: 14px 16px; color: var(--accent); font-size: 15px; }
+  .side-more:hover { background: var(--bg-hover); }
+  .reel-nav { top: 50%; transform: translateY(-50%); }
+}
+
+/* Large screens: the side bar shows its labels. */
+@media (min-width: 1280px) and (min-height: 520px) {
+  :root { --side-w: 260px; }
+  .tabbar, body.videos-mode .tabbar, body.bars-hidden .tabbar { align-items: stretch; padding-left: 12px; padding-right: 16px; }
+  .side-brand span { display: inline; }
+  .tab, .side-link { width: fit-content; justify-content: flex-start; padding: 0 22px 0 12px; }
+  .tab span, .side-link span { display: inline; }
+}

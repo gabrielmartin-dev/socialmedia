@@ -232,6 +232,16 @@ export function renderDiscover() {
     : emptyBlock('Tu ne suis personne pour le moment.', goTo('Voir les suggestions', 'suggestions')));
 }
 
+/** A few accounts to suggest in the side column (desktop): reposted by the follows first, then the known sources. */
+export function sideSuggestions(n = 4) {
+  const notFollowed = (a) => !isFollowed(a, { strict: true }) && !state.accounts.has(a.id);
+  const accounts = [
+    ...(state.data.accounts?.discovered || []).filter(notFollowed),
+    ...[...state.accounts.values()].filter((a) => !isFollowed(a)),
+  ];
+  return accounts.slice(0, n).map((a) => accountRow(a));
+}
+
 export function initDiscover() {
   $('#discover-tabs').addEventListener('click', (e) => {
     const btn = e.target.closest('[role=tab]');

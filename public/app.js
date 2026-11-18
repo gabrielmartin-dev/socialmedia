@@ -20,6 +20,7 @@ import { switchView } from './app/tabs.js';
 import { initBars } from './app/bars.js';
 import { initViewport } from './app/viewport.js';
 import { initRestore, beginRestore, finishRestore } from './app/restore.js';
+import { initDesktop, renderSide } from './app/desktop.js';
 
 actions.openProfile = openProfile;
 actions.openSheet = openSheet;
@@ -30,6 +31,7 @@ actions.afterSavedChange = () => { if (state.view === 'discover') renderTabs(); 
 actions.afterFollow = () => {
   if (state.view === 'discover') renderDiscover();
   if (state.view === 'profile') renderProfileFollow();
+  renderSide();
 };
 
 actions.switchView = switchView;
@@ -56,7 +58,8 @@ initSettings();
 initBars();
 initViewport();
 initRestore();
-initFresh({ apply: (data) => { applyData(data); showLoaded(); } });
+initDesktop();
+initFresh({ apply: (data) => { applyData(data); showLoaded(); renderSide(); } });
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   // updateViaCache 'none': sw.js is always revalidated, so a new deployment is noticed
@@ -90,4 +93,5 @@ beginRestore();
 renderAllFeeds();
 finishRestore(switchView);
 renderStatusBar();
+renderSide();
 loadLive(); // background: the collected data is already displayed
