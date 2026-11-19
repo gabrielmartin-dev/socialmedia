@@ -310,6 +310,97 @@
       "site": "https://bonpote.com",
       "feed": "https://bonpote.com/feed/",
       "_comment": "Climat, vulgarisation sourcée."
+    },
+    {
+      "id": "splann",
+      "name": "Splann !",
+      "site": "https://splann.org",
+      "feed": "https://splann.org/feed/",
+      "_comment": "Investigation en Bretagne (agro-industrie, environnement), ONG de journalisme."
+    },
+    {
+      "id": "multinationales",
+      "name": "Observatoire des multinationales",
+      "site": "https://multinationales.org",
+      "feed": "https://multinationales.org/spip.php?page=backend",
+      "_comment": "Enquêtes sur le pouvoir des grandes entreprises et le lobbying."
+    },
+    {
+      "id": "laboetie",
+      "name": "Institut La Boétie",
+      "site": "https://institutlaboetie.fr",
+      "feed": "https://institutlaboetie.fr/feed/",
+      "_comment": "Fondation de réflexion liée à LFI."
+    },
+    {
+      "id": "ldh",
+      "name": "Ligue des droits de l’Homme",
+      "site": "https://www.ldh-france.org",
+      "feed": "https://www.ldh-france.org/feed/"
+    },
+    {
+      "id": "oxfam",
+      "name": "Oxfam France",
+      "site": "https://www.oxfamfrance.org",
+      "feed": "https://www.oxfamfrance.org/feed/",
+      "_comment": "Rapports sur les inégalités et la fiscalité."
+    },
+    {
+      "id": "terrestres",
+      "name": "Terrestres",
+      "site": "https://www.terrestres.org",
+      "feed": "https://www.terrestres.org/feed/",
+      "_comment": "Revue d’écologie politique."
+    },
+    {
+      "id": "jacobin",
+      "name": "Jacobin",
+      "lang": "en",
+      "site": "https://jacobin.com",
+      "feed": "https://jacobin.com/feed/",
+      "_comment": "Revue socialiste américaine."
+    },
+    {
+      "id": "conversation",
+      "generalist": true,
+      "name": "The Conversation France",
+      "site": "https://theconversation.com/fr",
+      "feed": "https://theconversation.com/fr/articles.atom",
+      "_comment": "Articles écrits par des chercheurs et universitaires."
+    },
+    {
+      "id": "lcp",
+      "generalist": true,
+      "name": "LCP Assemblée nationale",
+      "site": "https://lcp.fr",
+      "feed": "https://lcp.fr/rss-actualites.xml",
+      "_comment": "Actualité parlementaire."
+    },
+    {
+      "id": "lesjours",
+      "generalist": true,
+      "name": "Les Jours",
+      "paywall": true,
+      "site": "https://lesjours.fr",
+      "feed": "https://lesjours.fr/rss.xml"
+    },
+    {
+      "id": "aoc",
+      "generalist": true,
+      "name": "AOC",
+      "paywall": true,
+      "site": "https://aoc.media",
+      "feed": "https://aoc.media/feed/",
+      "_comment": "Tribunes de chercheurs et d’intellectuels."
+    },
+    {
+      "id": "lobs",
+      "generalist": true,
+      "name": "L’Obs",
+      "paywall": "partial",
+      "site": "https://www.nouvelobs.com",
+      "feed": "https://www.nouvelobs.com/rss.xml",
+      "suggested": true
     }
   ],
   "tech": [
@@ -601,6 +692,57 @@
       "name": "Grafikart",
       "site": "https://grafikart.fr",
       "feed": "https://grafikart.fr/feed.rss"
+    },
+    {
+      "id": "pluralistic",
+      "name": "Pluralistic (Cory Doctorow)",
+      "lang": "en",
+      "site": "https://pluralistic.net",
+      "feed": "https://pluralistic.net/feed/"
+    },
+    {
+      "id": "restofworld",
+      "name": "Rest of World",
+      "lang": "en",
+      "site": "https://restofworld.org",
+      "feed": "https://restofworld.org/feed/latest",
+      "_comment": "La tech hors Occident, travailleurs des plateformes."
+    },
+    {
+      "id": "platformer",
+      "name": "Platformer",
+      "paywall": "partial",
+      "lang": "en",
+      "site": "https://www.platformer.news",
+      "feed": "https://www.platformer.news/rss/"
+    },
+    {
+      "id": "algorithmwatch",
+      "name": "AlgorithmWatch",
+      "lang": "en",
+      "site": "https://algorithmwatch.org",
+      "feed": "https://algorithmwatch.org/en/feed/",
+      "_comment": "ONG qui enquête sur les algorithmes et l’IA."
+    },
+    {
+      "id": "edzitron",
+      "name": "Where’s Your Ed At",
+      "lang": "en",
+      "site": "https://www.wheresyoured.at",
+      "feed": "https://www.wheresyoured.at/rss/",
+      "_comment": "Ed Zitron, critique de l’industrie de l’IA."
+    },
+    {
+      "id": "framablog",
+      "name": "Framablog",
+      "site": "https://framablog.org",
+      "feed": "https://framablog.org/feed/"
+    },
+    {
+      "id": "linuxfr",
+      "name": "LinuxFr.org",
+      "site": "https://linuxfr.org",
+      "feed": "https://linuxfr.org/news.atom"
     }
   ],
   "bluesky": {
@@ -1051,6 +1193,22 @@
       "id": "yt-optimum",
       "name": "Optimum",
       "channelId": "UCRYOj4DmyxhBVrdvbsUwmAA",
+      "category": "Tech"
+    },
+    {
+      "id": "yt-laboetie",
+      "name": "Institut La Boétie",
+      "channelId": "UCSmP6K8RyXVZIzPWYUy-4eA"
+    },
+    {
+      "id": "yt-fakir",
+      "name": "Fakir",
+      "channelId": "UCDvIeLuH5wmndQ55cXeKtXw"
+    },
+    {
+      "id": "yt-twominutepapers",
+      "name": "Two Minute Papers",
+      "channelId": "UCbfYPyITQ-7l4upoX8nvctg",
       "category": "Tech"
     }
   ],
