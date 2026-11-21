@@ -9,9 +9,11 @@ import { switchView } from './tabs.js';
 import { viewerPop } from './viewer.js';
 import { actions } from './actions.js';
 import { state, isFeed } from './store.js';
+import { descendants, firstBatch, toggleLabel } from './threadtree.js';
 
-const MAX_DEPTH = 3; // deeper replies are shown at the third indentation level
-const MAX_REPLIES = 150;
+const MAX_DEPTH = 3;   // levels drawn under the post; deeper, « Continuer la discussion » opens the reply
+const FIRST_LEVEL = 12; // first-level replies shown before « Afficher plus de réponses »
+const PER_LEVEL = 3;    // answers to a reply shown before « Afficher N autres réponses »
 
 // One frame per opened thread, oldest first. `prev` is the view it was opened from
 // ('thread' when opened from another thread), so Back can return exactly there.
@@ -69,36 +71,127 @@ function postNode(item, cls) {
   return card;
 }
 
-function flatten(nodes, depth, out) {
-  for (const n of nodes) {
-    if (out.length >= MAX_REPLIES) return;
-    out.push({ item: n.item, own: n.own, depth: Math.min(depth, MAX_DEPTH) });
-    flatten(n.replies, depth + 1, out);
+/**
+ * A reply and, below it, the replies to it, joined to it by a line from its avatar (like on
+ * Bluesky). Its « Voir le fil » button becomes « Masquer / Afficher N réponses ».
+ */
+function replyNode(node, depth) {
+  const card = postNode(node.item, `thread-reply compact${node.own ? ' own' : ''}`);
+  const wrap = h('div', { class: 'rt', dataset: { depth } }, card);
+  if (node.own) {
+    card.querySelector('.tweet-head .name')?.after(h('span', { class: 'author-badge', text: 'Auteur' }));
   }
+  const actionsRow = card.querySelector('.tweet-actions');
+  const total = descendants(node);
+  if (!total) { actionsRow?.remove(); return wrap; }
+  wrap.classList.add('has-kids');
+  if (depth >= MAX_DEPTH) {
+    // Too deep to indent again on a phone: the rest of the branch opens as its own thread.
+    actionsRow?.remove();
+    wrap.append(h('div', { class: 'rt-kids' },
+      h('button', {
+        class: 'rt-more rt-deeper', type: 'button',
+        onclick: () => actions.openThread(node.item),
+      }, h('span', { text: `Continuer la discussion (${total})` }), svg(ICONS.back, 16))));
+    return wrap;
+  }
+  const kids = h('div', { class: 'rt-kids' });
+  appendReplies(kids, node.replies, depth + 1, PER_LEVEL);
+  const toggle = h('button', {
+    class: 'thread-btn rt-toggle', type: 'button', 'aria-expanded': 'true',
+    onclick: (e) => {
+      e.stopPropagation();
+      const open = wrap.classList.toggle('collapsed') === false;
+      toggle.setAttribute('aria-expanded', String(open));
+      label.textContent = toggleLabel(total, open);
+      // Folding a long branch from its bottom: keep its post in sight.
+      if (!open && card.getBoundingClientRect().top < 0) card.scrollIntoView({ block: 'start' });
+    },
+  }, svg(ICONS.reply, 18));
+  const label = h('span', { text: toggleLabel(total, true) });
+  toggle.append(label);
+  if (actionsRow) actionsRow.replaceChildren(toggle); else card.querySelector('.tweet-main')?.append(h('div', { class: 'tweet-actions' }, toggle));
+  wrap.append(kids);
+  return wrap;
+}
+
+/** Draws `list` into `box`, the first ones only, then a button for the rest. */
+function appendReplies(box, list, depth, limit, from = 0) {
+  const shown = from + firstBatch(list.length - from, limit);
+  for (let i = from; i < shown; i++) {
+    const n = replyNode(list[i], depth);
+    if (i === list.length - 1) n.classList.add('last');
+    box.append(n);
+  }
+  const left = list.length - shown;
+  if (!left) return;
+  const more = h('button', {
+    class: 'rt-more', type: 'button',
+    onclick: () => { more.remove(); appendReplies(box, list, depth, depth === 1 ? FIRST_LEVEL : 10, shown); updateNext(); },
+  }, depth === 1 ? `Afficher plus de réponses (${left})` : `Afficher ${left} autre${left > 1 ? 's' : ''} réponse${left > 1 ? 's' : ''}`);
+  box.append(more);
+}
+
+/** « ↓ » button: jumps to the next first-level reply, so a long conversation is quick to skim. */
+let nextBtn = null;
+function nextTarget() {
+  const barH = document.querySelector('.thread-bar')?.getBoundingClientRect().bottom || 0;
+  return [...document.querySelectorAll('#thread-root .rt[data-depth="1"]')]
+    .find((el) => el.getBoundingClientRect().top > barH + 4);
+}
+function updateNext() {
+  if (!nextBtn?.isConnected) return;
+  const count = document.querySelectorAll('#thread-root .rt[data-depth="1"]').length;
+  nextBtn.hidden = count < 3 || !nextTarget() || window.scrollY < 40;
+}
+function nextButton() {
+  nextBtn = h('button', {
+    class: 'thread-next', type: 'button', hidden: true, 'aria-label': 'Réponse suivante', title: 'Réponse suivante',
+    onclick: () => {
+      const el = nextTarget();
+      if (!el) return;
+      const barH = document.querySelector('.thread-bar')?.getBoundingClientRect().bottom || 0;
+      window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top - barH, behavior: 'smooth' });
+    },
+  }, svg(ICONS.back, 22));
+  return nextBtn;
 }
 
 function paint(root, thread) {
   const nodes = [];
   for (const p of thread.parents) nodes.push(postNode(p, 'thread-parent'));
   nodes.push(postNode(thread.item, 'thread-focus'));
-  const replies = [];
-  flatten(thread.replies, 1, replies);
-  if (replies.length) {
-    const count = thread.item.stats.replies;
-    nodes.push(h('h2', { class: 'thread-section', text: count > 1 ? `${count} réponses` : '1 réponse' }));
-    for (const r of replies) nodes.push(postNode(r.item, `thread-reply depth-${r.depth}${r.own ? ' own' : ''}`));
+  if (thread.replies.length) {
+    const count = Math.max(thread.item.stats.replies, thread.replies.reduce((n, r) => n + 1 + descendants(r), 0));
+    nodes.push(h('h2', { class: 'thread-section' },
+      h('span', { text: count > 1 ? `${count} réponses` : '1 réponse' }),
+      h('span', { class: 'thread-sort', text: thread.replies.length > 1 ? 'Les plus aimées d’abord' : '' })));
+    const list = h('div', { class: 'thread-replies' });
+    appendReplies(list, thread.replies, 1, FIRST_LEVEL);
+    nodes.push(list, nextButton());
+    const sub = document.querySelector('.thread-count');
+    if (sub) sub.textContent = count > 1 ? `${count} réponses` : '1 réponse';
   } else {
     nodes.push(h('div', { class: 'empty' }, h('strong', { text: 'Aucune réponse' }), 'Personne n\'a encore répondu à ce post.'));
   }
   root.replaceChildren(...nodes);
   // Land on the post itself when it answers to others (parents are above it).
   if (thread.parents.length) root.querySelector('.thread-focus')?.scrollIntoView({ block: 'start' });
+  updateNext();
 }
 
 function bar() {
   return h('div', { class: 'thread-bar' },
     h('button', { class: 'icon-btn', 'aria-label': 'Retour', onclick: () => history.back() }, svg(ICONS.back, 22)),
-    h('h1', { class: 'thread-title', text: 'Fil de discussion' }),
+    // Tapping the title goes back up to the post, like tapping the top bar on a phone.
+    h('button', {
+      class: 'thread-heading', type: 'button', title: 'Revenir au post',
+      onclick: () => {
+        const focus = document.querySelector('#thread-root .thread-focus');
+        const barH = document.querySelector('.thread-bar')?.getBoundingClientRect().bottom || 0;
+        window.scrollTo({ top: focus ? Math.max(0, window.scrollY + focus.getBoundingClientRect().top - barH) : 0, behavior: 'smooth' });
+      },
+    }, h('h1', { class: 'thread-title', text: 'Fil de discussion' }), h('span', { class: 'thread-count' })),
   );
 }
 
@@ -125,6 +218,7 @@ async function render(item) {
 }
 
 export function initThread() {
+  window.addEventListener('scroll', () => { if (state.view === 'thread') updateNext(); }, { passive: true });
   window.addEventListener('popstate', (e) => {
     if (viewerPop(e)) return;
     if (state.view === 'thread') onBack();
