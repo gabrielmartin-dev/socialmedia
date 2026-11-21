@@ -9,6 +9,7 @@
   --danger: #f4212e;
   --text-dim: #b9bcbf;   /* article summaries */
   --line-strong: #536471; /* outlined buttons and chips */
+  --thread-line: #3e4245; /* lines between the replies of a thread */
   --field: #202327;      /* search field, segmented controls */
   --on-text: #000;       /* text on a var(--text) background */
   --press: rgba(231, 233, 234, .1);
@@ -42,6 +43,7 @@
   --muted: #536471;
   --text-dim: #3e4c59;
   --line-strong: #cfd9de;
+  --thread-line: #cfd9de;
   --field: #eff3f4;
   --on-text: #fff;
   --press: rgba(15, 20, 25, .1);
@@ -63,6 +65,7 @@
   --muted: #536471;
   --text-dim: #3e4c59;
   --line-strong: #cfd9de;
+  --thread-line: #cfd9de;
   --field: #eff3f4;
   --on-text: #fff;
   --press: rgba(15, 20, 25, .1);
@@ -489,9 +492,68 @@ button.reel-author { text-align: left; }
 .thread-parent { border-bottom: 0; }
 .thread-parent { position: relative; }
 .thread-parent::after { content: ""; position: absolute; left: 35px; top: 60px; bottom: 0; width: 2px; background: var(--border); }
-.thread-reply.depth-2 { padding-left: 34px; }
-.thread-reply.depth-3 { padding-left: 54px; }
-.thread-reply.own { border-left: 3px solid var(--accent); }
+.thread-heading { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; text-align: left; }
+.thread-heading .thread-title { margin: 0; line-height: 24px; }
+.thread-heading { justify-content: center; height: 100%; }
+.thread-count { color: var(--muted); font-size: 13px; line-height: 16px; }
+.thread-count:empty { display: none; }
+.thread-section { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.thread-sort { font-size: 13px; font-weight: 400; }
+
+/* Replies: a tree. Each answer hangs from the avatar of the reply it answers by a line,
+   so who answers whom reads at a glance; a branch folds with « Masquer les réponses ». */
+.rt { position: relative; }
+.rt[data-depth="1"] { border-bottom: 1px solid var(--border); }
+.rt .tweet { border-bottom: 0; }
+.thread-reply.compact { grid-template-columns: 32px 1fr; gap: 10px; padding-top: 10px; padding-bottom: 8px; }
+.thread-reply.compact .avatar { width: 32px; height: 32px; font-size: 14px; }
+.thread-reply.compact .tweet-actions { margin-top: 4px; }
+.rt .rt .thread-reply { padding-left: 12px; }
+/* The line from a reply's avatar down to its answers… */
+.rt.has-kids:not(.collapsed) > .tweet { position: relative; }
+.rt.has-kids:not(.collapsed) > .tweet::after {
+  content: ""; position: absolute; left: 29px; top: 46px; bottom: 0; width: 2px; border-radius: 1px; background: var(--thread-line);
+}
+.rt .rt.has-kids:not(.collapsed) > .tweet::after { left: 27px; }
+.rt-kids { margin-left: 29px; }
+.rt .rt .rt-kids { margin-left: 27px; }
+.rt.collapsed > .rt-kids { display: none; }
+/* …which runs on past each answer (but the last) and bends into it. */
+.rt-kids > .rt::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--thread-line);
+}
+.rt-kids > .rt.last::before { display: none; }
+.rt-kids > .rt::after {
+  content: ""; position: absolute; left: 0; top: 0; width: 10px; height: 26px;
+  border-left: 2px solid var(--thread-line); border-bottom: 2px solid var(--thread-line); border-bottom-left-radius: 10px;
+}
+.rt-kids > .rt.last::after { border-bottom-left-radius: 12px; }
+.author-badge {
+  flex: none; padding: 0 6px; border-radius: 4px; font-size: 12px; line-height: 17px; font-weight: 700;
+  color: var(--accent); background: rgba(29, 155, 240, .14);
+}
+.rt-toggle { font-size: 13px; min-height: 30px; }
+.rt.collapsed > .tweet .rt-toggle { color: var(--accent); }
+.rt:not(.collapsed) > .tweet .rt-toggle { color: var(--muted); font-weight: 500; }
+.rt-more {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; margin: 0 0 8px 6px; padding: 0 10px;
+  border-radius: 18px; color: var(--accent); font-size: 14px; font-weight: 600;
+}
+.thread-replies > .rt-more { margin: 10px 14px 14px; }
+.rt-kids > .rt-more { margin-left: 16px; }
+.rt-more:active { background: rgba(29, 155, 240, .15); }
+.rt-deeper svg { transform: rotate(180deg); }
+/* ↓ Réponse suivante, above the tab bar (it follows the bar when it hides). */
+.thread-next {
+  position: fixed; z-index: 14; right: 16px; bottom: calc(var(--tabbar-total) + 16px);
+  width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--bg-elev); color: var(--text); border: 1px solid var(--border);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .35); transition: bottom var(--bars-t, .2s) ease;
+}
+.thread-next[hidden] { display: none; }
+.thread-next svg { transform: rotate(-90deg); }
+.thread-next:active { background: var(--bg-hover); }
+body.bars-hidden .thread-next { bottom: calc(var(--safe-bottom) + 16px); }
 
 /* ---------- Reels ---------- */
 #view-videos { position: fixed; inset: 0; bottom: var(--tabbar-total); background: #000; color: #e7e9ea; } /* always dark, whatever the theme */
@@ -800,6 +862,9 @@ body.no-scroll { overflow: hidden; }
   .toast { bottom: 24px; }
   .tweet { cursor: pointer; }
   .tweet:hover { background: var(--bg-hover); }
+  .thread-next, body.bars-hidden .thread-next { right: auto; left: calc(var(--col-left) + var(--col-w) - 44px - 20px); bottom: 24px; }
+  .thread-next:hover, .rt-more:hover { background: var(--bg-hover); }
+  .thread-heading:hover .thread-title { text-decoration: underline; }
 
   /* Menus and pop-ups: centred dialogs instead of sheets sliding up from the bottom. */
   .sheet {
