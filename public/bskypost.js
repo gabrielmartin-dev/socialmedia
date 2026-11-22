@@ -3,7 +3,7 @@
 // link segments. No Node API here (TextEncoder instead of Buffer).
 
 import { truncate } from './norm.js';
-import { safeUrl } from './url.js';
+import { safeUrl, isShortener, stripTracking } from './url.js';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -51,10 +51,27 @@ export function extractMedia(embed) {
     return { video: { type: 'hls', src: embed.playlist, poster: embed.thumbnail || null, aspect: aspectOf(embed.aspectRatio) } };
   }
   if (t.startsWith('app.bsky.embed.external')) {
-    const e = embed.external || {};
-    return { external: { url: e.uri, title: e.title || '', description: truncate(e.description || '', 200), thumb: e.thumb || null } };
+    return { external: externalCard(embed.external || {}) };
   }
   return {};
+}
+
+/**
+ * A link card. Posts bridged from X link through t.co and the card's title is often the
+ * article's full URL: the card then links to that URL (the card would read « t.co » and a
+ * raw URL), tracking parameters out. A title or description that is only a URL is dropped.
+ */
+export function externalCard(e) {
+  const asUrl = (s) => (typeof s === 'string' && /^https?:\/\/\S+$/i.test(s.trim()) ? safeUrl(s.trim()) : null);
+  const titleUrl = asUrl(e.title);
+  let url = e.uri;
+  if (titleUrl && (isShortener(url) || !safeUrl(url))) url = titleUrl;
+  return {
+    url: stripTracking(url) || url,
+    title: titleUrl ? '' : e.title || '',
+    description: asUrl(e.description) ? '' : truncate(e.description || '', 200),
+    thumb: e.thumb || null,
+  };
 }
 
 /** Split a post's text into segments with links/mentions/hashtags from its facets. */

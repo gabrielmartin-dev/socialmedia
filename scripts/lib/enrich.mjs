@@ -5,7 +5,7 @@
 // and bounded, whatever the number of sources.
 
 import { decodeEntities, stripHtml, truncate } from './text.mjs';
-import { safeUrl, canonicalUrl } from '../../public/url.js';
+import { safeUrl, canonicalUrl, isShortener, stripTracking } from '../../public/url.js';
 import { isJunkImage } from './rss.mjs';
 import { pool } from './http.mjs';
 import { isOwnLink } from './score.mjs';
@@ -28,7 +28,9 @@ export function parseHeadMeta(html, pageUrl) {
   const imageRaw = meta['og:image:secure_url'] || meta['og:image'] || meta['og:image:url'] || meta['twitter:image'] || meta['twitter:image:src'];
   const image = imageRaw && !isJunkImage(imageRaw) ? safeUrl(imageRaw, pageUrl) : null;
   const description = truncate(stripHtml(meta['og:description'] || meta['description'] || meta['twitter:description'] || ''), 600);
-  return { image, description };
+  const docTitle = /<title\b[^>]*>([^<]*)<\/title>/i.exec(head)?.[1];
+  const title = truncate(stripHtml(meta['og:title'] || meta['twitter:title'] || decodeEntities(docTitle || '')).replace(/\s+/g, ' ').trim(), 300);
+  return { image, description, title };
 }
 
 /** GET the start of a page (until </head> or MAX_BYTES), with a short timeout. */
@@ -166,10 +168,12 @@ export async function resolveShortLinks(items, { cache, maxFetches = 60, concurr
   const queue = [];
   const replace = (it, final) => {
     const u = safeUrl(final);
-    if (u && u !== it.external.url) { it.external = { ...it.external, url: u }; stats.resolved++; }
+    if (u && u !== it.external.url) { it.external = { ...it.external, url: stripTracking(u) || u }; stats.resolved++; }
   };
   for (const it of items) {
-    if (it.platform !== 'bluesky' || !isOwnLink(it) || !looksShort(it.external.url)) continue;
+    if (it.platform !== 'bluesky' || !it.external?.url) continue;
+    // An outlet's own short links, and any link through t.co, bit.ly… (the card would read « t.co »).
+    if (!isShortener(it.external.url) && !(isOwnLink(it) && looksShort(it.external.url))) continue;
     const key = `short2:${it.external.url}`; // short: = first version, which cached failures 30 days
     const hit = cache?.get(key);
     if (hit !== undefined) { stats.fromCache++; if (hit) replace(it, hit); continue; }
@@ -185,6 +189,49 @@ export async function resolveShortLinks(items, { cache, maxFetches = 60, concurr
     } catch (err) {
       if (!stats.failure) stats.failure = `${it.external.url} : ${err?.name === 'AbortError' ? 'délai dépassé' : err?.message || err}`;
       cache?.set(key, '', OG_RETRY_MS);
+    }
+  }), concurrency);
+  return stats;
+}
+
+/**
+ * Link cards of Bluesky posts without title (a t.co card whose title was the bare URL, a
+ * site that gave Bluesky nothing): title, picture and summary read from the article page,
+ * remembered per URL like enrichArticles. Returns { fromCache, fetched, found }.
+ */
+export async function enrichLinkCards(items, { cache, maxFetches = 20, concurrency = 6, fetchPage = fetchHead } = {}) {
+  const stats = { fromCache: 0, fetched: 0, found: 0 };
+  const todo = items
+    .filter((it) => it.platform === 'bluesky' && it.external?.url && !it.external.title && !isShortener(it.external.url)
+      && !it.images?.length && !it.video)
+    .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+  const apply = (it, v) => {
+    if (!v?.t) return;
+    it.external = {
+      ...it.external,
+      title: v.t,
+      description: it.external.description || truncate(v.d || '', 200),
+      thumb: it.external.thumb || v.i || null,
+    };
+    stats.found++;
+  };
+  const queue = [];
+  for (const it of todo) {
+    const key = `card:${canonicalUrl(it.external.url)}`;
+    const hit = cache?.get(key);
+    if (hit !== undefined) { stats.fromCache++; apply(it, hit); continue; }
+    if (queue.length < maxFetches) queue.push({ it, key });
+  }
+  await pool(queue.map(({ it, key }) => async () => {
+    stats.fetched++;
+    try {
+      const { html, url } = await fetchPage(it.external.url);
+      const { image, description, title } = parseHeadMeta(html, url);
+      const v = { t: title || '', i: image || null, d: description || '' };
+      cache?.set(key, v, title ? OG_TTL_MS : OG_RETRY_MS);
+      apply(it, v);
+    } catch {
+      cache?.set(key, { t: '', i: null, d: '' }, OG_RETRY_MS);
     }
   }), concurrency);
   return stats;

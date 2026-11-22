@@ -45,7 +45,9 @@ test('feed images: the widest media:content wins', () => {
 
 test('parseHeadMeta: og:image (relative too), description, junk ignored', () => {
   const html = `<html><head><meta content="/img/une.jpg" property="og:image"><meta name="description" content="Le chapô &amp; la suite"></head><body><meta property="og:image" content="https://late/x.jpg"></body>`;
-  assert.deepEqual(parseHeadMeta(html, 'https://www.site.fr/article/1'), { image: 'https://www.site.fr/img/une.jpg', description: 'Le chapô & la suite' });
+  assert.deepEqual(parseHeadMeta(html, 'https://www.site.fr/article/1'), { image: 'https://www.site.fr/img/une.jpg', description: 'Le chapô & la suite', title: '' });
+  assert.equal(parseHeadMeta('<head><title>Doc &amp; titre</title><meta property="og:title" content="Le vrai titre"></head>', 'https://a.fr').title, 'Le vrai titre');
+  assert.equal(parseHeadMeta('<head><title>Doc &amp; titre</title></head>', 'https://a.fr').title, 'Doc & titre');
   assert.equal(parseHeadMeta('<head><meta property="og:image" content="https://secure.gravatar.com/avatar/1"></head>', 'https://a.fr').image, null);
 });
 
@@ -112,18 +114,20 @@ test('resolveShortLinks: an outlet\'s short link is followed once, then matches 
   const mk = () => [
     { id: 'a1', kind: 'article', url: 'https://www.mediapart.fr/journal/france/161126/un-titre', source: { id: 'mediapart', url: 'https://www.mediapart.fr' } },
     { id: 'p1', kind: 'post', platform: 'bluesky', source: { id: 'bsky:mediapart.fr', handle: 'mediapart.fr' }, external: { url: 'https://l.mediapart.fr/kuR' } },
-    { id: 'p2', kind: 'post', platform: 'bluesky', source: { id: 'bsky:x.bsky.social', handle: 'x.bsky.social' }, external: { url: 'https://bit.ly/abc' } },
+    { id: 'p2', kind: 'post', platform: 'bluesky', source: { id: 'bsky:x.bsky.social', handle: 'x.bsky.social' }, external: { url: 'https://l.lemonde.fr/abc' } },
+    { id: 'p3', kind: 'post', platform: 'bluesky', source: { id: 'bsky:y.bsky.social', handle: 'y.bsky.social' }, external: { url: 'https://t.co/Xy12' } },
   ];
   const items = mk();
   const s = await resolveShortLinks(items, { cache, follow });
-  assert.deepEqual(followed, ['https://l.mediapart.fr/kuR'], 'only the outlet\'s own short links');
-  assert.equal(s.resolved, 1);
+  assert.deepEqual(followed, ['https://l.mediapart.fr/kuR', 'https://t.co/Xy12'], 'the outlet\'s own short links, and any t.co / bit.ly link');
+  assert.equal(s.resolved, 2);
+  assert.equal(items[3].external.url, 'https://www.mediapart.fr/journal/france/161126/un-titre', 'tracking parameters out');
   assert.equal(markRelays(items).relays, 1);
   assert.equal(items[1].relayOf, 'a1');
   const again = mk();
   await resolveShortLinks(again, { cache, follow });
-  assert.equal(followed.length, 1, 'remembered');
-  assert.equal(again[1].external.url, 'https://www.mediapart.fr/journal/france/161126/un-titre?utm_source=bluesky');
+  assert.equal(followed.length, 2, 'remembered');
+  assert.equal(again[1].external.url, 'https://www.mediapart.fr/journal/france/161126/un-titre');
 });
 
 test('followRedirects: Location header by hand, else an HTML redirect; failures are explained', async () => {
@@ -162,4 +166,42 @@ test('markRelays: an outlet\'s unresolved short link falls back to its card titl
   assert.equal(own.relayOf, 'a1', 'the outlet\'s own article, not another outlet\'s with the same title');
   assert.equal(off.relayOf, undefined);
   assert.deepEqual([r.relays, r.byTitle, r.unmatched.length], [1, 1, 1]);
+});
+
+test('t.co link cards: real URL from the title, tracking out, readable fallback title', async () => {
+  const { externalCard } = await import('../public/bskypost.js');
+  const { titleFromUrl, stripTracking, isShortener } = await import('../public/url.js');
+  const real = 'https://www.leparisien.fr/culture-loisirs/tv/cela-devient-irrespirable-entre-medias-et-politiques-une-campagne-presidentielle-sous-tension-22-11-2026-OP7JQUXBDVFDTGRSK3CUQ2QOEM.php?at_variant=photo&at_creation=Le%20Parisien&utm_source=x';
+  const card = externalCard({ uri: 'https://t.co/AbC123', title: real, description: '' });
+  assert.equal(card.url, 'https://www.leparisien.fr/culture-loisirs/tv/cela-devient-irrespirable-entre-medias-et-politiques-une-campagne-presidentielle-sous-tension-22-11-2026-OP7JQUXBDVFDTGRSK3CUQ2QOEM.php');
+  assert.equal(card.title, '', 'never a raw URL as title');
+  assert.equal(titleFromUrl(card.url), 'Cela devient irrespirable entre medias et politiques une campagne presidentielle sous tension');
+  assert.equal(titleFromUrl('https://t.co/AbC123'), '');
+  assert.equal(titleFromUrl('https://www.site.fr/article/12345'), '');
+  assert.equal(isShortener('https://t.co/x'), true);
+  assert.equal(isShortener('https://www.lemonde.fr/x'), false);
+  assert.equal(stripTracking('https://a.fr/p?id=3&utm_medium=x'), 'https://a.fr/p?id=3');
+  const normal = externalCard({ uri: 'https://www.lemonde.fr/a?xtor=RSS', title: 'Un titre', description: 'Desc' });
+  assert.deepEqual(normal, { url: 'https://www.lemonde.fr/a', title: 'Un titre', description: 'Desc', thumb: null });
+});
+
+test('enrichLinkCards: title, picture and summary of untitled Bluesky link cards, remembered', async () => {
+  const { enrichLinkCards } = await import('../scripts/lib/enrich.mjs');
+  const cache = new ResolutionCache('/nonexistent/x.json');
+  const pages = [];
+  const fetchPage = async (url) => { pages.push(url); return { html: `<head><meta property="og:title" content="Titre &amp; vrai"><meta property="og:image" content="/i.jpg"><meta property="og:description" content="Chapô"></head>`, url }; };
+  const mk = () => [
+    { id: 'p1', platform: 'bluesky', publishedAt: '2026-11-22T10:00:00Z', external: { url: 'https://www.leparisien.fr/a.php', title: '', description: '', thumb: null } },
+    { id: 'p2', platform: 'bluesky', publishedAt: '2026-11-22T10:00:00Z', external: { url: 'https://b.fr/x', title: 'Déjà', description: '', thumb: null } },
+    { id: 'p3', platform: 'bluesky', publishedAt: '2026-11-22T10:00:00Z', images: [{ thumb: 'x' }], external: { url: 'https://c.fr/x', title: '' } },
+  ];
+  const items = mk();
+  const s = await enrichLinkCards(items, { cache, fetchPage });
+  assert.deepEqual(pages, ['https://www.leparisien.fr/a.php']);
+  assert.deepEqual(items[0].external, { url: 'https://www.leparisien.fr/a.php', title: 'Titre & vrai', description: 'Chapô', thumb: 'https://www.leparisien.fr/i.jpg' });
+  assert.equal(s.found, 1);
+  const again = mk();
+  await enrichLinkCards(again, { cache, fetchPage });
+  assert.equal(pages.length, 1, 'remembered');
+  assert.equal(again[0].external.title, 'Titre & vrai');
 });

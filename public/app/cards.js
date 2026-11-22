@@ -2,7 +2,7 @@
 
 import { h, svg, ICONS, openUrl } from './dom.js';
 import { postUri } from '../bsky.js';
-import { quoteToItem } from '../bskypost.js';
+import { quoteToItem, externalCard } from '../bskypost.js';
 import { avatar, image } from './media.js';
 import { loadHls } from './hls.js';
 import { formatTime } from './reelcontrols.js';
@@ -12,7 +12,7 @@ import { voteButtons } from './votes.js';
 import { clampAspect, truncateText, domainOf } from './util.js';
 import { relativeTime, topicsOf } from '../rank.js';
 import { exactTime } from '../freshness.js';
-import { safeUrl } from '../url.js';
+import { safeUrl, titleFromUrl } from '../url.js';
 import { paywallLabel, paidDomains, isPaidLink, groupLead } from '../paywall.js';
 
 const TEXT_LIMIT = 280;
@@ -239,6 +239,7 @@ const lockBadge = (label = 'Payant') => h('span', {
 /** Link card like X: image with the domain in a pill, or a compact card without image. */
 function linkCard(url, { title, description, thumb }, { article = false } = {}) {
   const dom = domainOf(url);
+  if (!title && !article) title = titleFromUrl(url); // no title given: the URL's words, never a raw URL
   const paid = !article && isPaidLink(url, paidSites()) ? lockBadge() : null;
   if (thumb) {
     return h('a', { class: 'link-card', href: url, target: '_blank', rel: 'noopener' },
@@ -398,7 +399,11 @@ function postCard(item, votes) {
     item = { ...item, text: item.title || item.text, segments: undefined };
   } else if (item.video?.type === 'hls') media = inlineVideo(item.video);
   else if (item.images?.length) media = photoGrid(item.images, item.url);
-  else if (item.external?.url) media = linkCard(item.external.url, item.external);
+  else if (item.external?.url) {
+    // Older data (archived before the collector cleaned t.co cards) is cleaned here too.
+    const ext = externalCard({ ...item.external, uri: item.external.url });
+    media = linkCard(ext.url, ext);
+  }
   return cardShell(item, avatar(item.source.avatar, item.source.name), [
     tweetHead(item, { name: item.source.name, handle: item.source.handle ? '@' + item.source.handle : '', publishedAt: item.publishedAt, url: item.url }),
     tweetText(item),
