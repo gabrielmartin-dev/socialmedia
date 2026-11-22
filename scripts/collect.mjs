@@ -11,7 +11,7 @@ import * as bsky from './lib/bluesky.mjs';
 import * as yt from './lib/youtube.mjs';
 import { compileTopics, annotate, groupDuplicates, markRelays } from './lib/score.mjs';
 import { ItemArchive, publicItem } from './lib/archive.mjs';
-import { enrichArticles, resolveShortLinks, dropRepeatedImages } from './lib/enrich.mjs';
+import { enrichArticles, enrichLinkCards, resolveShortLinks, dropRepeatedImages } from './lib/enrich.mjs';
 import { discoveredAccounts } from './lib/discover.mjs';
 import { quality } from './lib/quality.mjs';
 import { truncate } from './lib/text.mjs';
@@ -288,6 +288,9 @@ async function main() {
       }
       const e = await enrichArticles(items, { cache, maxFetches: pageBudget });
       pageBudget = Math.max(0, pageBudget - e.fetched);
+      const lc = await enrichLinkCards(items.filter((i) => !i.relayOf), { cache, maxFetches: Math.min(20, pageBudget) });
+      pageBudget = Math.max(0, pageBudget - lc.fetched);
+      if (lc.fetched || lc.fromCache) console.log(`Cartes de lien ${feed} : ${lc.found} titre(s) trouvé(s) (${lc.fetched} page(s) lue(s), ${lc.fromCache} en cache)`);
       const logos = dropRepeatedImages(items);
       if (logos) console.log(`Images ${feed} : ${logos} article(s) privés d'une image répétée (logo probable)`);
       const arts = items.filter((i) => i.kind === 'article');
