@@ -2,6 +2,7 @@
 
 import { h, svg, ICONS, openUrl } from './dom.js';
 import { postUri } from '../bsky.js';
+import { quoteToItem } from '../bskypost.js';
 import { avatar, image } from './media.js';
 import { loadHls } from './hls.js';
 import { formatTime } from './reelcontrols.js';
@@ -253,8 +254,17 @@ function linkCard(url, { title, description, thumb }, { article = false } = {}) 
   );
 }
 
+/** A quoted post. Tapping it opens its thread here (Retour comes back), not Bluesky. */
 function quoteCard(q) {
-  return h('a', { class: 'quote', href: q.url, target: '_blank', rel: 'noopener' },
+  const inApp = postUri(q.url);
+  return h('a', {
+    class: 'quote', href: q.url, target: '_blank', rel: 'noopener',
+    onclick: inApp ? (e) => {
+      if (e.ctrlKey || e.metaKey || e.shiftKey || e.button > 0) { e.stopPropagation(); return; } // new tab on purpose
+      e.preventDefault(); e.stopPropagation();
+      actions.openThread(quoteToItem(q));
+    } : null,
+  },
     h('div', { class: 'quote-head' },
       avatar(q.avatar, q.name),
       h('span', { class: 'name', text: q.name }),
