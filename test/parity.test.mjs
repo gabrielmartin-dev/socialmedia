@@ -94,3 +94,18 @@ test('parity: quotes carry an image and are truncated; facets are filtered stric
   assert.equal(segs.map((s) => s.t).join(''), text);
   assert.deepEqual(segs.filter((s) => s.href).map((s) => s.href), ['https://lemonde.fr/x/long', 'https://bsky.app/hashtag/manif']);
 });
+
+test('quoteToItem turns a quoted post into a post whose thread opens in the app', async () => {
+  const { postUri } = await import('../public/bsky.js');
+  const embed = { $type: 'app.bsky.embed.record#view', record: { uri: 'at://did:plc:z/app.bsky.feed.post/3abc', author: { handle: 'cite.bsky.social', displayName: 'Cité', avatar: 'https://cdn/a.jpg' }, value: { text: 'Texte cité', createdAt: '2026-11-21T10:00:00.000Z' } } };
+  const q = sharedPost.extractMedia(embed).quote;
+  const item = sharedPost.quoteToItem(q);
+  assert.equal(item.platform, 'bluesky');
+  assert.equal(item.kind, 'post');
+  assert.equal(item.url, 'https://bsky.app/profile/cite.bsky.social/post/3abc');
+  assert.equal(postUri(item.url), 'at://cite.bsky.social/app.bsky.feed.post/3abc');
+  assert.equal(item.text, 'Texte cité');
+  assert.equal(item.source.name, 'Cité');
+  assert.equal(item.source.handle, 'cite.bsky.social');
+  assert.equal(item.publishedAt, '2026-11-21T10:00:00.000Z');
+});

@@ -86,6 +86,27 @@ export function textSegments(record) {
   return segs;
 }
 
+/**
+ * A quoted post (as extractQuote stores it) as a post item, so that tapping a quote opens its
+ * thread in the app. Shown as is while the thread loads, then replaced by the full post.
+ */
+export function quoteToItem(q) {
+  const key = rkey(q.url || '');
+  return {
+    id: 'q-' + key + '-' + (q.handle || ''),
+    kind: 'post',
+    platform: 'bluesky',
+    source: postSource({ handle: q.handle, displayName: q.name, avatar: q.avatar }),
+    title: '',
+    text: q.text || '',
+    url: q.url,
+    image: q.image || null,
+    images: q.image ? [{ thumb: q.image, full: q.image, alt: '' }] : undefined,
+    publishedAt: q.publishedAt || new Date().toISOString(),
+    stats: { replies: 0, reposts: 0, likes: 0 },
+  };
+}
+
 /** Convert a Bluesky PostView into our item format. */
 export function postToItem(post, sourceOverride) {
   const author = post.author || {};
