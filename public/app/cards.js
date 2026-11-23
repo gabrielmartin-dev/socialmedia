@@ -4,7 +4,7 @@ import { h, svg, ICONS, openUrl } from './dom.js';
 import { postUri } from '../bsky.js';
 import { quoteToItem, externalCard } from '../bskypost.js';
 import { avatar, image } from './media.js';
-import { loadHls } from './hls.js';
+import { loadHls, preferNativeHls } from './hls.js';
 import { formatTime } from './reelcontrols.js';
 import { state, isOpened, markOpened } from './store.js';
 import { actions } from './actions.js';
@@ -143,7 +143,7 @@ async function startInline(box) {
   };
   video.addEventListener('durationchange', showTime);
   video.addEventListener('timeupdate', showTime);
-  if (video.canPlayType('application/vnd.apple.mpegurl')) video.src = box._src;
+  if (preferNativeHls(video)) video.src = box._src;
   else {
     try {
       const Hls = await loadHls();

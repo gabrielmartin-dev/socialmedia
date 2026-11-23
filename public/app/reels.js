@@ -6,7 +6,7 @@ import { $, h, svg, ICONS, toast, scrollBehavior } from './dom.js';
 import { avatar } from './media.js';
 import { makeButton } from './focus.js';
 import { attachControls } from './reelcontrols.js';
-import { loadHls } from './hls.js';
+import { loadHls, preferNativeHls } from './hls.js';
 import { state, entriesFor, rankOpts, markSeen, saveMuted } from './store.js';
 import { actions } from './actions.js';
 import { PLATFORM_LABELS } from './util.js';
@@ -19,7 +19,6 @@ const YT_ORIGIN = 'https://www.youtube-nocookie.com';
 const TIKTOK_ORIGIN = 'https://www.tiktok.com';
 /** Automatic new attempts on a broken stream before showing the error. */
 const MAX_RETRIES = 2;
-const HLS_MIME = 'application/vnd.apple.mpegurl';
 /** hls.js: never a quality above what the screen shows (saves mobile data). */
 const HLS_CONFIG = { maxBufferLength: 20, capLevelToPlayerSize: true };
 /** Buffer of the next video, prepared in advance. */
@@ -215,7 +214,7 @@ async function playHls(slide, hlsSrc, v) {
     showError(slide);
   };
 
-  const native = video.canPlayType(HLS_MIME);
+  const native = preferNativeHls(video);
   if (native) {
     if (pre) { /* src already set, position already applied */ } else if (start) video.addEventListener('loadedmetadata', () => { video.currentTime = start; }, { once: true, signal: video._signal });
     video.addEventListener('error', () => {
@@ -339,7 +338,7 @@ async function preloadReel(slide) {
   preloaded = slide;
   slide.insertBefore(video, slide.querySelector('.reel-play'));
   const start = getPosition(slide.dataset.id);
-  if (video.canPlayType(HLS_MIME)) {
+  if (preferNativeHls(video)) {
     // Native HLS buffers as much as it likes with preload=auto: only the start here.
     video.preload = 'metadata';
     if (start) video.addEventListener('loadedmetadata', () => { video.currentTime = start; }, { once: true, signal: video._signal });
