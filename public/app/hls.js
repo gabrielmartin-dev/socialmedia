@@ -18,3 +18,17 @@ export function loadHls() {
   });
   return hlsPromise;
 }
+
+export const HLS_MIME = 'application/vnd.apple.mpegurl';
+
+/**
+ * Should this browser get the .m3u8 directly instead of hls.js?
+ * Only Apple (Safari, every iOS browser) or a browser without MediaSource. Recent desktop and
+ * Android Chrome answer "maybe" to canPlayType(HLS) but fail on Bluesky streams (MEDIA_ERR 4),
+ * so canPlayType alone is not enough (hls.js recommends the same order).
+ */
+export function preferNativeHls(video, nav = navigator, win = window) {
+  if (!video.canPlayType(HLS_MIME)) return false;
+  if (/Apple/.test(nav.vendor || '')) return true;
+  return !(win.MediaSource || win.ManagedMediaSource);
+}
